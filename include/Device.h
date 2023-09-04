@@ -1,0 +1,93 @@
+#pragma once
+
+// std
+#include <vector>
+#include <iostream>
+#include <optional>
+#include <fstream>
+#include <array>
+#include <memory>
+
+// Vulkan
+#include <vulkan/vulkan.h>
+
+// GLFW
+#define VK_USE_PLATFORM_XCB_KHR
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+#define GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3native.h>
+
+#include "Window.h"
+#include "utils/Structs.h"
+
+namespace vke
+{
+
+class Device
+{
+public:
+    Device(std::shared_ptr<Window> window);
+    ~Device();
+
+    QueueFamilyIndices getQueueFamilies();
+    SwapChainSupportDetails getSwapChainSupport();
+    VkSurfaceKHR getSurface();
+    VkDevice getVkDevice();
+    VkCommandPool getCommandPool();
+    VkQueue getGraphicsQueue();
+    VkQueue getPresentQueue();
+
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+private:
+    void createInstance();
+    void createSurface();
+    void createLogicalDevice();
+    void createCommandPool();
+
+    // void createCommandPool();
+
+    void pickPhysicalDevice();
+
+    // Get functions
+    std::vector<const char*> getRequiredExtensions();
+
+    // Check functions
+    bool checkValidationLayerSupport();
+    bool checkDeviceSuitable(VkPhysicalDevice device);
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+
+    // Find functions
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+
+    // Debug functions
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+    void setupDebugMessenger();
+
+    std::shared_ptr<Window> m_window;
+
+    VkInstance m_instance;
+    VkSurfaceKHR m_surface;
+    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
+    VkDevice m_device;
+    VkCommandPool m_commandPool;
+
+    VkQueue m_graphicsQueue;
+    VkQueue m_presentQueue;
+
+    bool m_enableValidationLayers = true;
+
+    const std::vector<const char*> m_validationLayers = {
+        "VK_LAYER_KHRONOS_validation" 
+    };
+
+    const std::vector<const char*> m_deviceExtensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+    };
+
+    // Debug
+    VkDebugUtilsMessengerEXT m_debugMessenger;
+};
+
+}
