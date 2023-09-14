@@ -28,6 +28,7 @@
 #include "SwapChain.h"
 #include "Pipeline.h"
 #include "Buffer.h"
+#include "Renderer.h"
 #include "descriptors/SetLayout.h"
 #include "descriptors/Pool.h"
 #include "descriptors/Set.h"
@@ -50,7 +51,6 @@ private:
 
     void drawFrame();
 
-    void createCommandBuffers();
     void createVertexBuffer();
     void createIndexBuffer();
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
@@ -65,11 +65,9 @@ private:
 
     std::shared_ptr<Device> m_device;
 
-    std::shared_ptr<SwapChain> m_swapChain;
-
-    std::vector<VkCommandBuffer> m_commandBuffers;
-
     std::shared_ptr<Pipeline> m_pipeline;
+
+    std::shared_ptr<Renderer> m_renderer;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_dSets;
     std::vector<std::unique_ptr<Buffer>> ubos;

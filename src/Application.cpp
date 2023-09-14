@@ -43,7 +43,8 @@ void Application::init()
 {
     m_window = std::make_shared<Window>(WIDTH, HEIGHT);
     m_device = std::make_shared<Device>(m_window);
-    m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
+    m_renderer = std::make_shared<Renderer>(m_device, m_window);
+    // m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
 
     ubos.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -90,10 +91,8 @@ void Application::init()
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
-    m_pipeline = std::make_shared<Pipeline>(m_device, m_swapChain->getRenderPass(), "../res/shaders/vert.spv",
+    m_pipeline = std::make_shared<Pipeline>(m_device, m_renderer->getSwapChain()->getRenderPass(), "../res/shaders/vert.spv",
         "../res/shaders/frag.spv", m_vkPipelineLayout);
-
-    createCommandBuffers();
 
     createVertexBuffer();
     createIndexBuffer();
@@ -111,12 +110,14 @@ void Application::init()
 
 void Application::drawFrame()
 {
-    VkFence currentFence = m_swapChain->getFenceId(currentFrame);
+    VkCommandBuffer currentCBuffer = m_renderer->getCommandBuffer(currentFrame);
+
+    VkFence currentFence = m_renderer->getSwapChain()->getFenceId(currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
 
     uint32_t imageIndex;
-    VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(currentFrame);
-    VkResult result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_swapChain->getSwapChain(), UINT64_MAX, currentImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    VkSemaphore currentImageAvailableSemaphore = m_renderer->getSwapChain()->getImageAvailableSemaphore(currentFrame);
+    VkResult result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_renderer->getSwapChain()->getSwapChain(), UINT64_MAX, currentImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
@@ -130,8 +131,8 @@ void Application::drawFrame()
 
     vkResetFences(m_device->getVkDevice(), 1, &currentFence);
 
-    vkResetCommandBuffer(m_commandBuffers[currentFrame], 0);
-    recordCommandBuffer(m_commandBuffers[currentFrame], imageIndex);
+    vkResetCommandBuffer(currentCBuffer, 0);
+    recordCommandBuffer(currentCBuffer, imageIndex);
 
     updateUniformBuffer(currentFrame);
 
@@ -144,9 +145,9 @@ void Application::drawFrame()
     submitInfo.pWaitSemaphores = waitSemamphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &m_commandBuffers[currentFrame];
+    submitInfo.pCommandBuffers = &currentCBuffer;
 
-    VkSemaphore currentRenderFinishedSemaphore = m_swapChain->getRenderFinishedSemaphore(currentFrame);
+    VkSemaphore currentRenderFinishedSemaphore = m_renderer->getSwapChain()->getRenderFinishedSemaphore(currentFrame);
     VkSemaphore signalSemaphores[] = {currentRenderFinishedSemaphore};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
@@ -161,7 +162,7 @@ void Application::drawFrame()
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = signalSemaphores;
 
-    VkSwapchainKHR swapChains[] = {m_swapChain->getSwapChain()};
+    VkSwapchainKHR swapChains[] = {m_renderer->getSwapChain()->getSwapChain()};
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
@@ -181,22 +182,6 @@ void Application::drawFrame()
     }
 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
-void Application::createCommandBuffers()
-{
-    m_commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = m_device->getCommandPool();
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)m_commandBuffers.size();
-
-    if (vkAllocateCommandBuffers(m_device->getVkDevice(), &allocInfo, m_commandBuffers.data()) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate command buffers!");
-    }
 }
 
 void Application::createIndexBuffer()
@@ -286,61 +271,26 @@ void Application::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSiz
 
 void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0;
-    beginInfo.pInheritanceInfo = nullptr;
-
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to begin recording command buffer!");
-    }
-
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = m_swapChain->getRenderPass();
-    renderPassInfo.framebuffer = m_swapChain->getFramebuffer(imageIndex);
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = m_swapChain->getExtent();
-
-    VkClearValue clearColor = {{{0.f, 0.f, 0.f, 1.f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipeline());
+    //-- renderer begin renderpass
+    m_renderer->beginRenderPass(currentFrame, imageIndex);
+    //--
 
     VkBuffer vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[] = {0};
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipeline());
+
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(m_swapChain->getExtent().width);
-    viewport.height = static_cast<float>(m_swapChain->getExtent().height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = m_swapChain->getExtent();
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
+    
     VkDescriptorSet currentDset = m_dSets[currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 0, 1, &currentDset, 0, nullptr);
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
-    vkCmdEndRenderPass(commandBuffer);
-
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to record command buffer!");
-    }
+    //-- renderer end renderpass
+    m_renderer->endRenderPass(currentFrame);
+    //--
 }
 
 void Application::updateUniformBuffer(uint32_t currentImage)
@@ -353,7 +303,9 @@ void Application::updateUniformBuffer(uint32_t currentImage)
     UniformBufferObject ubo{};
     ubo.model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
     ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 0.f, 1.f));
-    ubo.proj = glm::perspective(glm::radians(45.f), m_swapChain->getExtent().width / (float)m_swapChain->getExtent().height, 0.1f, 10.f);
+    ubo.proj = glm::perspective(glm::radians(45.f),
+        m_renderer->getSwapChain()->getExtent().width / (float)m_renderer->getSwapChain()->getExtent().height,
+        0.1f, 10.f);
     ubo.proj[1][1] *= -1;
 
     

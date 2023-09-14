@@ -31,6 +31,7 @@ set ( INCLUDE
     include/descriptors/Pool.h
     include/descriptors/Set.h
     include/Pipeline.h
+    include/Renderer.h
 )
 
 set( SOURCE
@@ -44,6 +45,7 @@ set( SOURCE
     src/descriptors/Pool.cpp
     src/descriptors/Set.cpp
     src/Pipeline.cpp
+    src/Renderer.cpp
 )
 
 add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE} ${EXTERNAL})
