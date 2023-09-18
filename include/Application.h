@@ -21,6 +21,7 @@
 // GLM
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
 #include "Window.h"
@@ -29,6 +30,8 @@
 #include "Pipeline.h"
 #include "Buffer.h"
 #include "Renderer.h"
+#include "Model.h"
+#include "Mesh.h"
 #include "descriptors/SetLayout.h"
 #include "descriptors/Pool.h"
 #include "descriptors/Set.h"
@@ -51,11 +54,8 @@ private:
 
     void drawFrame();
 
-    void createVertexBuffer();
-    void createIndexBuffer();
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-        VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+    // void createVertexBuffer();
+    // void createIndexBuffer();
 
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
@@ -69,16 +69,12 @@ private:
 
     std::shared_ptr<Renderer> m_renderer;
 
+    std::shared_ptr<Model> m_model;
+
     std::vector<std::shared_ptr<DescriptorSet>> m_dSets;
     std::vector<std::unique_ptr<Buffer>> ubos;
 
     VkPipelineLayout m_vkPipelineLayout;
-
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
 
 };
 

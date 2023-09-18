@@ -24,6 +24,8 @@
 namespace vke
 {
 
+class Buffer;
+
 class Device
 {
 public:
@@ -37,8 +39,16 @@ public:
     VkCommandPool getCommandPool();
     VkQueue getGraphicsQueue();
     VkQueue getPresentQueue();
+    VkPhysicalDevice getPhysicalDevice();
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+
+    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+        VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+    
 private:
     void createInstance();
     void createSurface();

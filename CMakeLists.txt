@@ -18,20 +18,23 @@ set ( EXTERNAL
 
 set ( INCLUDE
     include/Application.h
+    include/Window.h
+    include/Device.h
+    include/SwapChain.h
+    include/Buffer.h
+    include/Pipeline.h
+    include/Renderer.h
+    include/Model.h
+    include/Mesh.h
+    include/descriptors/SetLayout.h
+    include/descriptors/Pool.h
+    include/descriptors/Set.h
     include/utils/Callbacks.h
     include/utils/DebugHelpers.h
     include/utils/Structs.h
     include/utils/Constants.h
     include/utils/FileHandling.h
-    include/Window.h
-    include/Device.h
-    include/SwapChain.h
-    include/Buffer.h
-    include/descriptors/SetLayout.h
-    include/descriptors/Pool.h
-    include/descriptors/Set.h
-    include/Pipeline.h
-    include/Renderer.h
+    include/utils/Import.h
 )
 
 set( SOURCE
@@ -46,6 +49,8 @@ set( SOURCE
     src/descriptors/Set.cpp
     src/Pipeline.cpp
     src/Renderer.cpp
+    src/Model.cpp
+    src/Mesh.cpp
 )
 
 add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE} ${EXTERNAL})
@@ -58,5 +63,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIR})
 # GLFW linking
 find_package(glfw3 3.3 REQUIRED)
 target_link_libraries(${PROJECT_NAME} glfw)
+
+# ASSIMP linking
+find_package(assimp REQUIRED)
+target_link_libraries(${PROJECT_NAME} assimp)
 
 include_directories(src include external)

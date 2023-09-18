@@ -15,6 +15,7 @@ public:
     ~Pipeline();
 
     VkPipeline getPipeline();
+    void bind(VkCommandBuffer commandBuffer);
 
 private:
     VkShaderModule createShaderModule(const std::vector<char>& code);

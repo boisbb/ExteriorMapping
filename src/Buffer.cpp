@@ -1,4 +1,7 @@
 #include "Buffer.h"
+#include "Device.h"
+
+#include <cstring>
 
 namespace vke
 {
@@ -34,7 +37,7 @@ Buffer::~Buffer()
 {
 }
 
-VkDescriptorBufferInfo Buffer::getInfo()
+VkDescriptorBufferInfo Buffer::getInfo() const
 {
     return VkDescriptorBufferInfo{
         m_buffer,
@@ -43,9 +46,19 @@ VkDescriptorBufferInfo Buffer::getInfo()
     };
 }
 
-void *Buffer::getMapped()
+void *Buffer::getMapped() const
 {
     return m_memoryMapped;
+}
+
+VkDeviceSize Buffer::getSize() const
+{
+    return m_size;
+}
+
+VkBuffer Buffer::getVkBuffer() const
+{
+    return m_buffer;
 }
 
 void Buffer::map()
@@ -57,6 +70,11 @@ void Buffer::map()
 void Buffer::unmap()
 {
     vkUnmapMemory(m_device->getVkDevice(), m_bufferMemory);
+}
+
+void Buffer::copyMapped(void *data, size_t size)
+{
+    memcpy(m_memoryMapped, data, size);
 }
 
 }

@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "utils/Import.h"
 #include "utils/Callbacks.h"
 #include "utils/Constants.h"
 #include "utils/Structs.h"
@@ -23,13 +24,13 @@ namespace vke
 {
 
 const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    {{-0.5f, -0.5f, 0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f , 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f  , 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f , 0.5f}, {1.0f, 1.0f, 1.0f}}
 };
 
-const std::vector<uint16_t> indices = {
+const std::vector<uint32_t> indices = {
     0, 1, 2,
     2, 3, 0
 };
@@ -94,8 +95,17 @@ void Application::init()
     m_pipeline = std::make_shared<Pipeline>(m_device, m_renderer->getSwapChain()->getRenderPass(), "../res/shaders/vert.spv",
         "../res/shaders/frag.spv", m_vkPipelineLayout);
 
-    createVertexBuffer();
-    createIndexBuffer();
+    
+    // m_model = std::make_shared<Model>();
+    // std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>(vertices, indices);
+    // m_model->addMesh(mesh);
+    // m_model->afterImportInit(m_device);
+    
+    m_model = vke::utils::importModel("../res/models/suzanne/suzanne.obj");
+    m_model->afterImportInit(m_device);
+
+    // createVertexBuffer();
+    // createIndexBuffer();
 
     std::cout << "init done" << std::endl;
 
@@ -184,90 +194,6 @@ void Application::drawFrame()
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Application::createIndexBuffer()
-{
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(m_device->getVkDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), (size_t)bufferSize);
-    vkUnmapMemory(m_device->getVkDevice(), stagingBufferMemory);
-
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-    vkDestroyBuffer(m_device->getVkDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(m_device->getVkDevice(), stagingBufferMemory, nullptr);
-}
-
-void Application::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory)
-{
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(m_device->getVkDevice(), &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-        throw std::runtime_error("failed to create vertex buffer");
-    
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(m_device->getVkDevice(), buffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = m_device->findMemoryType(memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(m_device->getVkDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-        throw std::runtime_error("failed to allocate vertex buffer memory.");
-
-    vkBindBufferMemory(m_device->getVkDevice(), buffer, bufferMemory, 0);
-}
-
-void Application::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
-{
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = m_device->getCommandPool();
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(m_device->getVkDevice(), &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    VkBufferCopy copyRegion{};
-    // opt
-    copyRegion.srcOffset = 0;
-    // opt
-    copyRegion.dstOffset = 0;
-    copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-    
-    vkEndCommandBuffer(commandBuffer);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    vkQueueSubmit(m_device->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(m_device->getGraphicsQueue());
-    vkFreeCommandBuffers(m_device->getVkDevice(), m_device->getCommandPool(), 1, &commandBuffer);
-}
 
 void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
@@ -275,18 +201,18 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     m_renderer->beginRenderPass(currentFrame, imageIndex);
     //--
 
-    VkBuffer vertexBuffers[] = {vertexBuffer};
-    VkDeviceSize offsets[] = {0};
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipeline());
-
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    m_pipeline->bind(commandBuffer);
     
     VkDescriptorSet currentDset = m_dSets[currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 0, 1, &currentDset, 0, nullptr);
-    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+
+    m_model->draw(commandBuffer);
+    // VkBuffer vertexBuffers[] = { m_vertexBuffer->getVkBuffer() };
+    // VkDeviceSize offsets[] = { 0 };
+    // vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    // vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->getVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    // vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
     //-- renderer end renderpass
     m_renderer->endRenderPass(currentFrame);
@@ -310,29 +236,6 @@ void Application::updateUniformBuffer(uint32_t currentImage)
 
     
     memcpy(ubos[currentImage]->getMapped(), &ubo, sizeof(ubo));
-}
-
-void Application::createVertexBuffer()
-{
-    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-    
-    void* data;
-    vkMapMemory(m_device->getVkDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
-    vkUnmapMemory(m_device->getVkDevice(), stagingBufferMemory);
-
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-    
-    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
-    vkDestroyBuffer(m_device->getVkDevice(), stagingBuffer, nullptr);
-    vkFreeMemory(m_device->getVkDevice(), stagingBufferMemory, nullptr);
 }
 
 }

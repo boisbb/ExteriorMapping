@@ -58,6 +58,18 @@ Pipeline::Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std:
     viewportState.scissorCount = 1;
     viewportState.pScissors = nullptr;//&scissor;
 
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depthStencil.depthTestEnable = VK_TRUE;
+    depthStencil.depthWriteEnable = VK_TRUE;
+    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.minDepthBounds = 0.f;
+    depthStencil.maxDepthBounds = 1.f;
+    depthStencil.stencilTestEnable = VK_FALSE;
+    depthStencil.front = {};
+    depthStencil.back = {};
+
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable = VK_FALSE;
@@ -115,7 +127,7 @@ Pipeline::Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std:
     pipelineInfo.pViewportState = &viewportState;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = nullptr;
+    pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
     pipelineInfo.layout = pipelineLayout;
@@ -140,6 +152,11 @@ Pipeline::~Pipeline()
 VkPipeline Pipeline::getPipeline()
 {
     return m_graphicsPipeline;
+}
+
+void Pipeline::bind(VkCommandBuffer commandBuffer)
+{
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
 }
 
 VkShaderModule Pipeline::createShaderModule(const std::vector<char> &code)

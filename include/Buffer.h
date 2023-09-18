@@ -2,10 +2,12 @@
 
 #include <vulkan/vulkan.h>
 
-#include "Device.h"
+#include <memory>
 
 namespace vke
 {
+
+class Device;
 
 class Buffer
 {
@@ -13,12 +15,15 @@ public:
     Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
     ~Buffer();
 
-    VkDescriptorBufferInfo getInfo();
-
-    void* getMapped();
+    VkDescriptorBufferInfo getInfo() const;
+    void* getMapped() const;
+    VkDeviceSize getSize() const;
+    VkBuffer getVkBuffer() const;
 
     void map();
     void unmap();
+
+    void copyMapped(void* data, size_t size);
 private:
     std::shared_ptr<Device> m_device;
 
