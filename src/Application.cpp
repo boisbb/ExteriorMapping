@@ -3,6 +3,7 @@
 #include "utils/Callbacks.h"
 #include "utils/Constants.h"
 #include "utils/Structs.h"
+#include "utils/Input.h"
 
 // std
 #include <stdexcept>
@@ -101,8 +102,13 @@ void Application::init()
     // m_model->addMesh(mesh);
     // m_model->afterImportInit(m_device);
     
-    m_model = vke::utils::importModel("../res/models/suzanne/suzanne.obj");
+    m_model = vke::utils::importModel("../res/models/basicCube/cube.obj");
     m_model->afterImportInit(m_device);
+
+    glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
+        (float)m_renderer->getSwapChain()->getExtent().height);
+
+    m_camera = std::make_shared<Camera>(swapExtent, glm::vec3(2.f, 2.f, 2.f));
 
     // createVertexBuffer();
     // createIndexBuffer();
@@ -111,8 +117,9 @@ void Application::init()
 
     while(!glfwWindowShouldClose(m_window->getWindow()))
     {
-        glfwPollEvents();
+        vke::utils::consumeDeviceInput(m_window->getWindow(), m_camera);
         drawFrame();
+        glfwPollEvents();
     }
 
     vkDeviceWaitIdle(m_device->getVkDevice());
@@ -120,6 +127,8 @@ void Application::init()
 
 void Application::drawFrame()
 {
+    m_camera->reconstructMatrices();
+    
     VkCommandBuffer currentCBuffer = m_renderer->getCommandBuffer(currentFrame);
 
     VkFence currentFence = m_renderer->getSwapChain()->getFenceId(currentFrame);
@@ -227,13 +236,9 @@ void Application::updateUniformBuffer(uint32_t currentImage)
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
-    ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f), glm::vec3(0.f, 0.f, 0.f), glm::vec3(0.f, 0.f, 1.f));
-    ubo.proj = glm::perspective(glm::radians(45.f),
-        m_renderer->getSwapChain()->getExtent().width / (float)m_renderer->getSwapChain()->getExtent().height,
-        0.1f, 10.f);
-    ubo.proj[1][1] *= -1;
-
+    ubo.model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
+    ubo.view = m_camera->getView();
+    ubo.proj = m_camera->getProjection();
     
     memcpy(ubos[currentImage]->getMapped(), &ubo, sizeof(ubo));
 }

@@ -26,6 +26,7 @@ set ( INCLUDE
     include/Renderer.h
     include/Model.h
     include/Mesh.h
+    include/Camera.h
     include/descriptors/SetLayout.h
     include/descriptors/Pool.h
     include/descriptors/Set.h
@@ -35,6 +36,7 @@ set ( INCLUDE
     include/utils/Constants.h
     include/utils/FileHandling.h
     include/utils/Import.h
+    include/utils/Input.h
 )
 
 set( SOURCE
@@ -44,6 +46,7 @@ set( SOURCE
     src/Device.cpp
     src/SwapChain.cpp
     src/Buffer.cpp
+    src/Camera.cpp
     src/descriptors/SetLayout.cpp
     src/descriptors/Pool.cpp
     src/descriptors/Set.cpp

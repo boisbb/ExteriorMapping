@@ -32,6 +32,7 @@
 #include "Renderer.h"
 #include "Model.h"
 #include "Mesh.h"
+#include "Camera.h"
 #include "descriptors/SetLayout.h"
 #include "descriptors/Pool.h"
 #include "descriptors/Set.h"
@@ -70,6 +71,8 @@ private:
     std::shared_ptr<Renderer> m_renderer;
 
     std::shared_ptr<Model> m_model;
+
+    std::shared_ptr<Camera> m_camera;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_dSets;
     std::vector<std::unique_ptr<Buffer>> ubos;
