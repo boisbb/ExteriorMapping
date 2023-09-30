@@ -7,6 +7,8 @@
 namespace vke
 {
 
+class Image;
+
 class SwapChain
 {
 public:
@@ -53,8 +55,7 @@ private:
     std::vector<VkFramebuffer> m_swapChainFramebuffers;
 
     // Depth buffer
-    VkImage m_depthImage;
-    VkDeviceMemory m_depthImageMemory;
+    std::shared_ptr<Image> m_depthImage;
     VkImageView m_depthImageView;
 
     // Sync members

@@ -46,21 +46,23 @@ namespace vke
 class Application
 {
 public:
+    Application();
+    
     void run();
 
     bool framebufferResized = false;
 private:
     void init();
-    void setupVulkan();
+    void draw();
+    void cleanup();
 
-    void drawFrame();
-
-    // void createVertexBuffer();
-    // void createIndexBuffer();
+    void renderFrame();
 
     void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void updateUniformBuffer(uint32_t currentImage);
+
+    uint32_t m_currentFrame = 0;
 
     std::shared_ptr<Window> m_window;
 
@@ -75,8 +77,11 @@ private:
     std::shared_ptr<Camera> m_camera;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_dSets;
+
     std::vector<std::unique_ptr<Buffer>> ubos;
 
+    std::vector<std::unique_ptr<Buffer>> sbos;
+    
     VkPipelineLayout m_vkPipelineLayout;
 
 };

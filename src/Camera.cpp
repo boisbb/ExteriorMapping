@@ -33,19 +33,24 @@ glm::mat4 Camera::getProjection() const
     return m_projection;
 }
 
-void Camera::getCameraInfo(glm::vec3& eye, glm::vec3& center, glm::vec3& up, glm::vec3& viewDir, float& speed)
+void Camera::getCameraInfo(glm::vec3& eye, glm::vec3& up, glm::vec3& viewDir, float& speed)
 {
     eye = m_eye;
-    center = m_center;
     up = m_up;
     viewDir = m_viewDirection;
     speed = m_moveSpeed;
 }
 
-void Camera::setCameraInfo(const glm::vec3& eye, const glm::vec3& center, const glm::vec3& up, const glm::vec3& viewDir, const float& speed)
+void Camera::getCameraRotateInfo(glm::vec2& resolution, float& sensitivity)
+{
+    resolution = m_resolution;
+    sensitivity = m_sensitivity;
+}
+
+void Camera::setCameraInfo(const glm::vec3& eye,
+    const glm::vec3& up, const glm::vec3& viewDir, const float& speed)
 {
     m_eye = eye;
-    m_center = center;
     m_up = up;
     m_viewDirection = viewDir;
     m_moveSpeed = speed;

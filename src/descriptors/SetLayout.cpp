@@ -13,7 +13,7 @@ DescriptorSetLayout::DescriptorSetLayout(std::shared_ptr<Device> device, std::ve
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
+    layoutInfo.bindingCount = vkbindings.size();
     layoutInfo.pBindings = vkbindings.data();
 
     if (vkCreateDescriptorSetLayout(m_device->getVkDevice(), &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS)

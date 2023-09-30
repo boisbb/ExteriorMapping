@@ -10,10 +10,6 @@ set( CMAKE_CXX_STANDARD 17 )
 set ( EXTERNAL
     external/glm/glm.hpp
     external/glm/gtx/string_cast.hpp
-    external/stb_image/stb_image.h
-    external/stb_image/stb_image.cpp
-    external/stb_image/stb_image_write.h
-    external/stb_image/stb_image_write.cpp
 )
 
 set ( INCLUDE
@@ -27,6 +23,8 @@ set ( INCLUDE
     include/Model.h
     include/Mesh.h
     include/Camera.h
+    include/Material.h
+    include/Image.h
     include/descriptors/SetLayout.h
     include/descriptors/Pool.h
     include/descriptors/Set.h
@@ -47,13 +45,15 @@ set( SOURCE
     src/SwapChain.cpp
     src/Buffer.cpp
     src/Camera.cpp
-    src/descriptors/SetLayout.cpp
-    src/descriptors/Pool.cpp
-    src/descriptors/Set.cpp
     src/Pipeline.cpp
     src/Renderer.cpp
     src/Model.cpp
     src/Mesh.cpp
+    src/Material.cpp
+    src/Image.cpp
+    src/descriptors/SetLayout.cpp
+    src/descriptors/Pool.cpp
+    src/descriptors/Set.cpp
 )
 
 add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE} ${EXTERNAL})
@@ -71,4 +71,5 @@ target_link_libraries(${PROJECT_NAME} glfw)
 find_package(assimp REQUIRED)
 target_link_libraries(${PROJECT_NAME} assimp)
 
+# target include dirs
 include_directories(src include external)

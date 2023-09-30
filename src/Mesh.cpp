@@ -1,14 +1,15 @@
 #include "Mesh.h"
 #include "Buffer.h"
 #include "Device.h"
+#include "Material.h"
 #include "utils/Structs.h"
-
 
 namespace vke
 {
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices)
-    : m_vertices(vertices), m_indices(indices)
+    : m_vertices(vertices), m_indices(indices), m_modelMatrix{ 1.f },
+    m_material(nullptr)
 {
 }
 
@@ -32,6 +33,16 @@ void Mesh::draw(VkCommandBuffer commandBuffer)
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->getVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_indices.size()), 1, 0, 0, 0);
+}
+
+void Mesh::setModelMatrix(glm::mat4 matrix)
+{
+    m_modelMatrix = matrix;
+}
+
+void Mesh::setMaterial(std::shared_ptr<Material> material)
+{
+    m_material = material;
 }
 
 void Mesh::createVertexBuffer(std::shared_ptr<Device> device)

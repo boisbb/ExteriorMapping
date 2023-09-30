@@ -12,7 +12,8 @@ class Device;
 class Buffer
 {
 public:
-    Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+    Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageFlags usage,
+        VkMemoryPropertyFlags properties);
     ~Buffer();
 
     VkDescriptorBufferInfo getInfo() const;
