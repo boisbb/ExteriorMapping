@@ -18,6 +18,9 @@ public:
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
     ~Image();
 
+    void transitionImageLayout(VkImageLayout oldL, VkImageLayout newL);
+    VkImageView createImageView();
+
     VkImage getVkImage() const;
 private:
     glm::vec2 m_dims;

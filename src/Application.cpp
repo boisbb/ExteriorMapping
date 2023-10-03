@@ -38,6 +38,14 @@ void Application::init()
     m_device = std::make_shared<Device>(m_window);
     m_renderer = std::make_shared<Renderer>(m_device, m_window);
 
+    m_model = vke::utils::importModel("../res/models/gltfCube/Box.gltf");
+    m_model->afterImportInit(m_device);
+
+    glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
+        (float)m_renderer->getSwapChain()->getExtent().height);
+
+    m_camera = std::make_shared<Camera>(swapExtent, glm::vec3(2.f, 2.f, 2.f));
+
     ubos.resize(MAX_FRAMES_IN_FLIGHT);
     sbos.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -65,9 +73,17 @@ void Application::init()
     sboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     sboLayoutBinding.pImmutableSamplers = nullptr;
 
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 2;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+
     std::vector<VkDescriptorSetLayoutBinding> layoutB;
     layoutB.push_back(uboLayoutBinding);
     layoutB.push_back(sboLayoutBinding);
+    layoutB.push_back(samplerLayoutBinding);
     std::shared_ptr<DescriptorSetLayout> m_dSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutB);
 
     VkDescriptorPoolSize poolSizeUbo{};
@@ -77,6 +93,10 @@ void Application::init()
     VkDescriptorPoolSize poolSizeSbo{};
     poolSizeSbo.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizeSbo.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolSize poolSizeSampler{};
+    poolSizeSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizeSampler.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     std::vector<VkDescriptorPoolSize> poolS;
     poolS.push_back(poolSizeUbo);
@@ -112,14 +132,6 @@ void Application::init()
 
     m_pipeline = std::make_shared<Pipeline>(m_device, m_renderer->getSwapChain()->getRenderPass(), "../res/shaders/vert.spv",
         "../res/shaders/frag.spv", m_vkPipelineLayout);
-    
-    m_model = vke::utils::importModel("../res/models/gltfCube/Box.gltf");
-    m_model->afterImportInit(m_device);
-
-    glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
-        (float)m_renderer->getSwapChain()->getExtent().height);
-
-    m_camera = std::make_shared<Camera>(swapExtent, glm::vec3(2.f, 2.f, 2.f));
 }
 
 void Application::draw()

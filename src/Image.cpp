@@ -49,6 +49,16 @@ Image::~Image()
 {
 }
 
+void Image::transitionImageLayout(VkImageLayout oldL, VkImageLayout newL)
+{
+    m_device->transitionImageLayout(m_image, m_format, oldL, newL);
+}
+
+VkImageView Image::createImageView()
+{
+    return m_device->createImageView(m_image, m_format, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
 VkImage Image::getVkImage() const
 {
     return m_image;

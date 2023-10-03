@@ -25,6 +25,8 @@ set ( INCLUDE
     include/Camera.h
     include/Material.h
     include/Image.h
+    include/Texture.h
+    include/Sampler.h
     include/descriptors/SetLayout.h
     include/descriptors/Pool.h
     include/descriptors/Set.h
@@ -51,6 +53,8 @@ set( SOURCE
     src/Mesh.cpp
     src/Material.cpp
     src/Image.cpp
+    src/Texture.cpp
+    src/Sampler.cpp
     src/descriptors/SetLayout.cpp
     src/descriptors/Pool.cpp
     src/descriptors/Set.cpp
