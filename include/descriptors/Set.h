@@ -13,8 +13,11 @@ class DescriptorSet
 {
 public:
     DescriptorSet(std::shared_ptr<Device> device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
-        std::shared_ptr<DescriptorPool> descriptorPool, std::vector<uint32_t> binding, std::vector<VkDescriptorBufferInfo> bufferInfo);
+        std::shared_ptr<DescriptorPool> descriptorPool);
     ~DescriptorSet();
+
+    void addBuffers(std::vector<uint32_t> binding, std::vector<VkDescriptorBufferInfo> bufferInfo);
+    void addImages(std::vector<uint32_t> binding, std::vector<VkDescriptorImageInfo> imageInfo);
 
     VkDescriptorSet getDescriptorSet();
 private:

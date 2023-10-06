@@ -6,10 +6,10 @@
 namespace vke
 {
 
-Image::Image(std::shared_ptr<Device> device, glm::vec2 dims, VkFormat format, VkImageTiling tiling,
+Image::Image(std::shared_ptr<Device> device, glm::vec2 dims, int channels, VkFormat format, VkImageTiling tiling,
     VkImageUsageFlags usage, VkMemoryPropertyFlags properties)
-    : m_dims(dims), m_device(device), m_format(format), m_tiling(tiling), m_usage(usage),
-    m_properties(properties)
+    : m_dims(dims), m_channels(channels), m_device(device), m_format(format), m_tiling(tiling),
+    m_usage(usage), m_properties(properties), m_layout(VK_IMAGE_LAYOUT_UNDEFINED)
 {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -21,7 +21,7 @@ Image::Image(std::shared_ptr<Device> device, glm::vec2 dims, VkFormat format, Vk
     imageInfo.arrayLayers = 1;
     imageInfo.format = format;
     imageInfo.tiling = tiling;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.initialLayout = m_layout;
     imageInfo.usage = usage;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -52,6 +52,7 @@ Image::~Image()
 void Image::transitionImageLayout(VkImageLayout oldL, VkImageLayout newL)
 {
     m_device->transitionImageLayout(m_image, m_format, oldL, newL);
+    m_layout = newL;
 }
 
 VkImageView Image::createImageView()
@@ -62,6 +63,11 @@ VkImageView Image::createImageView()
 VkImage Image::getVkImage() const
 {
     return m_image;
+}
+
+VkImageLayout Image::getVkImageLayout() const
+{
+    return m_layout;
 }
 
 }

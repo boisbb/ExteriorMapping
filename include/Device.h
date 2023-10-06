@@ -34,12 +34,13 @@ public:
 
     QueueFamilyIndices getQueueFamilies();
     SwapChainSupportDetails getSwapChainSupport();
-    VkSurfaceKHR getSurface();
-    VkDevice getVkDevice();
-    VkCommandPool getCommandPool();
-    VkQueue getGraphicsQueue();
-    VkQueue getPresentQueue();
-    VkPhysicalDevice getPhysicalDevice();
+    VkSurfaceKHR getSurface() const;
+    VkDevice getVkDevice() const;
+    VkCommandPool getCommandPool() const;
+    VkQueue getGraphicsQueue() const;
+    VkQueue getPresentQueue() const;
+    VkPhysicalDevice getPhysicalDevice() const;
+    VkPhysicalDeviceFeatures getFeatures() const;
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -85,6 +86,7 @@ private:
     VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
     VkDevice m_device;
     VkCommandPool m_commandPool;
+    VkPhysicalDeviceFeatures m_features;
 
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;

@@ -22,6 +22,8 @@ Device::Device(std::shared_ptr<Window> window)
     pickPhysicalDevice();
     createLogicalDevice();
     createCommandPool();
+
+    vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_features);
 }
 
 Device::~Device()
@@ -184,34 +186,39 @@ SwapChainSupportDetails Device::getSwapChainSupport()
     return querySwapChainSupport(m_physicalDevice);
 }
 
-VkSurfaceKHR Device::getSurface()
+VkSurfaceKHR Device::getSurface() const
 {
     return m_surface;
 }
 
-VkDevice Device::getVkDevice()
+VkDevice Device::getVkDevice() const
 {
     return m_device;
 }
 
-VkCommandPool Device::getCommandPool()
+VkCommandPool Device::getCommandPool() const
 {
 return m_commandPool;
 }
 
-VkQueue Device::getGraphicsQueue()
+VkQueue Device::getGraphicsQueue() const
 {
     return m_graphicsQueue;
 }
 
-VkQueue Device::getPresentQueue()
+VkQueue Device::getPresentQueue() const
 {
     return m_presentQueue;
 }
 
-VkPhysicalDevice Device::getPhysicalDevice()
+VkPhysicalDevice Device::getPhysicalDevice() const
 {
     return m_physicalDevice;
+}
+
+VkPhysicalDeviceFeatures Device::getFeatures() const
+{
+    return m_features;
 }
 
 QueueFamilyIndices Device::getQueueFamilies()

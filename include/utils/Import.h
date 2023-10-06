@@ -21,6 +21,12 @@
 namespace vke::utils
 {
 
+inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from);
+std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene, const aiMatrix4x4& accTransform);
+void processNode(const std::shared_ptr<Model>& model, aiNode* node, const aiScene* scene, const aiMatrix4x4& accTransform);
+std::shared_ptr<Model> importModel(const std::string& filename);
+unsigned char* loadImage(const std::string& filename, int& width, int& height, int& channels);
+
 // Inspired by:
 // https://stackoverflow.com/questions/29184311/how-to-rotate-a-skinned-models-bones-in-c-using-assimp
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
@@ -60,7 +66,6 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene, const aiMa
             uv.x = mesh->mTextureCoords[0][j].x;
             uv.y = mesh->mTextureCoords[0][j].y;
 
-            // TODO: Add UVs to the Vertex struct
             vertex.uv.x = uv.x;
             vertex.uv.y = uv.y;
         }

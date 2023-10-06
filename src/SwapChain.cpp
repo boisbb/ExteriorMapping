@@ -106,7 +106,7 @@ void SwapChain::createDepthResources()
 {
     VkFormat depthFormat = findDepthFormat();
 
-    m_depthImage = std::make_shared<Image>(m_device, glm::vec2(m_swapChainExtent.width, m_swapChainExtent.height) , depthFormat, VK_IMAGE_TILING_OPTIMAL,
+    m_depthImage = std::make_shared<Image>(m_device, glm::vec2(m_swapChainExtent.width, m_swapChainExtent.height), 4, depthFormat, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     m_depthImageView = m_device->createImageView(m_depthImage->getVkImage(), depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);

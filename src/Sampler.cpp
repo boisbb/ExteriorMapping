@@ -17,7 +17,7 @@ Sampler::Sampler(std::shared_ptr<Device> device, VkFilter filter, VkSamplerAddre
     samplerInfo.addressModeU = m_wrap;
     samplerInfo.addressModeV = m_wrap;
     samplerInfo.addressModeW = m_wrap;
-    samplerInfo.anisotropyEnable = VK_TRUE;
+    samplerInfo.anisotropyEnable = VK_FALSE;
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;

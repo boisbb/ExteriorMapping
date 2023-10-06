@@ -38,8 +38,18 @@ void Application::init()
     m_device = std::make_shared<Device>(m_window);
     m_renderer = std::make_shared<Renderer>(m_device, m_window);
 
-    m_model = vke::utils::importModel("../res/models/gltfCube/Box.gltf");
+    m_model = vke::utils::importModel("../res/models/basicPlane/plane.obj");
     m_model->afterImportInit(m_device);
+
+    m_sampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR);
+    
+    int width, height, channels;
+    unsigned char* pixels = utils::loadImage("../res/textures/pepe.jpg", width, height, channels);
+    m_texture = std::make_shared<Texture>(m_device, pixels, glm::vec2(width, height), channels,
+        VK_FORMAT_R8G8B8_SRGB);
+    m_texture->setSampler(m_sampler);
+
 
     glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
         (float)m_renderer->getSwapChain()->getExtent().height);
@@ -101,22 +111,36 @@ void Application::init()
     std::vector<VkDescriptorPoolSize> poolS;
     poolS.push_back(poolSizeUbo);
     poolS.push_back(poolSizeSbo);
+    poolS.push_back(poolSizeSampler);
     std::shared_ptr<DescriptorPool> m_dPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, poolS);
 
     m_dSets.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
+        m_dSets[i] = std::make_shared<DescriptorSet>(m_device, m_dSetLayout, m_dPool);
+
         std::vector<VkDescriptorBufferInfo> bufferInfos{
             ubos[i]->getInfo(),
             sbos[i]->getInfo()
         };
 
-        std::vector<uint32_t> binding
+        std::vector<uint32_t> bufferBinding
         {
             0, 1
         };
 
-        m_dSets[i] = std::make_shared<DescriptorSet>(m_device, m_dSetLayout, m_dPool, binding, bufferInfos);
+        m_dSets[i]->addBuffers(bufferBinding, bufferInfos);
+
+        std::vector<VkDescriptorImageInfo> imageInfos{
+            m_texture->getInfo()
+        };
+        
+        std::vector<uint32_t> imageBinding
+        {
+            2
+        };
+
+        m_dSets[i]->addImages(imageBinding, imageInfos);
     }
 
     VkDescriptorSetLayout vkLayout = m_dSetLayout->getLayout();

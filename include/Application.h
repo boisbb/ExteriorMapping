@@ -31,6 +31,8 @@
 #include "Buffer.h"
 #include "Renderer.h"
 #include "Model.h"
+#include "Texture.h"
+#include "Sampler.h"
 #include "Mesh.h"
 #include "Camera.h"
 #include "descriptors/SetLayout.h"
@@ -65,21 +67,19 @@ private:
     uint32_t m_currentFrame = 0;
 
     std::shared_ptr<Window> m_window;
-
     std::shared_ptr<Device> m_device;
-
     std::shared_ptr<Pipeline> m_pipeline;
-
     std::shared_ptr<Renderer> m_renderer;
 
     std::shared_ptr<Model> m_model;
+    std::shared_ptr<Texture> m_texture;
+    std::shared_ptr<Sampler> m_sampler;
 
     std::shared_ptr<Camera> m_camera;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_dSets;
 
     std::vector<std::unique_ptr<Buffer>> ubos;
-
     std::vector<std::unique_ptr<Buffer>> sbos;
     
     VkPipelineLayout m_vkPipelineLayout;

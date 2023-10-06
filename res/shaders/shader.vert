@@ -20,6 +20,7 @@ layout(location = 3) in vec2 inUv;
 
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec3 normal;
+layout(location = 2) out vec2 uv;
 
 void main() 
 {
@@ -27,4 +28,5 @@ void main()
     gl_Position = ubo.proj * ubo.view * model * vec4(inPosition, 1.0);
     fragColor = inColor;
     normal = transpose(inverse(mat3(model))) * inNormal;
+    uv = inUv;
 }
