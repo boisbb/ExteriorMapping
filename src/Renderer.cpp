@@ -25,6 +25,11 @@ VkCommandBuffer Renderer::getCommandBuffer(int id) const
     return m_commandBuffers[id];
 }
 
+std::unordered_map<std::string, std::shared_ptr<Texture>>& Renderer::getTextureMap()
+{
+    return m_textureMap;
+}
+
 void Renderer::beginRenderPass(int currentFrame, uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo beginInfo{};

@@ -1,6 +1,8 @@
 #include "Model.h"
 #include "Mesh.h"
 #include "Device.h"
+#include "descriptors/SetLayout.h"
+#include "descriptors/Pool.h"
 
 namespace vke
 {
@@ -23,10 +25,12 @@ void Model::addMesh(std::shared_ptr<Mesh> mesh)
     m_meshes.push_back(mesh);
 }
 
-void Model::afterImportInit(std::shared_ptr<Device> device)
+void Model::afterImportInit(std::shared_ptr<Device> device,
+    std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap,
+    std::shared_ptr<DescriptorSetLayout> setLayout, std::shared_ptr<DescriptorPool> setPool)
 {
     for (auto mesh : m_meshes)
-        mesh->afterImportInit(device);
+        mesh->afterImportInit(device, textureMap, setLayout, setPool);
 }
 
 void Model::draw(VkCommandBuffer commandBuffer)

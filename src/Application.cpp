@@ -4,6 +4,7 @@
 #include "utils/Constants.h"
 #include "utils/Structs.h"
 #include "utils/Input.h"
+#include "utils/FileHandling.h"
 
 // std
 #include <stdexcept>
@@ -12,12 +13,15 @@
 #include <set>
 #include <limits>
 #include <algorithm>
+#include <unordered_map>
 
 #include <chrono>
 
 #include <glm/gtc/matrix_transform.hpp>
 
 bool enableValidationLayers = true;
+
+int cntr = 0;
 
 namespace vke
 {
@@ -38,19 +42,6 @@ void Application::init()
     m_device = std::make_shared<Device>(m_window);
     m_renderer = std::make_shared<Renderer>(m_device, m_window);
 
-    m_model = vke::utils::importModel("../res/models/basicPlane/plane.obj");
-    m_model->afterImportInit(m_device);
-
-    m_sampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        VK_SAMPLER_MIPMAP_MODE_LINEAR);
-    
-    int width, height, channels;
-    unsigned char* pixels = utils::loadImage("../res/textures/pepe.jpg", width, height, channels);
-    m_texture = std::make_shared<Texture>(m_device, pixels, glm::vec2(width, height), channels,
-        VK_FORMAT_R8G8B8_SRGB);
-    m_texture->setSampler(m_sampler);
-
-
     glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
         (float)m_renderer->getSwapChain()->getExtent().height);
 
@@ -69,6 +60,7 @@ void Application::init()
         sbos[i]->map();
     }
 
+    // UBO and SSBO set
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0;
     uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -83,17 +75,9 @@ void Application::init()
     sboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     sboLayoutBinding.pImmutableSamplers = nullptr;
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 2;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-
     std::vector<VkDescriptorSetLayoutBinding> layoutB;
     layoutB.push_back(uboLayoutBinding);
     layoutB.push_back(sboLayoutBinding);
-    layoutB.push_back(samplerLayoutBinding);
     std::shared_ptr<DescriptorSetLayout> m_dSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutB);
 
     VkDescriptorPoolSize poolSizeUbo{};
@@ -104,16 +88,50 @@ void Application::init()
     poolSizeSbo.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizeSbo.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    VkDescriptorPoolSize poolSizeSampler{};
-    poolSizeSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizeSampler.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
     std::vector<VkDescriptorPoolSize> poolS;
     poolS.push_back(poolSizeUbo);
     poolS.push_back(poolSizeSbo);
-    poolS.push_back(poolSizeSampler);
     std::shared_ptr<DescriptorPool> m_dPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, poolS);
 
+    // Sampler set
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 0;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+
+    std::vector<VkDescriptorSetLayoutBinding> textureB;
+    textureB.push_back(samplerLayoutBinding);
+    std::shared_ptr<DescriptorSetLayout> m_textSetLayout = std::make_shared<DescriptorSetLayout>(m_device, textureB);
+
+    VkDescriptorPoolSize poolSizeSampler{};
+    poolSizeSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizeSampler.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
+
+    std::vector<VkDescriptorPoolSize> textureS;
+    textureS.push_back(poolSizeSampler);
+    std::shared_ptr<DescriptorPool> m_textPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2, 0, textureS);
+    //--
+
+    std::vector<VkDescriptorSetLayout> dSetLayouts = {
+        m_dSetLayout->getLayout(),
+        m_textSetLayout->getLayout()
+    };
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = dSetLayouts.size();
+    pipelineLayoutInfo.pSetLayouts = dSetLayouts.data();
+
+    if (vkCreatePipelineLayout(m_device->getVkDevice(), &pipelineLayoutInfo, nullptr, &m_vkPipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create pipeline layout!");
+    }
+
+    m_pipeline = std::make_shared<Pipeline>(m_device, m_renderer->getSwapChain()->getRenderPass(), "../res/shaders/vert.spv",
+        "../res/shaders/frag.spv", m_vkPipelineLayout);
+
+    
     m_dSets.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -130,32 +148,64 @@ void Application::init()
         };
 
         m_dSets[i]->addBuffers(bufferBinding, bufferInfos);
+    }
+
+    m_model = vke::utils::importModel("../res/models/basicPlane/plane.obj");
+    auto& textureMap = m_renderer->getTextureMap();
+    m_model->afterImportInit(m_device, textureMap, m_textSetLayout, m_textPool);
+
+    m_sampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR);
+
+    int width, height, channels;
+    unsigned char* pixels = utils::loadImage("../res/textures/pepe.jpg", width, height, channels);
+
+    m_texture = std::make_shared<Texture>(m_device, pixels, glm::vec2(width, height), channels,
+        VK_FORMAT_R8G8B8_SRGB);
+    m_texture->setSampler(m_sampler);
+
+    free(pixels);
+
+    auto& ttmap = m_renderer->getTextureMap();
+
+    pixels = utils::loadImage("../res/textures/negus.jpg", width, height, channels);
+    m_texture2 = std::make_shared<Texture>(m_device, pixels, glm::vec2(width, height), channels,
+        VK_FORMAT_R8G8B8_SRGB);
+    m_texture2->setSampler(m_sampler);
+
+    m_textSets.resize(MAX_FRAMES_IN_FLIGHT);
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_textSets[i] = std::make_shared<DescriptorSet>(m_device, m_textSetLayout, m_textPool);
 
         std::vector<VkDescriptorImageInfo> imageInfos{
             m_texture->getInfo()
         };
-        
+
         std::vector<uint32_t> imageBinding
         {
-            2
+            0
         };
 
-        m_dSets[i]->addImages(imageBinding, imageInfos);
+        m_textSets[i]->addImages(imageBinding, imageInfos);
     }
 
-    VkDescriptorSetLayout vkLayout = m_dSetLayout->getLayout();
+    m_textSets2.resize(MAX_FRAMES_IN_FLIGHT);
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_textSets2[i] = std::make_shared<DescriptorSet>(m_device, m_textSetLayout, m_textPool);
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &vkLayout;
+        std::vector<VkDescriptorImageInfo> imageInfos{
+            m_texture2->getInfo()
+        };
 
-    if (vkCreatePipelineLayout(m_device->getVkDevice(), &pipelineLayoutInfo, nullptr, &m_vkPipelineLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create pipeline layout!");
+        std::vector<uint32_t> imageBinding
+        {
+            0
+        };
+
+        m_textSets2[i]->addImages(imageBinding, imageInfos);
     }
-
-    m_pipeline = std::make_shared<Pipeline>(m_device, m_renderer->getSwapChain()->getRenderPass(), "../res/shaders/vert.spv",
-        "../res/shaders/frag.spv", m_vkPipelineLayout);
 }
 
 void Application::draw()
@@ -260,11 +310,20 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     VkDescriptorSet currentDset = m_dSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 0, 1, &currentDset, 0, nullptr);
 
+    VkDescriptorSet textDset;
+    if ((cntr / 5000) % 2 == 0)
+        textDset = m_textSets[m_currentFrame]->getDescriptorSet();
+    else
+        textDset = m_textSets2[m_currentFrame]->getDescriptorSet();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 1, 1, &textDset, 0, nullptr);
+
     m_model->draw(commandBuffer);
 
     //-- renderer end renderpass
     m_renderer->endRenderPass(m_currentFrame);
     //--
+
+    cntr++;
 }
 
 void Application::updateUniformBuffer(uint32_t currentImage)

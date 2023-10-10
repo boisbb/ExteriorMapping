@@ -58,6 +58,8 @@ set( SOURCE
     src/descriptors/SetLayout.cpp
     src/descriptors/Pool.cpp
     src/descriptors/Set.cpp
+    src/utils/FileHandling.cpp
+    src/utils/Import.cpp
 )
 
 add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE} ${EXTERNAL})

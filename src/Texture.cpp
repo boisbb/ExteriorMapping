@@ -2,13 +2,15 @@
 #include "Buffer.h"
 #include "Image.h"
 #include "Sampler.h"
+#include "utils/Constants.h"
 
 namespace vke
 {
 
 Texture::Texture(std::shared_ptr<Device> device, unsigned char* pixels, glm::vec2 dims, int channels,
     VkFormat format)
-    : m_device(device)
+    : m_device(device),
+    m_descriptorSets(MAX_FRAMES_IN_FLIGHT)
 {
     VkDeviceSize imageSize = dims.x * dims.y * channels;
     

@@ -5,12 +5,18 @@
 #include <iostream>
 #include <vector>
 #include <memory>
+#include <unordered_map>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "Texture.h"
+
 namespace vke
 {
+
+class DescriptorSetLayout;
+class DescriptorPool;
 
 struct Vertex;
 class Buffer;
@@ -28,7 +34,9 @@ public:
     Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices);
     ~Mesh();
 
-    void afterImportInit(std::shared_ptr<Device> device);
+    void afterImportInit(std::shared_ptr<Device> device,
+        std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap,
+        std::shared_ptr<DescriptorSetLayout> setLayout, std::shared_ptr<DescriptorPool> setPool);
     void draw(VkCommandBuffer commandBuffer);
 
     void setModelMatrix(glm::mat4 matrix);

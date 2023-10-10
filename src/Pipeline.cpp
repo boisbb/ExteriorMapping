@@ -8,8 +8,8 @@ Pipeline::Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std:
     std::string fragFile, VkPipelineLayout pipelineLayout)
     : m_device(device)
 {
-    std::vector<char> vertShaderCode = readFile(vertFile);
-    std::vector<char> fragShaderCode = readFile(fragFile);
+    std::vector<char> vertShaderCode = utils::readFile(vertFile);
+    std::vector<char> fragShaderCode = utils::readFile(fragFile);
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);

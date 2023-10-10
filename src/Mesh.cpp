@@ -2,7 +2,10 @@
 #include "Buffer.h"
 #include "Device.h"
 #include "Material.h"
+#include "descriptors/SetLayout.h"
+#include "descriptors/Pool.h"
 #include "utils/Structs.h"
+#include "utils/FileHandling.h"
 
 namespace vke
 {
@@ -17,10 +20,39 @@ Mesh::~Mesh()
 {
 }
 
-void Mesh::afterImportInit(std::shared_ptr<Device> device)
+void Mesh::afterImportInit(std::shared_ptr<Device> device,
+    std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap,
+    std::shared_ptr<DescriptorSetLayout> setLayout, std::shared_ptr<DescriptorPool> setPool)
 {
     createVertexBuffer(device);
     createIndexBuffer(device);
+
+    std::string textureFile = m_material->getTextureFile();
+    
+    if (textureMap.find(textureFile) != textureMap.end())
+    {
+        m_material->setTexture(textureMap[textureFile]);
+    }
+    else
+    {
+        int width, height, channels;
+        unsigned char* pixels = utils::loadImage(textureFile, width, height, channels);
+
+        VkFormat format;
+        if (channels == 3)
+            format = VK_FORMAT_R8G8B8_SRGB;
+        else if (channels == 4)
+            format = VK_FORMAT_R8G8B8A8_SRGB;
+
+        std::shared_ptr<Texture> newTexture = std::make_shared<Texture>(device, pixels,
+            glm::vec2(width, height), channels, format);
+
+        m_material->setTexture(newTexture);
+
+        textureMap[textureFile] = newTexture;
+
+        free(pixels);
+    }
 }
 
 void Mesh::draw(VkCommandBuffer commandBuffer)
