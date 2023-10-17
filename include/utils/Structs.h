@@ -35,8 +35,12 @@ struct UniformBufferObject {
     glm::mat4 proj;
 };
 
-struct SharedBufferObject {
+struct MeshShaderDataVertex {
     glm::mat4 model;
+};
+
+struct MeshShaderDataFragment {
+    int textureId;
 };
 
 struct Vertex {

@@ -13,7 +13,8 @@ namespace vke
 class DescriptorSetLayout
 {
 public:
-    DescriptorSetLayout(std::shared_ptr<Device> device, std::vector<VkDescriptorSetLayoutBinding> vkbindings);
+    DescriptorSetLayout(std::shared_ptr<Device> device, std::vector<VkDescriptorSetLayoutBinding> vkbindings,
+        VkDescriptorSetLayoutCreateFlags flags = 0, const void* pNext = nullptr);
     ~DescriptorSetLayout();
 
     VkDescriptorSetLayoutBinding getBinding(uint32_t binding);

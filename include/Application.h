@@ -72,13 +72,14 @@ private:
     std::shared_ptr<Renderer> m_renderer;
 
     std::shared_ptr<Model> m_model;
-    std::shared_ptr<Texture> m_texture;
-    std::shared_ptr<Texture> m_texture2;
-    std::shared_ptr<Sampler> m_sampler;
+
+    std::vector<std::shared_ptr<Sampler>> m_samplers;
+    std::vector<std::shared_ptr<Texture>> m_textures;
 
     std::shared_ptr<Camera> m_camera;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_dSets;
+    std::vector<std::shared_ptr<DescriptorSet>> m_bindlessSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_textSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_textSets2;
 

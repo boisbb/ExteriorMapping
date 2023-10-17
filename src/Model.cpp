@@ -26,11 +26,10 @@ void Model::addMesh(std::shared_ptr<Mesh> mesh)
 }
 
 void Model::afterImportInit(std::shared_ptr<Device> device,
-    std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap,
-    std::shared_ptr<DescriptorSetLayout> setLayout, std::shared_ptr<DescriptorPool> setPool)
+    std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap)
 {
     for (auto mesh : m_meshes)
-        mesh->afterImportInit(device, textureMap, setLayout, setPool);
+        mesh->afterImportInit(device, textureMap);
 }
 
 void Model::draw(VkCommandBuffer commandBuffer)

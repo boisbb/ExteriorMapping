@@ -21,8 +21,7 @@ Mesh::~Mesh()
 }
 
 void Mesh::afterImportInit(std::shared_ptr<Device> device,
-    std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap,
-    std::shared_ptr<DescriptorSetLayout> setLayout, std::shared_ptr<DescriptorPool> setPool)
+    std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap)
 {
     createVertexBuffer(device);
     createIndexBuffer(device);

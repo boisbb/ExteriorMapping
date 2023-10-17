@@ -14,7 +14,8 @@ public:
         std::vector<VkDescriptorPoolSize> poolSizes);
     ~DescriptorPool();
 
-    void allocateSet(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptorSet) const;
+    void allocateSet(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptorSet,
+        const void* pNext = nullptr) const;
 private:
     std::shared_ptr<Device> m_device;
 

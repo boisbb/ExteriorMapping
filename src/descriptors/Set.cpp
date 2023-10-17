@@ -4,10 +4,10 @@ namespace vke
 {
 
 DescriptorSet::DescriptorSet(std::shared_ptr<Device> device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
-    std::shared_ptr<DescriptorPool> descriptorPool)
+    std::shared_ptr<DescriptorPool> descriptorPool, const void* pNext)
     : m_device(device), m_descriptorSetLayout(descriptorSetLayout), m_descriptorPool(descriptorPool)
 {
-    m_descriptorPool->allocateSet(m_descriptorSetLayout->getLayout(), m_descriptorSet);
+    m_descriptorPool->allocateSet(m_descriptorSetLayout->getLayout(), m_descriptorSet, pNext);
 }
 
 DescriptorSet::~DescriptorSet()
@@ -15,7 +15,8 @@ DescriptorSet::~DescriptorSet()
 }
 
 
-void DescriptorSet::addBuffers(std::vector<uint32_t> binding, std::vector<VkDescriptorBufferInfo> bufferInfo)
+void DescriptorSet::addBuffers(std::vector<uint32_t> binding, std::vector<VkDescriptorBufferInfo> bufferInfo,
+        uint32_t dstArrayElement)
 {
     for (int i = 0; i < binding.size(); i++)
     {
@@ -26,6 +27,7 @@ void DescriptorSet::addBuffers(std::vector<uint32_t> binding, std::vector<VkDesc
         descriptorWrite.dstBinding = binding[i];
         descriptorWrite.descriptorType = dType;
         descriptorWrite.descriptorCount = 1;
+        descriptorWrite.dstArrayElement = dstArrayElement;
         descriptorWrite.pBufferInfo = &bufferInfo[i];
         descriptorWrite.pImageInfo = nullptr;
         descriptorWrite.pTexelBufferView = nullptr;
@@ -36,7 +38,8 @@ void DescriptorSet::addBuffers(std::vector<uint32_t> binding, std::vector<VkDesc
 
 }
 
-void DescriptorSet::addImages(std::vector<uint32_t> binding, std::vector<VkDescriptorImageInfo> imageInfo)
+void DescriptorSet::addImages(std::vector<uint32_t> binding, std::vector<VkDescriptorImageInfo> imageInfo,
+        uint32_t dstArrayElement)
 {
     for (int i = 0; i < binding.size(); i++)
     {
@@ -47,6 +50,7 @@ void DescriptorSet::addImages(std::vector<uint32_t> binding, std::vector<VkDescr
         descriptorWrite.dstBinding = binding[i];
         descriptorWrite.descriptorType = dType;
         descriptorWrite.descriptorCount = 1;
+        descriptorWrite.dstArrayElement = dstArrayElement;
         descriptorWrite.pImageInfo = &imageInfo[i];
         descriptorWrite.pTexelBufferView = nullptr;
         descriptorWrite.dstSet = m_descriptorSet;

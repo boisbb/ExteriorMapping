@@ -55,10 +55,14 @@ void Application::init()
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         ubos[i]->map();
 
-        sbos[i] = std::make_unique<Buffer>(m_device, sizeof(SharedBufferObject) * MAX_SBOS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        sbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataVertex) * MAX_SBOS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         sbos[i]->map();
     }
+
+    m_model = vke::utils::importModel("../res/models/basicPlane/plane.obj");
+    auto& textureMap = m_renderer->getTextureMap();
+    m_model->afterImportInit(m_device, textureMap);
 
     // UBO and SSBO set
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
@@ -78,6 +82,7 @@ void Application::init()
     std::vector<VkDescriptorSetLayoutBinding> layoutB;
     layoutB.push_back(uboLayoutBinding);
     layoutB.push_back(sboLayoutBinding);
+
     std::shared_ptr<DescriptorSetLayout> m_dSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutB);
 
     VkDescriptorPoolSize poolSizeUbo{};
@@ -93,30 +98,46 @@ void Application::init()
     poolS.push_back(poolSizeSbo);
     std::shared_ptr<DescriptorPool> m_dPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, poolS);
 
-    // Sampler set
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 0;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    //--
 
-    std::vector<VkDescriptorSetLayoutBinding> textureB;
-    textureB.push_back(samplerLayoutBinding);
-    std::shared_ptr<DescriptorSetLayout> m_textSetLayout = std::make_shared<DescriptorSetLayout>(m_device, textureB);
+    VkDescriptorSetLayoutBinding bindlessTextLayoutBinding{};
+    bindlessTextLayoutBinding.binding = 1;
+    bindlessTextLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindlessTextLayoutBinding.descriptorCount = MAX_BINDLESS_RESOURCES;
+    bindlessTextLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    bindlessTextLayoutBinding.pImmutableSamplers = nullptr;
 
-    VkDescriptorPoolSize poolSizeSampler{};
-    poolSizeSampler.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizeSampler.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
+    std::vector<VkDescriptorSetLayoutBinding> bindlessLayoutB;
+    bindlessLayoutB.push_back(bindlessTextLayoutBinding);
 
-    std::vector<VkDescriptorPoolSize> textureS;
-    textureS.push_back(poolSizeSampler);
-    std::shared_ptr<DescriptorPool> m_textPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2, 0, textureS);
+    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT |
+        VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+    
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT layoutNext{};
+    layoutNext.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+    layoutNext.bindingCount = bindlessLayoutB.size();
+    layoutNext.pBindingFlags = &bindingFlags;
+    layoutNext.pNext = nullptr;
+
+    std::shared_ptr<DescriptorSetLayout> m_bindlessSetLayout = std::make_shared<DescriptorSetLayout>(m_device, bindlessLayoutB,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, &layoutNext);
+
+    VkDescriptorPoolSize poolSizeBindlessText{};
+    poolSizeBindlessText.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizeBindlessText.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_BINDLESS_RESOURCES);
+
+    std::vector<VkDescriptorPoolSize> bindlessPoolS;
+    bindlessPoolS.push_back(poolSizeBindlessText);
+
+    std::shared_ptr<DescriptorPool> m_bindlessPool = std::make_shared<DescriptorPool>(m_device,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_BINDLESS_RESOURCES), VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
+        bindlessPoolS);
     //--
 
     std::vector<VkDescriptorSetLayout> dSetLayouts = {
         m_dSetLayout->getLayout(),
-        m_textSetLayout->getLayout()
+        m_bindlessSetLayout->getLayout()
+        // m_textSetLayout->getLayout()
     };
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -150,62 +171,56 @@ void Application::init()
         m_dSets[i]->addBuffers(bufferBinding, bufferInfos);
     }
 
-    m_model = vke::utils::importModel("../res/models/basicPlane/plane.obj");
-    auto& textureMap = m_renderer->getTextureMap();
-    m_model->afterImportInit(m_device, textureMap, m_textSetLayout, m_textPool);
-
-    m_sampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+    std::shared_ptr<Sampler> m_sampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
         VK_SAMPLER_MIPMAP_MODE_LINEAR);
 
     int width, height, channels;
     unsigned char* pixels = utils::loadImage("../res/textures/pepe.jpg", width, height, channels);
 
-    m_texture = std::make_shared<Texture>(m_device, pixels, glm::vec2(width, height), channels,
+    std::shared_ptr<Texture> m_texture = std::make_shared<Texture>(m_device, pixels, glm::vec2(width, height), channels,
         VK_FORMAT_R8G8B8_SRGB);
     m_texture->setSampler(m_sampler);
 
-    free(pixels);
+    m_textures.push_back(m_texture);
 
-    auto& ttmap = m_renderer->getTextureMap();
+    std::shared_ptr<Sampler> m_sampler2 = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR);
 
     pixels = utils::loadImage("../res/textures/negus.jpg", width, height, channels);
-    m_texture2 = std::make_shared<Texture>(m_device, pixels, glm::vec2(width, height), channels,
+
+    std::shared_ptr<Texture> m_texture2 = std::make_shared<Texture>(m_device, pixels, glm::vec2(width, height), channels,
         VK_FORMAT_R8G8B8_SRGB);
-    m_texture2->setSampler(m_sampler);
+    m_texture2->setSampler(m_sampler2);
 
-    m_textSets.resize(MAX_FRAMES_IN_FLIGHT);
+    m_textures.push_back(m_texture2);
+
+    m_bindlessSets.resize(MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        m_textSets[i] = std::make_shared<DescriptorSet>(m_device, m_textSetLayout, m_textPool);
+        uint32_t maxBinding = static_cast<uint32_t>(MAX_BINDLESS_RESOURCES - 1);
 
-        std::vector<VkDescriptorImageInfo> imageInfos{
-            m_texture->getInfo()
-        };
+        VkDescriptorSetVariableDescriptorCountAllocateInfoEXT countInfo{};
+        countInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT;
+        countInfo.descriptorSetCount = 1;
+        countInfo.pDescriptorCounts = &maxBinding;  
 
-        std::vector<uint32_t> imageBinding
+        m_bindlessSets[i] = std::make_shared<DescriptorSet>(m_device, m_bindlessSetLayout, m_bindlessPool, &countInfo);
+
+        for (int j = 0; j < m_textures.size(); j++)
         {
-            0
-        };
+            std::vector<VkDescriptorImageInfo> imageInfos{
+                m_textures[j]->getInfo()
+            };
 
-        m_textSets[i]->addImages(imageBinding, imageInfos);
+            std::vector<uint32_t> imageBinding{
+                1
+            };
+
+            m_bindlessSets[i]->addImages(imageBinding, imageInfos, j);
+        }
     }
 
-    m_textSets2.resize(MAX_FRAMES_IN_FLIGHT);
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        m_textSets2[i] = std::make_shared<DescriptorSet>(m_device, m_textSetLayout, m_textPool);
-
-        std::vector<VkDescriptorImageInfo> imageInfos{
-            m_texture2->getInfo()
-        };
-
-        std::vector<uint32_t> imageBinding
-        {
-            0
-        };
-
-        m_textSets2[i]->addImages(imageBinding, imageInfos);
-    }
+    free(pixels);
 }
 
 void Application::draw()
@@ -310,12 +325,14 @@ void Application::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t im
     VkDescriptorSet currentDset = m_dSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 0, 1, &currentDset, 0, nullptr);
 
-    VkDescriptorSet textDset;
-    if ((cntr / 5000) % 2 == 0)
-        textDset = m_textSets[m_currentFrame]->getDescriptorSet();
-    else
-        textDset = m_textSets2[m_currentFrame]->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 1, 1, &textDset, 0, nullptr);
+    // VkDescriptorSet textDset;
+    // if ((cntr / 5000) % 2 == 0)
+    //     textDset = m_textSets[m_currentFrame]->getDescriptorSet();
+    // else
+    //     textDset = m_textSets2[m_currentFrame]->getDescriptorSet();
+    // vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 1, 1, &textDset, 0, nullptr);
+    VkDescriptorSet bindlessSet = m_bindlessSets[m_currentFrame]->getDescriptorSet();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vkPipelineLayout, 1, 1, &bindlessSet, 0, nullptr);
 
     m_model->draw(commandBuffer);
 
@@ -339,11 +356,11 @@ void Application::updateUniformBuffer(uint32_t currentImage)
     
     memcpy(ubos[currentImage]->getMapped(), &ubo, sizeof(ubo));
 
-    std::vector<SharedBufferObject> sboData(1);
+    std::vector<MeshShaderDataVertex> sboData(1);
     
     sboData[0].model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 
-    memcpy(sbos[currentImage]->getMapped(), sboData.data(), sizeof(SharedBufferObject) * sboData.size());
+    memcpy(sbos[currentImage]->getMapped(), sboData.data(), sizeof(MeshShaderDataVertex) * sboData.size());
 }
 
 }

@@ -5,7 +5,8 @@
 namespace vke
 {
 
-DescriptorSetLayout::DescriptorSetLayout(std::shared_ptr<Device> device, std::vector<VkDescriptorSetLayoutBinding> vkbindings)
+DescriptorSetLayout::DescriptorSetLayout(std::shared_ptr<Device> device, std::vector<VkDescriptorSetLayoutBinding> vkbindings,
+    VkDescriptorSetLayoutCreateFlags flags, const void* pNext)
     : m_device(device)
 {
     for (auto vkbinding : vkbindings)
@@ -15,6 +16,8 @@ DescriptorSetLayout::DescriptorSetLayout(std::shared_ptr<Device> device, std::ve
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = vkbindings.size();
     layoutInfo.pBindings = vkbindings.data();
+    layoutInfo.flags = flags;
+    layoutInfo.pNext = pNext;
 
     if (vkCreateDescriptorSetLayout(m_device->getVkDevice(), &layoutInfo, nullptr, &m_descriptorSetLayout) != VK_SUCCESS)
     {
