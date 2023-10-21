@@ -11,10 +11,12 @@ class Pipeline
 {
 public:
     Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std::string vertFile,
-        std::string fragFile, VkPipelineLayout pipelineLayout);
+        std::string fragFile, std::vector<VkDescriptorSetLayout> descriptorSetLayouts);
     ~Pipeline();
 
-    VkPipeline getPipeline();
+    VkPipeline getPipeline() const;
+    VkPipelineLayout getPipelineLayout() const;
+
     void bind(VkCommandBuffer commandBuffer);
 
 private:
@@ -23,6 +25,7 @@ private:
     std::shared_ptr<Device> m_device;
 
     VkPipeline m_graphicsPipeline;
+    VkPipelineLayout m_pipelineLayout;
 };
 
 }

@@ -31,16 +31,13 @@ Texture::Texture(std::shared_ptr<Device> device, unsigned char* pixels, glm::vec
     m_image->transitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     m_imageView = m_image->createImageView();
+
+    m_sampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR);
 }
 
 Texture::~Texture()
 {
-}
-
-
-void Texture::setSampler(std::shared_ptr<Sampler> sampler)
-{
-    m_sampler = sampler;
 }
 
 std::shared_ptr<Sampler> Texture::getSampler() const

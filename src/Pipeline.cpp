@@ -5,9 +5,18 @@ namespace vke
 {
 
 Pipeline::Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std::string vertFile,
-    std::string fragFile, VkPipelineLayout pipelineLayout)
+    std::string fragFile, std::vector<VkDescriptorSetLayout> descriptorSetLayouts)
     : m_device(device)
 {
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+
+    if (vkCreatePipelineLayout(m_device->getVkDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create pipeline layout!");
+    }
+
     std::vector<char> vertShaderCode = utils::readFile(vertFile);
     std::vector<char> fragShaderCode = utils::readFile(fragFile);
 
@@ -130,7 +139,7 @@ Pipeline::Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std:
     pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = m_pipelineLayout;
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -149,9 +158,14 @@ Pipeline::~Pipeline()
 {
 }
 
-VkPipeline Pipeline::getPipeline()
+VkPipeline Pipeline::getPipeline() const
 {
     return m_graphicsPipeline;
+}
+
+VkPipelineLayout Pipeline::getPipelineLayout() const
+{
+    return m_pipelineLayout;
 }
 
 void Pipeline::bind(VkCommandBuffer commandBuffer)

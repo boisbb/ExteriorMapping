@@ -1,5 +1,6 @@
 #include "Material.h"
 #include "Texture.h"
+#include "utils/Constants.h"
 
 namespace vke
 {
@@ -8,7 +9,8 @@ Material::Material()
     : m_ambientColor{ 1.f },
     m_diffuseColor{ 1.f },
     m_specularColor{ 1.f },
-    m_texture{ nullptr }
+    m_textureId{ RET_ID_NOT_FOUND },
+    m_hasTexture{ false }
 {
     
 }
@@ -38,14 +40,15 @@ void Material::setOpacity(float opacity)
     m_opacity = opacity;
 }
 
-void Material::setTexture(std::shared_ptr<Texture> texture)
+void Material::setTextureId(int id)
 {
-    m_texture = texture;
+    m_textureId = id;
 }
 
 void Material::setTextureFile(std::string filename)
 {
     m_textureFile = filename;
+    m_hasTexture = true;
 }
 
 glm::vec3 Material::getAmbientColor() const
@@ -63,9 +66,9 @@ float Material::getOpacity() const
     return m_opacity;
 }
 
-std::shared_ptr<Texture> Material::getTexture() const
+int Material::getTextureId() const
 {
-    return m_texture;
+    return m_textureId;
 }
 
 std::string Material::getTextureFile() const
@@ -75,7 +78,7 @@ std::string Material::getTextureFile() const
 
 bool Material::hasTexture() const
 {
-    return m_texture != nullptr;
+    return m_hasTexture;
 }
 
 void Material::initTexture()

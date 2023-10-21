@@ -7,6 +7,8 @@
 namespace vke
 {
 
+VkDescriptorPoolSize createPoolSize(VkDescriptorType type, uint32_t descriptorCount);
+
 class DescriptorPool
 {
 public:

@@ -20,8 +20,6 @@ public:
         VkFormat format = VK_FORMAT_R8G8B8_SRGB);
     ~Texture();
 
-    void setSampler(std::shared_ptr<Sampler> sampler);
-
     std::shared_ptr<Sampler> getSampler() const;
     std::shared_ptr<Image> getImage() const;
     VkDescriptorImageInfo getInfo() const;

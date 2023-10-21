@@ -39,5 +39,18 @@ void DescriptorPool::allocateSet(const VkDescriptorSetLayout descriptorSetLayout
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 }
+}
+
+namespace vke
+{
+
+VkDescriptorPoolSize createPoolSize(VkDescriptorType type, uint32_t descriptorCount)
+{
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = type;
+    poolSize.descriptorCount = descriptorCount;
+
+    return poolSize;
+}
 
 }

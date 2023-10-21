@@ -21,9 +21,11 @@ layout(location = 3) in vec2 inUv;
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec3 normal;
 layout(location = 2) out vec2 uv;
+layout(location = 3) out int instanceId;
 
 void main() 
 {
+    instanceId = gl_InstanceIndex;
     mat4 model = sbo.objects[gl_InstanceIndex].model;
     gl_Position = ubo.proj * ubo.view * model * vec4(inPosition, 1.0);
     fragColor = inColor;

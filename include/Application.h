@@ -28,16 +28,9 @@
 #include "Device.h"
 #include "SwapChain.h"
 #include "Pipeline.h"
-#include "Buffer.h"
 #include "Renderer.h"
 #include "Model.h"
-#include "Texture.h"
-#include "Sampler.h"
-#include "Mesh.h"
 #include "Camera.h"
-#include "descriptors/SetLayout.h"
-#include "descriptors/Pool.h"
-#include "descriptors/Set.h"
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -58,36 +51,11 @@ private:
     void draw();
     void cleanup();
 
-    void renderFrame();
-
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
-    void updateUniformBuffer(uint32_t currentImage);
-
-    uint32_t m_currentFrame = 0;
-
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Device> m_device;
-    std::shared_ptr<Pipeline> m_pipeline;
     std::shared_ptr<Renderer> m_renderer;
-
-    std::shared_ptr<Model> m_model;
-
-    std::vector<std::shared_ptr<Sampler>> m_samplers;
-    std::vector<std::shared_ptr<Texture>> m_textures;
-
+    std::vector<std::shared_ptr<Model>> m_models;
     std::shared_ptr<Camera> m_camera;
-
-    std::vector<std::shared_ptr<DescriptorSet>> m_dSets;
-    std::vector<std::shared_ptr<DescriptorSet>> m_bindlessSets;
-    std::vector<std::shared_ptr<DescriptorSet>> m_textSets;
-    std::vector<std::shared_ptr<DescriptorSet>> m_textSets2;
-
-    std::vector<std::unique_ptr<Buffer>> ubos;
-    std::vector<std::unique_ptr<Buffer>> sbos;
-    
-    VkPipelineLayout m_vkPipelineLayout;
-
 };
 
 }

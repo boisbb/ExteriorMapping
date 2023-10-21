@@ -20,14 +20,14 @@ public:
     void setDiffuseColor(glm::vec3 color);
     void setSpecularColor(glm::vec3 color);
     void setOpacity(float opacity);
-    void setTexture(std::shared_ptr<Texture> texture);
     void setTextureFile(std::string filename);
+    void setTextureId(int id);
 
     glm::vec3 getAmbientColor() const;
     glm::vec3 getDiffuseColor() const;
     glm::vec3 getSpecularColor() const;
     float getOpacity() const;
-    std::shared_ptr<Texture> getTexture() const;
+    int getTextureId() const;
     std::string getTextureFile() const;
 
     bool hasTexture() const;
@@ -39,7 +39,8 @@ private:
     glm::vec3 m_specularColor;
 
     std::string m_textureFile;
-    std::shared_ptr<Texture> m_texture;
+    int m_textureId;
+    bool m_hasTexture;
 
     float m_opacity;
 };

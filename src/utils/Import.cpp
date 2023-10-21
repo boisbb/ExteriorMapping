@@ -114,6 +114,7 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
             std::cout << "Ambient texture" << std::endl;
             std::cout << "Mtl name: " << material->GetName().C_Str() << std::endl;
             std::cout << "Texture file: " << textureFile.C_Str() << std::endl;
+            throw std::runtime_error("Error: ambient textures not implemented.");
         }
         else if (material->GetTextureCount(aiTextureType_SPECULAR))
         {
@@ -121,6 +122,7 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
             std::cout << "Specular texture" << std::endl;
             std::cout << "Mtl name: " << material->GetName().C_Str() << std::endl;
             std::cout << "Texture file: " << textureFile.C_Str() << std::endl;
+            throw std::runtime_error("Error: specular textures not implemented.");
         }
         else if (material->GetTextureCount(aiTextureType_DIFFUSE))
         {
@@ -137,6 +139,7 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
             std::cout << "Unknown texture" << std::endl;
             std::cout << "Mtl name: " << material->GetName().C_Str() << std::endl;
             std::cout << "Texture file: " << textureFile.C_Str() << std::endl;
+            throw std::runtime_error("Error: unknown textures not implemented.");
         }
 
         // Get colors

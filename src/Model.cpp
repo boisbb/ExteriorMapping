@@ -1,6 +1,7 @@
 #include "Model.h"
 #include "Mesh.h"
 #include "Device.h"
+#include "Renderer.h"
 #include "descriptors/SetLayout.h"
 #include "descriptors/Pool.h"
 
@@ -26,10 +27,10 @@ void Model::addMesh(std::shared_ptr<Mesh> mesh)
 }
 
 void Model::afterImportInit(std::shared_ptr<Device> device,
-    std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap)
+    std::shared_ptr<Renderer> renderer)
 {
     for (auto mesh : m_meshes)
-        mesh->afterImportInit(device, textureMap);
+        mesh->afterImportInit(device, renderer);
 }
 
 void Model::draw(VkCommandBuffer commandBuffer)

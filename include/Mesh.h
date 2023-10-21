@@ -22,6 +22,7 @@ struct Vertex;
 class Buffer;
 class Device;
 class Material;
+class Renderer;
 
 }
 
@@ -35,7 +36,7 @@ public:
     ~Mesh();
 
     void afterImportInit(std::shared_ptr<Device> device,
-        std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap);
+        std::shared_ptr<Renderer> renderer);
     void draw(VkCommandBuffer commandBuffer);
 
     void setModelMatrix(glm::mat4 matrix);

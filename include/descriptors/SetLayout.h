@@ -10,6 +10,9 @@
 namespace vke
 {
 
+VkDescriptorSetLayoutBinding createDescriptorSetLayoutBinding(uint32_t binding, VkDescriptorType descriptorType,
+    uint32_t descriptorCount, VkShaderStageFlags stageFlags, VkSampler* pImmutableSamplers = nullptr);
+
 class DescriptorSetLayout
 {
 public:

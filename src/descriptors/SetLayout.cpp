@@ -38,4 +38,23 @@ VkDescriptorSetLayout DescriptorSetLayout::getLayout()
 {
     return m_descriptorSetLayout;
 }
+
+}
+
+namespace vke
+{
+
+VkDescriptorSetLayoutBinding createDescriptorSetLayoutBinding(uint32_t binding, VkDescriptorType descriptorType,
+    uint32_t descriptorCount, VkShaderStageFlags stageFlags, VkSampler* pImmutableSamplers)
+{
+    VkDescriptorSetLayoutBinding setLayoutBinding{};
+    setLayoutBinding.binding = binding;
+    setLayoutBinding.descriptorType = descriptorType;
+    setLayoutBinding.descriptorCount = descriptorCount;
+    setLayoutBinding.stageFlags = stageFlags;
+    setLayoutBinding.pImmutableSamplers = pImmutableSamplers;
+
+    return setLayoutBinding;
+}
+
 }

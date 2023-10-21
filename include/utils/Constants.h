@@ -7,3 +7,5 @@
 
 #define WIDTH 800
 #define HEIGHT 600
+
+#define RET_ID_NOT_FOUND -1

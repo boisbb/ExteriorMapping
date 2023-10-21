@@ -2,11 +2,20 @@
 
 // layout(set = 1, binding = 0) uniform sampler2D texSampler;
 
-layout(set = 1, binding = 1) uniform sampler2D samplers[];
+struct MeshShaderDataFragment {
+    int textureId;
+};
+
+layout(std140, binding = 2) readonly buffer storageBufferFrag {
+    MeshShaderDataFragment objects[];
+} sbof;
+
+layout(set = 1, binding = 0) uniform sampler2D samplers[2];
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in vec2 uv;
+layout(location = 3) flat in int instanceId;
 
 layout(location = 0) out vec4 outColor;
 
@@ -16,5 +25,7 @@ void main()
 
     // outColor = vec4(uv, 0.0f, 1.0f);
 
-    outColor = texture(samplers[0], uv);
+    int textureId = instanceId;//sbof.objects[0].textureId;
+
+    outColor = texture(samplers[textureId], uv);
 }

@@ -15,6 +15,7 @@ class DescriptorSetLayout;
 class DescriptorPool;
 class Mesh;
 class Device;
+class Renderer;
 
 class Model
 {
@@ -27,7 +28,7 @@ public:
     void addMesh(std::shared_ptr<Mesh> mesh);
 
     void afterImportInit(std::shared_ptr<Device> device,
-        std::unordered_map<std::string, std::shared_ptr<Texture>>& textureMap);
+        std::shared_ptr<Renderer> renderer);
 
     void draw(VkCommandBuffer commandBuffer);
 private:
