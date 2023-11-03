@@ -4,11 +4,13 @@
 #include "Renderer.h"
 #include "descriptors/SetLayout.h"
 #include "descriptors/Pool.h"
+#include "utils/Structs.h"
 
 namespace vke
 {
 
 Model::Model()
+    : m_modelMatrix{1.f}
 {
 }
 
@@ -33,12 +35,43 @@ void Model::afterImportInit(std::shared_ptr<Device> device,
         mesh->afterImportInit(device, renderer);
 }
 
-void Model::draw(VkCommandBuffer commandBuffer)
+void Model::draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart)
 {
     for (auto mesh : m_meshes)
     {
-        mesh->draw(commandBuffer);
+        mesh->draw(commandBuffer, instanceStart);
     }
+}
+
+void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
+        uint32_t& instanceId)
+{
+    for (auto& mesh : m_meshes)
+    {
+        VkDrawIndexedIndirectCommand command = mesh->createIndirectDrawCommand(instanceId);
+        commands.push_back(command);
+
+        instanceId++;
+    }
+}
+
+void Model::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
+    std::vector<MeshShaderDataFragment>& fragmentShaderData)
+{
+    for (auto mesh : m_meshes)
+    {
+        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
+    }
+}
+
+void Model::setModelMatrix(glm::mat4 matrix)
+{
+    m_modelMatrix = matrix;
+}
+
+glm::mat4 Model::getModelMatrix() const
+{
+    return m_modelMatrix;
 }
 
 }

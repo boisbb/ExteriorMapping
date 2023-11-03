@@ -8,7 +8,7 @@ namespace vke::utils
 {
 
 std::vector<char> readFile(const std::string& filename);
-unsigned char* loadImage(const std::string& filename, int& width, int& height, int& channels);
+unsigned char* loadImage(std::string& filename, int& width, int& height, int& channels);
 
 }
 

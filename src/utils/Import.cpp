@@ -21,13 +21,18 @@ inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
 }
 
 std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
-    const aiMatrix4x4& accTransform, std::string directory)
+    const aiMatrix4x4& accTransform, std::vector<Vertex>& vertices,
+    std::vector<uint32_t>& indices, std::string directory)
 {
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
+    std::vector<Vertex> localVertices;
+    std::vector<uint32_t> localIndices;
 
     aiVector3D UVW;
     aiVector3D n;
+
+    Mesh::MeshInfo info{};
+    info.firstIndex = indices.size();
+    info.vertexOffset = vertices.size();
 
     for (uint32_t j = 0; j < mesh->mNumVertices; j++)
     {
@@ -83,18 +88,23 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
         }
 
         vertices.push_back(vertex);
+        localVertices.push_back(vertex);
     }
 
     for (uint32_t i = 0; i < mesh->mNumFaces; i++)
     {
         aiFace face = mesh->mFaces[i];
         for (uint32_t j = 0; j < face.mNumIndices; j++)
+        {
             indices.push_back(face.mIndices[j]);
+            localIndices.push_back(face.mIndices[j]);
+        }
     }
 
     glm::mat4 modelMatrix = aiMatrix4x4ToGlm(&accTransform);
 
-    std::shared_ptr<Mesh> myMesh = std::make_shared<Mesh>(vertices, indices);
+    info.indexCount = indices.size() - info.firstIndex;
+    std::shared_ptr<Mesh> myMesh = std::make_shared<Mesh>(localVertices, localIndices, info);
     myMesh->setModelMatrix(modelMatrix);
 
     std::shared_ptr<Material> myMaterial = std::make_shared<Material>();
@@ -111,35 +121,46 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
         if (material->GetTextureCount(aiTextureType_AMBIENT))
         {
             material->GetTexture(aiTextureType_AMBIENT, 0, &textureFile);
-            std::cout << "Ambient texture" << std::endl;
-            std::cout << "Mtl name: " << material->GetName().C_Str() << std::endl;
-            std::cout << "Texture file: " << textureFile.C_Str() << std::endl;
-            throw std::runtime_error("Error: ambient textures not implemented.");
+            myMaterial->setTextureFile(directory + "/" + textureFile.C_Str());
+
+            std::cout << "Info: mesh has ambient textures: " << textureFile.C_Str() << std::endl;
         }
         else if (material->GetTextureCount(aiTextureType_SPECULAR))
         {
             material->GetTexture(aiTextureType_SPECULAR, 0, &textureFile);
-            std::cout << "Specular texture" << std::endl;
-            std::cout << "Mtl name: " << material->GetName().C_Str() << std::endl;
-            std::cout << "Texture file: " << textureFile.C_Str() << std::endl;
-            throw std::runtime_error("Error: specular textures not implemented.");
+            std::cerr << "Warning: Specular textures not implemented." << std::endl;
         }
         else if (material->GetTextureCount(aiTextureType_DIFFUSE))
         {
             material->GetTexture(aiTextureType_DIFFUSE, 0, &textureFile);
-            std::cout << "Diffuse texture" << std::endl;
-            std::cout << "Mtl name: " << material->GetName().C_Str() << std::endl;
-            std::cout << "Texture file: " << textureFile.C_Str() << std::endl;
-
             myMaterial->setTextureFile(directory + "/" + textureFile.C_Str());
+
+            std::cout << "Info: mesh has diffuse textures: " << textureFile.C_Str() << std::endl;
         }
         else if (material->GetTextureCount(aiTextureType_UNKNOWN))
         {
             material->GetTexture(aiTextureType_UNKNOWN, 0, &textureFile);
-            std::cout << "Unknown texture" << std::endl;
-            std::cout << "Mtl name: " << material->GetName().C_Str() << std::endl;
-            std::cout << "Texture file: " << textureFile.C_Str() << std::endl;
-            throw std::runtime_error("Error: unknown textures not implemented.");
+
+            std::cerr << "Warning: Unknown textures not implemented." << std::endl;
+        }
+
+        if (material->GetTextureCount(aiTextureType_NORMALS))
+        {
+            material->GetTexture(aiTextureType_NORMALS, 0, &textureFile);
+
+            std::cout << "Info: mesh has normal textures: " << textureFile.C_Str() << std::endl;
+            std::cerr << "Warning: Normal textures not implemented." << std::endl;
+            // throw std::runtime_error("Error: unknown textures not implemented.");
+        }
+        else if (material->GetTextureCount(aiTextureType_HEIGHT))
+        {
+            // https://stackoverflow.com/questions/5281261/generating-a-normal-map-from-a-height-map
+            material->GetTexture(aiTextureType_HEIGHT, 0, &textureFile);
+
+            std::cout << "Info: mesh has height textures: " << textureFile.C_Str() << std::endl;
+            std::cerr << "Warning: Height textures not implemented." << std::endl;
+            myMaterial->setBumpTextureFile(directory + "/" + textureFile.C_Str());
+            // throw std::runtime_error("Error: unknown textures not implemented.");
         }
 
         // Get colors
@@ -168,32 +189,35 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
         myMaterial->setOpacity(1.f);
     }
 
-    std::cout << "Mesh info:" << std::endl;
-    std::cout << "vertices: " << vertices.size() << std::endl;
-    std::cout << "indices: " << indices.size() << std::endl;
-    std::cout << "has vertex colors: " << (bool)(mesh->HasVertexColors(0) == true) << std::endl;
+    // std::cout << "Mesh info:" << std::endl;
+    // std::cout << "vertices: " << vertices.size() << std::endl;
+    // std::cout << "indices: " << indices.size() << std::endl;
+    // std::cout << "has vertex colors: " << (bool)(mesh->HasVertexColors(0) == true) << std::endl;
 
     return myMesh;
 }
 
 void processNode(const std::shared_ptr<Model>& model, aiNode* node, const aiScene* scene,
-    const aiMatrix4x4& accTransform, std::string directory)
+    const aiMatrix4x4& accTransform, std::vector<Vertex>& vertices,
+    std::vector<uint32_t>& indices, std::string directory)
 {
     for (unsigned int i = 0; i < node->mNumMeshes; i++)
     {
         aiMesh* aimesh = scene->mMeshes[node->mMeshes[i]];
-        std::shared_ptr<Mesh> mesh = processMesh(aimesh, scene, accTransform, directory);
+        std::shared_ptr<Mesh> mesh = processMesh(aimesh, scene, accTransform, vertices, indices,
+            directory);
         model->addMesh(mesh);
     }
 
     for (unsigned int i = 0; i < node->mNumChildren; i++)
     {
         processNode(model, node->mChildren[i], scene, accTransform * node->mChildren[i]->mTransformation,
-            directory);
+            vertices, indices, directory);
     }
 }
 
-std::shared_ptr<Model> importModel(const std::string& filename)
+std::shared_ptr<Model> importModel(const std::string& filename, std::vector<Vertex>& vertices,
+    std::vector<uint32_t>& indices)
 {
     std::string directory;
     const size_t last_slash_idx = filename.rfind('/');
@@ -214,7 +238,8 @@ std::shared_ptr<Model> importModel(const std::string& filename)
 
     std::shared_ptr<Model> model = std::make_shared<Model>();
 
-    processNode(model, scene->mRootNode, scene, scene->mRootNode->mTransformation, fs::absolute(dirPath).c_str());
+    processNode(model, scene->mRootNode, scene, scene->mRootNode->mTransformation, vertices, indices,
+        fs::absolute(dirPath).c_str());
 
     return model;
 }

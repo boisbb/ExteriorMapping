@@ -10,7 +10,9 @@ Material::Material()
     m_diffuseColor{ 1.f },
     m_specularColor{ 1.f },
     m_textureId{ RET_ID_NOT_FOUND },
-    m_hasTexture{ false }
+    m_hasTexture{ false },
+    m_bumpTextureId{ RET_ID_NOT_FOUND },
+    m_hasBumpTexture{ false }
 {
     
 }
@@ -45,6 +47,21 @@ void Material::setTextureId(int id)
     m_textureId = id;
 }
 
+void Material::setBumpTextureFile(std::string filename)
+{
+    m_bumpTextureFile = filename;
+}
+
+void Material::setBumpTextureId(int id)
+{
+    m_bumpTextureId = id;
+}
+
+void Material::setHasBumpTexture(bool hasBumpMap)
+{
+    m_hasBumpTexture = hasBumpMap;
+}
+
 void Material::setTextureFile(std::string filename)
 {
     m_textureFile = filename;
@@ -71,12 +88,27 @@ int Material::getTextureId() const
     return m_textureId;
 }
 
+std::string Material::getBumpTextureFile() const
+{
+    return m_bumpTextureFile;
+}
+
+int Material::getBumpTextureId() const
+{
+    return m_bumpTextureId;
+}
+
 std::string Material::getTextureFile() const
 {
     return m_textureFile;
 }
 
 bool Material::hasTexture() const
+{
+    return m_hasTexture;
+}
+
+bool Material::hasBumpTexture() const
 {
     return m_hasTexture;
 }

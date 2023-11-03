@@ -30,9 +30,14 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct UniformBufferObject {
+struct UniformDataVertex {
     glm::mat4 view;
     glm::mat4 proj;
+};
+
+struct UniformDataFragment {
+    glm::vec3 lightPos;
+    float __padding;
 };
 
 struct MeshShaderDataVertex {
@@ -40,7 +45,10 @@ struct MeshShaderDataVertex {
 };
 
 struct MeshShaderDataFragment {
+    glm::vec3 diffuseColor;
+    float opacity;
     int textureId;
+    float __padding[3];
 };
 
 struct Vertex {

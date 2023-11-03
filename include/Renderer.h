@@ -13,6 +13,7 @@ namespace vke
 {
 
 class Model;
+class Scene;
 class Camera;
 class DescriptorSetLayout;
 class DescriptorPool;
@@ -26,15 +27,18 @@ public:
     ~Renderer();
 
     void initDescriptorResources();
-    void renderFrame(std::vector<std::shared_ptr<Model>> models, std::shared_ptr<Camera> camera);
+    void renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
 
     std::shared_ptr<SwapChain> getSwapChain() const;
     VkCommandBuffer getCommandBuffer(int id) const;
     std::unordered_map<std::string, int>& getTextureMap();
     int getTextureId(std::string fileName);
     std::vector<std::shared_ptr<Texture>> getTextures() const;
+    int getBumpTextureId(std::string fileName);
+    std::vector<std::shared_ptr<Texture>> getBumpTextures() const;
 
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
+    int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
     void beginRenderPass(int currentFrame, uint32_t imageIndex);
     void endRenderPass(int currentFrame);
@@ -43,9 +47,9 @@ private:
     void createDescriptors();
     void createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile);
 
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, std::vector<std::shared_ptr<Model>> models,
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
         uint32_t imageIndex);
-    void updateDescriptorBuffers(std::vector<std::shared_ptr<Model>> models, std::shared_ptr<Camera> camera);
+    void updateDescriptorData(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
 
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
@@ -55,9 +59,13 @@ private:
     std::unordered_map<std::string, int> m_textureMap;
     std::vector<std::shared_ptr<Texture>> m_textures;
 
+    std::unordered_map<std::string, int> m_bumpTextureMap;
+    std::vector<std::shared_ptr<Texture>> m_bumpTextures;
+
     std::vector<VkCommandBuffer> m_commandBuffers;
 
-    std::vector<std::unique_ptr<Buffer>> ubos;
+    std::vector<std::unique_ptr<Buffer>> vubos;
+    std::vector<std::unique_ptr<Buffer>> fubos;
     std::vector<std::unique_ptr<Buffer>> vssbos;
     std::vector<std::unique_ptr<Buffer>> fssbos;
 

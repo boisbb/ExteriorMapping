@@ -16,6 +16,7 @@ class DescriptorPool;
 class Mesh;
 class Device;
 class Renderer;
+class MeshShaderDataVertex;
 
 class Model
 {
@@ -30,9 +31,18 @@ public:
     void afterImportInit(std::shared_ptr<Device> device,
         std::shared_ptr<Renderer> renderer);
 
-    void draw(VkCommandBuffer commandBuffer);
+    void draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart);
+    void createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
+        uint32_t& instanceId);
+    void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
+        std::vector<MeshShaderDataFragment>& fragmentShaderData);
+
+    void setModelMatrix(glm::mat4 matrix);
+    glm::mat4 getModelMatrix() const;
 private:
     std::vector<std::shared_ptr<Mesh>> m_meshes;
+
+    glm::mat4 m_modelMatrix;
 };
 
 }

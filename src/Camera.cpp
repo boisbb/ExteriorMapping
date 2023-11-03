@@ -47,6 +47,11 @@ void Camera::getCameraRotateInfo(glm::vec2& resolution, float& sensitivity)
     sensitivity = m_sensitivity;
 }
 
+glm::vec3 Camera::getEye() const
+{
+    return m_eye;
+}
+
 void Camera::setCameraInfo(const glm::vec3& eye,
     const glm::vec3& up, const glm::vec3& viewDir, const float& speed)
 {

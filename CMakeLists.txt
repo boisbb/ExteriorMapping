@@ -20,6 +20,7 @@ set ( INCLUDE
     include/Buffer.h
     include/Pipeline.h
     include/Renderer.h
+    include/Scene.h
     include/Model.h
     include/Mesh.h
     include/Camera.h
@@ -49,6 +50,7 @@ set( SOURCE
     src/Camera.cpp
     src/Pipeline.cpp
     src/Renderer.cpp
+    src/Scene.cpp
     src/Model.cpp
     src/Mesh.cpp
     src/Material.cpp

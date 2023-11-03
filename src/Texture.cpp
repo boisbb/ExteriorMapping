@@ -17,7 +17,6 @@ Texture::Texture(std::shared_ptr<Device> device, unsigned char* pixels, glm::vec
     Buffer stagingBuffer(m_device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    std::cout << "hell" << std::endl;
     stagingBuffer.map();
     stagingBuffer.copyMapped((void*)pixels, static_cast<size_t>(imageSize));
     stagingBuffer.unmap();

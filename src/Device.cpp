@@ -25,6 +25,9 @@ Device::Device(std::shared_ptr<Window> window)
 
     vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_features);
 
+    if (m_features.multiDrawIndirect == VK_FALSE)
+        std::cout << std::endl;
+
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
     indexingFeatures.descriptorBindingPartiallyBound = true;
     indexingFeatures.runtimeDescriptorArray = true;

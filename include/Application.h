@@ -30,6 +30,7 @@
 #include "Pipeline.h"
 #include "Renderer.h"
 #include "Model.h"
+#include "Scene.h"
 #include "Camera.h"
 
 #define WIDTH 800
@@ -54,8 +55,12 @@ private:
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Renderer> m_renderer;
+    std::shared_ptr<Scene> m_scene;
     std::vector<std::shared_ptr<Model>> m_models;
     std::shared_ptr<Camera> m_camera;
+
+    std::vector<Vertex> m_vertices;
+    std::vector<uint32_t> m_indices;
 };
 
 }

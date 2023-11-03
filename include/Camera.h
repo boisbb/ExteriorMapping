@@ -25,6 +25,7 @@ public:
     void getCameraInfo(glm::vec3& eye, glm::vec3& up,
         glm::vec3& viewDir, float& speed);
     void getCameraRotateInfo(glm::vec2& resolution, float& sensitivity);
+    glm::vec3 getEye() const;
 
     void setCameraInfo(const glm::vec3& eye,
         const glm::vec3& up, const glm::vec3& viewDir, const float& speed);
@@ -45,7 +46,7 @@ private:
     float m_far;
     float m_fov;
 
-    float m_moveSpeed = 0.01f;
+    float m_moveSpeed = 0.1f;
     float m_sensitivity = 100.f;
 };
 

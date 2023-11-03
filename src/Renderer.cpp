@@ -1,5 +1,6 @@
 #include "Renderer.h"
 #include "Model.h"
+#include "Scene.h"
 #include "Camera.h"
 #include "Pipeline.h"
 #include "descriptors/SetLayout.h"
@@ -17,7 +18,8 @@ namespace vke
 
 Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
         std::string fragmentShaderFile)
-    : m_device(device), m_window(window), m_currentFrame(0), ubos(MAX_FRAMES_IN_FLIGHT),
+    : m_device(device), m_window(window), m_currentFrame(0),
+    vubos(MAX_FRAMES_IN_FLIGHT), fubos(MAX_FRAMES_IN_FLIGHT),
     vssbos(MAX_FRAMES_IN_FLIGHT), fssbos(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_textureDescriptorSets(MAX_FRAMES_IN_FLIGHT)
 {
@@ -40,14 +42,15 @@ void Renderer::initDescriptorResources()
             m_descriptorPool);
 
         std::vector<VkDescriptorBufferInfo> bufferInfos{
-            ubos[i]->getInfo(),
+            vubos[i]->getInfo(),
             vssbos[i]->getInfo(),
+            fubos[i]->getInfo(),
             fssbos[i]->getInfo()
         };
 
         std::vector<uint32_t> bufferBinding
         {
-            0, 1, 2
+            0, 1, 2, 3
         };
 
         m_generalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
@@ -80,7 +83,7 @@ void Renderer::initDescriptorResources()
     }
 }
 
-void Renderer::renderFrame(std::vector<std::shared_ptr<Model>> models, std::shared_ptr<Camera> camera)
+void Renderer::renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
 {
     camera->reconstructMatrices();
 
@@ -107,9 +110,9 @@ void Renderer::renderFrame(std::vector<std::shared_ptr<Model>> models, std::shar
     vkResetFences(m_device->getVkDevice(), 1, &currentFence);
 
     vkResetCommandBuffer(currentCommandBuffer, 0);
-    recordCommandBuffer(currentCommandBuffer, models, imageIndex);
+    recordCommandBuffer(currentCommandBuffer, scene, imageIndex);
 
-    updateDescriptorBuffers(models, camera);
+    updateDescriptorData(scene, camera);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -187,12 +190,33 @@ std::vector<std::shared_ptr<Texture>> Renderer::getTextures() const
     return m_textures;
 }
 
+int Renderer::getBumpTextureId(std::string fileName)
+{
+    if (m_bumpTextureMap.find(fileName) != m_bumpTextureMap.end())
+        return m_bumpTextureMap[fileName];
+    else
+        return RET_ID_NOT_FOUND;
+}
+
+std::vector<std::shared_ptr<Texture>> Renderer::getBumpTextures() const
+{
+    return m_bumpTextures;
+}
+
 int Renderer::addTexture(std::shared_ptr<Texture> texture, std::string filename)
 {
     m_textures.push_back(texture);
     m_textureMap[filename] = m_textures.size() - 1;
 
     return m_textures.size() - 1;
+}
+
+int Renderer::addBumpTexture(std::shared_ptr<Texture> texture, std::string filename)
+{
+    m_bumpTextures.push_back(texture);
+    m_bumpTextureMap[filename] = m_bumpTextures.size() - 1;
+
+    return m_bumpTextures.size() - 1;
 }
 
 void Renderer::beginRenderPass(int currentFrame, uint32_t imageIndex)
@@ -269,9 +293,13 @@ void Renderer::createDescriptors()
     // General mesh data
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        ubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformBufferObject),
+        vubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataVertex),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        ubos[i]->map();
+        vubos[i]->map();
+
+        fubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataFragment),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        fubos[i]->map();
 
         vssbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataVertex) * MAX_SBOS,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -282,32 +310,38 @@ void Renderer::createDescriptors()
         fssbos[i]->map();
     }
 
-    VkDescriptorSetLayoutBinding uboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    VkDescriptorSetLayoutBinding vuboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         1, VK_SHADER_STAGE_VERTEX_BIT);
     VkDescriptorSetLayoutBinding vssboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_VERTEX_BIT);
-    VkDescriptorSetLayoutBinding fssboLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    VkDescriptorSetLayoutBinding fuboLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        1, VK_SHADER_STAGE_FRAGMENT_BIT);
+    VkDescriptorSetLayoutBinding fssboLayoutBinding = createDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_FRAGMENT_BIT);
 
     std::vector<VkDescriptorSetLayoutBinding> layoutBindings = {
-        uboLayoutBinding,
+        vuboLayoutBinding,
         vssboLayoutBinding,
+        fuboLayoutBinding,
         fssboLayoutBinding
     };
 
     m_descriptorSetLayout = std::make_shared<DescriptorSetLayout>(
         m_device, layoutBindings);
 
-    VkDescriptorPoolSize uboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    VkDescriptorPoolSize vuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize vssboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
+    VkDescriptorPoolSize fuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize fssboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
 
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        uboPoolSize,
+        vuboPoolSize,
         vssboPoolSize,
+        fuboPoolSize,
         fssboPoolSize
     };
     m_descriptorPool = std::make_shared<DescriptorPool>(m_device,
@@ -358,7 +392,7 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
         fragmentShaderFile, descriptorSetLayouts);
 }
 
-void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, std::vector<std::shared_ptr<Model>> models,
+void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
     uint32_t imageIndex)
 {
     beginRenderPass(m_currentFrame, imageIndex);
@@ -371,37 +405,36 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, std::vector<st
     VkDescriptorSet textureSet = m_textureDescriptorSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
 
-    // TODO:
-    models[0]->draw(commandBuffer);
+    scene->draw(commandBuffer);
 
     endRenderPass(m_currentFrame);
 }
 
-void Renderer::updateDescriptorBuffers(std::vector<std::shared_ptr<Model>> models, std::shared_ptr<Camera> camera)
+void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
 {
-    // TODO:
-    static auto startTime = std::chrono::high_resolution_clock::now();
+    std::vector<std::shared_ptr<Model>>& models = scene->getModels();
 
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    UniformDataVertex vubo{};
+    vubo.view = camera->getView();
+    vubo.proj = camera->getProjection();
+    vubos[m_currentFrame]->copyMapped(&vubo, sizeof(UniformDataVertex));
 
-    UniformBufferObject ubo{};
-    ubo.view = camera->getView();
-    ubo.proj = camera->getProjection();
-    
-    memcpy(ubos[m_currentFrame]->getMapped(), &ubo, sizeof(ubo));
+    UniformDataFragment fubo{};
+    fubo.lightPos = scene->getLightPos();
+    fubos[m_currentFrame]->copyMapped(&fubo, sizeof(UniformDataFragment));
 
-    std::vector<MeshShaderDataVertex> sboData(1);
-    
-    sboData[0].model = glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
+    std::vector<MeshShaderDataVertex> vssboData;
+    std::vector<MeshShaderDataFragment> fssboData;
 
-    memcpy(vssbos[m_currentFrame]->getMapped(), sboData.data(), sizeof(MeshShaderDataVertex) * sboData.size());
+    for (auto& model : models)
+    {
+        model->updateDescriptorData(vssboData, fssboData);
+    }
 
-    std::vector<MeshShaderDataFragment> fsboData(1);
+    vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());
+    fssbos[m_currentFrame]->copyMapped(fssboData.data(), sizeof(MeshShaderDataFragment) * fssboData.size());
 
-    fsboData[0].textureId = 0;
-
-    memcpy(fssbos[m_currentFrame]->getMapped(), fsboData.data(), sizeof(MeshShaderDataFragment) * fsboData.size());
+    // glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 }
 
 }

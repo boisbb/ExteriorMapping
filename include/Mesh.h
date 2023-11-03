@@ -23,6 +23,7 @@ class Buffer;
 class Device;
 class Material;
 class Renderer;
+class MeshShaderDataVertex;
 
 }
 
@@ -32,19 +33,33 @@ namespace vke
 class Mesh
 {
 public:
-    Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices);
+    struct MeshInfo
+    {
+        uint32_t indexCount;
+        uint32_t firstIndex;
+        uint32_t vertexOffset;
+    };
+
+    Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices, MeshInfo info);
     ~Mesh();
 
     void afterImportInit(std::shared_ptr<Device> device,
         std::shared_ptr<Renderer> renderer);
-    void draw(VkCommandBuffer commandBuffer);
+    void draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart);
+    VkDrawIndexedIndirectCommand createIndirectDrawCommand(uint32_t& instanceId);
+    void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
+        std::vector<MeshShaderDataFragment>& fragmentShaderData, glm::mat4 modelMatrix);
 
     void setModelMatrix(glm::mat4 matrix);
     void setMaterial(std::shared_ptr<Material> material);
 private:
     void createVertexBuffer(std::shared_ptr<Device> device);
     void createIndexBuffer(std::shared_ptr<Device> device);
+    void handleTexture(std::shared_ptr<Device> device, std::shared_ptr<Renderer> renderer);
+    void handleBumpTexture(std::shared_ptr<Device> device, std::shared_ptr<Renderer> renderer);
 
+    MeshInfo m_info;
+    
     glm::mat4 m_modelMatrix;
 
     std::vector<Vertex> m_vertices;

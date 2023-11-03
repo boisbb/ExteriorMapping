@@ -22,15 +22,21 @@ public:
     void setOpacity(float opacity);
     void setTextureFile(std::string filename);
     void setTextureId(int id);
+    void setBumpTextureFile(std::string filename);
+    void setBumpTextureId(int id);
+    void setHasBumpTexture(bool hasBumpMap);
 
     glm::vec3 getAmbientColor() const;
     glm::vec3 getDiffuseColor() const;
     glm::vec3 getSpecularColor() const;
     float getOpacity() const;
-    int getTextureId() const;
     std::string getTextureFile() const;
+    int getTextureId() const;
+    std::string getBumpTextureFile() const;
+    int getBumpTextureId() const;
 
     bool hasTexture() const;
+    bool hasBumpTexture() const;
 
     void initTexture();
 private:
@@ -41,6 +47,10 @@ private:
     std::string m_textureFile;
     int m_textureId;
     bool m_hasTexture;
+
+    std::string m_bumpTextureFile;
+    int m_bumpTextureId;
+    bool m_hasBumpTexture;
 
     float m_opacity;
 };
