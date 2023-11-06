@@ -36,6 +36,7 @@ public:
     SwapChainSupportDetails getSwapChainSupport();
     VkSurfaceKHR getSurface() const;
     VkDevice getVkDevice() const;
+    VkInstance getInstance() const;
     VkCommandPool getCommandPool() const;
     VkQueue getGraphicsQueue() const;
     VkQueue getPresentQueue() const;
@@ -53,6 +54,7 @@ public:
     void beginSingleCommands(VkCommandBuffer& commandBuffer);
     void endSingleCommands(VkCommandBuffer& commandBuffer);
 
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 private:
     void createInstance();
     void createSurface();
@@ -72,7 +74,6 @@ private:
     bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 
     // Find functions
-    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 
     // Debug functions

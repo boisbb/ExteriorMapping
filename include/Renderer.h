@@ -21,13 +21,18 @@ class Pipeline;
 
 class Renderer
 {
-public:
+public:    
     Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
         std::string fragmentShaderFile);
     ~Renderer();
 
     void initDescriptorResources();
     void renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
+
+    uint32_t prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
+        uint32_t imageIndex);
+    void presentFrame(const uint32_t& imageIndex);
 
     std::shared_ptr<SwapChain> getSwapChain() const;
     VkCommandBuffer getCommandBuffer(int id) const;
@@ -36,19 +41,20 @@ public:
     std::vector<std::shared_ptr<Texture>> getTextures() const;
     int getBumpTextureId(std::string fileName);
     std::vector<std::shared_ptr<Texture>> getBumpTextures() const;
+    int getCurrentFrame() const;
+    VkCommandBuffer getCurrentCommandBuffer() const;
 
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
     void beginRenderPass(int currentFrame, uint32_t imageIndex);
     void endRenderPass(int currentFrame);
+    
 private:
     void createCommandBuffers();
     void createDescriptors();
     void createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile);
 
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
-        uint32_t imageIndex);
     void updateDescriptorData(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
 
     std::shared_ptr<Device> m_device;
@@ -70,13 +76,13 @@ private:
     std::vector<std::unique_ptr<Buffer>> fssbos;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;
-    std::vector<std::shared_ptr<DescriptorSet>> m_textureDescriptorSets;
+    std::vector<std::shared_ptr<DescriptorSet>> m_materialDescriptorSets;
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
-    std::shared_ptr<DescriptorSetLayout> m_textureSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_materialSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
-    std::shared_ptr<DescriptorPool> m_texturePool;
+    std::shared_ptr<DescriptorPool> m_materialPool;
 
     std::vector<int> bufferBindings;
 

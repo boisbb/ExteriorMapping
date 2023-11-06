@@ -75,6 +75,15 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIR})
 find_package(glfw3 3.3 REQUIRED)
 target_link_libraries(${PROJECT_NAME} glfw)
 
+# ImGui linking
+set(IMGUI_PATH "external/imgui/")
+
+file(GLOB IMGUI_SOURCES ${IMGUI_PATH}/*.cpp)
+add_library("ImGui" STATIC ${IMGUI_SOURCES})
+target_include_directories("ImGui" PUBLIC ${IMGUI_PATH})
+
+target_link_libraries(${PROJECT_NAME} ImGui)
+
 # ASSIMP linking
 find_package(assimp REQUIRED)
 target_link_libraries(${PROJECT_NAME} assimp)

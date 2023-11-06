@@ -1,4 +1,5 @@
 #include "utils/Import.h"
+#include "Material.h"
 
 #include <filesystem>
 
@@ -69,6 +70,22 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
             normal.z = mesh->mNormals[j].z;
 
             vertex.normal = normal;
+        }
+
+        if (mesh->HasTangentsAndBitangents())
+        {
+            glm::vec3 tangent;
+            tangent.x = mesh->mTangents[j].x;
+            tangent.y = mesh->mTangents[j].y;
+            tangent.z = mesh->mTangents[j].z;
+
+            glm::vec3 bitangent;
+            bitangent.x = mesh->mBitangents[j].x;
+            bitangent.y = mesh->mBitangents[j].y;
+            bitangent.z = mesh->mBitangents[j].z;
+
+            vertex.tangent = tangent;
+            vertex.bitangent = bitangent;
         }
 
         // TODO: Check the index!!
@@ -229,7 +246,7 @@ std::shared_ptr<Model> importModel(const std::string& filename, std::vector<Vert
     fs::path dirPath = directory;
 
     Assimp::Importer import;
-    const aiScene * scene = import.ReadFile(filename.c_str(), aiProcess_Triangulate);
+    const aiScene * scene = import.ReadFile(filename.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {

@@ -89,6 +89,8 @@ void SwapChain::createSwapChain()
 
     m_swapChainImageFormat = surfaceFormat.format;
     m_swapChainExtent = extent;
+
+    m_imageCount = imageCount;
 }
 
 void SwapChain::createImageViews()
@@ -251,6 +253,11 @@ VkFramebuffer SwapChain::getFramebuffer(int id)
 VkExtent2D SwapChain::getExtent()
 {
     return m_swapChainExtent;
+}
+
+uint32_t SwapChain::getImageCount() const
+{
+    return m_imageCount;
 }
 
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats)

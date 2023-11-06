@@ -21,7 +21,7 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     : m_device(device), m_window(window), m_currentFrame(0),
     vubos(MAX_FRAMES_IN_FLIGHT), fubos(MAX_FRAMES_IN_FLIGHT),
     vssbos(MAX_FRAMES_IN_FLIGHT), fssbos(MAX_FRAMES_IN_FLIGHT),
-    m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_textureDescriptorSets(MAX_FRAMES_IN_FLIGHT)
+    m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT)
 {
     m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
     createCommandBuffers();
@@ -66,7 +66,7 @@ void Renderer::initDescriptorResources()
         countInfo.descriptorSetCount = 1;
         countInfo.pDescriptorCounts = &maxBinding;  
 
-        m_textureDescriptorSets[i] = std::make_shared<DescriptorSet>(m_device, m_textureSetLayout, m_texturePool, &countInfo);
+        m_materialDescriptorSets[i] = std::make_shared<DescriptorSet>(m_device, m_materialSetLayout, m_materialPool, &countInfo);
 
         for (int j = 0; j < m_textures.size(); j++)
         {
@@ -78,7 +78,20 @@ void Renderer::initDescriptorResources()
                 0
             };
 
-            m_textureDescriptorSets[i]->addImages(imageBinding, imageInfos, j);
+            m_materialDescriptorSets[i]->addImages(imageBinding, imageInfos, j);
+        }
+
+        for (int j = 0; j < m_bumpTextures.size(); j++)
+        {
+            std::vector<VkDescriptorImageInfo> imageInfos{
+                m_bumpTextures[j]->getInfo()
+            };
+
+            std::vector<uint32_t> imageBinding{
+                1
+            };
+
+            m_materialDescriptorSets[i]->addImages(imageBinding, imageInfos, j);
         }
     }
 }
@@ -162,6 +175,96 @@ void Renderer::renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
+{
+    camera->reconstructMatrices();
+
+    VkCommandBuffer currentCommandBuffer = m_commandBuffers[m_currentFrame];
+
+    VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
+    vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
+
+    uint32_t imageIndex;
+    VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(m_currentFrame);
+    VkResult result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_swapChain->getSwapChain(),
+        UINT64_MAX, currentImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        // rebuildSwapChain();
+        throw std::runtime_error("Error: out of date KHR.");
+    }
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+    {
+        throw std::runtime_error("Error: failed to acquire swap chain image.");
+    }
+
+    vkResetFences(m_device->getVkDevice(), 1, &currentFence);
+
+    vkResetCommandBuffer(currentCommandBuffer, 0);
+    updateDescriptorData(scene, camera);
+
+    beginRenderPass(m_currentFrame, imageIndex);
+
+    return imageIndex;
+}
+
+void Renderer::presentFrame(const uint32_t& imageIndex)
+{
+    endRenderPass(m_currentFrame);
+
+    VkCommandBuffer currentCommandBuffer = m_commandBuffers[m_currentFrame];
+    VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(m_currentFrame);
+    VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
+    
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitSemamphores[] = {currentImageAvailableSemaphore};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemamphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &currentCommandBuffer;
+
+    VkSemaphore currentRenderFinishedSemaphore = m_swapChain->getRenderFinishedSemaphore(m_currentFrame);
+    VkSemaphore signalSemaphores[] = {currentRenderFinishedSemaphore};
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    if (vkQueueSubmit(m_device->getGraphicsQueue(), 1, &submitInfo, currentFence) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to submit draw command buffer!");
+    }
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = signalSemaphores;
+
+    VkSwapchainKHR swapChains[] = {m_swapChain->getSwapChain()};
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pResults = nullptr;
+
+    VkResult result = vkQueuePresentKHR(m_device->getPresentQueue(), &presentInfo);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    {
+        // TODO: also sort out resizing of window
+        // recreateSwapChain();
+        throw std::runtime_error("OUT OF DATE KHR");
+    }
+    else if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to present swap chain image");
+    }
+
+    m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
 std::shared_ptr<SwapChain> Renderer::getSwapChain() const
 {
     return m_swapChain;
@@ -201,6 +304,16 @@ int Renderer::getBumpTextureId(std::string fileName)
 std::vector<std::shared_ptr<Texture>> Renderer::getBumpTextures() const
 {
     return m_bumpTextures;
+}
+
+int Renderer::getCurrentFrame() const
+{
+    return m_currentFrame;
+}
+
+VkCommandBuffer Renderer::getCurrentCommandBuffer() const
+{
+    return m_commandBuffers[m_currentFrame];
 }
 
 int Renderer::addTexture(std::shared_ptr<Texture> texture, std::string filename)
@@ -351,33 +464,46 @@ void Renderer::createDescriptors()
     VkDescriptorSetLayoutBinding textureLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         MAX_BINDLESS_RESOURCES, VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    std::vector<VkDescriptorSetLayoutBinding> textureLayoutBindings = {
-        textureLayoutBinding
+    VkDescriptorSetLayoutBinding bumpLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        MAX_BINDLESS_RESOURCES, VK_SHADER_STAGE_FRAGMENT_BIT);
+
+    std::vector<VkDescriptorSetLayoutBinding> materialLayoutBindings = {
+        textureLayoutBinding,
+        bumpLayoutBinding
     };
 
-    VkDescriptorBindingFlags textureBindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT |
-        VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
-    
+    VkDescriptorBindingFlags textureBindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+
+    VkDescriptorBindingFlags bumpBindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+
+    std::vector<VkDescriptorBindingFlags> materialBindingFlags = {
+        textureBindingFlags,
+        bumpBindingFlags
+    };
+
     VkDescriptorSetLayoutBindingFlagsCreateInfoEXT layoutNext{};
     layoutNext.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
-    layoutNext.bindingCount = textureLayoutBindings.size();
-    layoutNext.pBindingFlags = &textureBindingFlags;
+    layoutNext.bindingCount = materialLayoutBindings.size();
+    layoutNext.pBindingFlags = materialBindingFlags.data();
     layoutNext.pNext = nullptr;
 
-    m_textureSetLayout = std::make_shared<DescriptorSetLayout>(m_device, textureLayoutBindings,
+    m_materialSetLayout = std::make_shared<DescriptorSetLayout>(m_device, materialLayoutBindings,
         VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, &layoutNext);
+    
+    VkDescriptorPoolSize texturePoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_BINDLESS_RESOURCES));
 
-    VkDescriptorPoolSize texturePoolSize{};
-    texturePoolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    texturePoolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_BINDLESS_RESOURCES);
+    VkDescriptorPoolSize bumpPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_BINDLESS_RESOURCES));
 
-    std::vector<VkDescriptorPoolSize> texturePoolSizes = {
-        texturePoolSize
+    std::vector<VkDescriptorPoolSize> materialPoolSizes = {
+        texturePoolSize,
+        bumpPoolSize
     };
 
-    m_texturePool = std::make_shared<DescriptorPool>(m_device,
+    m_materialPool = std::make_shared<DescriptorPool>(m_device,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_BINDLESS_RESOURCES), VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
-        texturePoolSizes);
+        materialPoolSizes);
 
 }
 
@@ -385,7 +511,7 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
 {
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
         m_descriptorSetLayout->getLayout(),
-        m_textureSetLayout->getLayout()
+        m_materialSetLayout->getLayout()
     };
 
     m_pipeline = std::make_shared<Pipeline>(m_device, m_swapChain->getRenderPass(), vertexShaderFile,
@@ -395,19 +521,18 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
     uint32_t imageIndex)
 {
-    beginRenderPass(m_currentFrame, imageIndex);
+
 
     m_pipeline->bind(commandBuffer);
 
     VkDescriptorSet descriptorSet = m_generalDescriptorSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
 
-    VkDescriptorSet textureSet = m_textureDescriptorSets[m_currentFrame]->getDescriptorSet();
+    VkDescriptorSet textureSet = m_materialDescriptorSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
 
     scene->draw(commandBuffer);
 
-    endRenderPass(m_currentFrame);
 }
 
 void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)

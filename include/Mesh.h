@@ -7,6 +7,7 @@
 #include <memory>
 #include <unordered_map>
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -52,6 +53,8 @@ public:
 
     void setModelMatrix(glm::mat4 matrix);
     void setMaterial(std::shared_ptr<Material> material);
+
+    std::shared_ptr<Material> getMaterial() const;
 private:
     void createVertexBuffer(std::shared_ptr<Device> device);
     void createIndexBuffer(std::shared_ptr<Device> device);

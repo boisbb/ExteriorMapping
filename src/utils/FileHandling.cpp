@@ -3,8 +3,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image/stb_image_write.h>
+
 #include <algorithm>
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
 namespace vke::utils
@@ -54,8 +58,10 @@ std::vector<unsigned char> threeChannelsToOne(unsigned char* pixels, const int& 
     {
         int pixelsId = i * 3;
 
-        newValues[i] = static_cast<float>(pixels[pixelsId] + pixels[pixelsId + 1] + pixels[pixelsId + 2]) / 3.f
+        newValues[i] = static_cast<float>(pixels[pixelsId] + pixels[pixelsId + 1] + pixels[pixelsId + 2]) / 3.f;
     }
+
+    return newValues;
 }
 
 }

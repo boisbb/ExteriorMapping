@@ -231,6 +231,11 @@ VkDevice Device::getVkDevice() const
     return m_device;
 }
 
+VkInstance Device::getInstance() const
+{
+    return m_instance;
+}
+
 VkCommandPool Device::getCommandPool() const
 {
 return m_commandPool;

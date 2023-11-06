@@ -77,6 +77,12 @@ void Mesh::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderD
         fragmentShaderData.back().textureId = m_material->getTextureId();
     else
         fragmentShaderData.back().textureId = RET_ID_NOT_FOUND;
+
+    if (m_material->hasBumpTexture())
+        fragmentShaderData.back().bumpId = m_material->getBumpTextureId();
+    else
+        fragmentShaderData.back().bumpId = RET_ID_NOT_FOUND;
+
     fragmentShaderData.back().diffuseColor = m_material->getDiffuseColor();
     fragmentShaderData.back().opacity = m_material->getOpacity();
 }
@@ -89,6 +95,11 @@ void Mesh::setModelMatrix(glm::mat4 matrix)
 void Mesh::setMaterial(std::shared_ptr<Material> material)
 {
     m_material = material;
+}
+
+std::shared_ptr<Material> Mesh::getMaterial() const
+{
+    return m_material;
 }
 
 void Mesh::createVertexBuffer(std::shared_ptr<Device> device)
@@ -161,20 +172,21 @@ void Mesh::handleBumpTexture(std::shared_ptr<Device> device, std::shared_ptr<Ren
     {
         int width, height, channels;
         unsigned char* pixels = utils::loadImage(bumpFile, width, height, channels);
+        VkFormat format = VK_FORMAT_R8_UNORM;
 
-        VkFormat format;
-        if (channels == 1)
-            format = VK_FORMAT_R8_UNORM;
-        else
+        std::shared_ptr<Texture> newTexture;
+
+        if (channels != 1)
         {
-            m_material->setHasBumpTexture(false);
-            m_material->setBumpTextureFile("");
-
-            return;
+            std::vector<unsigned char> newPixels = utils::threeChannelsToOne(pixels, width, height);
+            channels = 1;
+            newTexture = std::make_shared<Texture>(device, newPixels.data(), glm::vec2(width, height),
+                channels, format);
         }
-
-        std::shared_ptr<Texture> newTexture = std::make_shared<Texture>(device, pixels,
-            glm::vec2(width, height), channels, format);
+        else {
+            newTexture = std::make_shared<Texture>(device, pixels, glm::vec2(width, height),
+                channels, format);
+        }
 
         bumpId = renderer->addBumpTexture(newTexture, bumpFile);
     }

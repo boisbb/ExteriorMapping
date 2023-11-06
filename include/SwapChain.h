@@ -22,6 +22,7 @@ public:
     VkSemaphore getRenderFinishedSemaphore(int id);
     VkFramebuffer getFramebuffer(int id);
     VkExtent2D getExtent();
+    uint32_t getImageCount() const;
 private:
     void createSwapChain();
     void createImageViews();
@@ -49,7 +50,8 @@ private:
 
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;
-    
+
+    uint32_t m_imageCount;
     std::vector<VkImage> m_swapChainImages;
     std::vector<VkImageView> m_swapChainImageViews;
     std::vector<VkFramebuffer> m_swapChainFramebuffers;

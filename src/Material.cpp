@@ -50,6 +50,7 @@ void Material::setTextureId(int id)
 void Material::setBumpTextureFile(std::string filename)
 {
     m_bumpTextureFile = filename;
+    m_hasBumpTexture = true;
 }
 
 void Material::setBumpTextureId(int id)
@@ -110,7 +111,7 @@ bool Material::hasTexture() const
 
 bool Material::hasBumpTexture() const
 {
-    return m_hasTexture;
+    return m_hasBumpTexture;
 }
 
 void Material::initTexture()
