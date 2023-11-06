@@ -46,7 +46,6 @@ public:
 
     void afterImportInit(std::shared_ptr<Device> device,
         std::shared_ptr<Renderer> renderer);
-    void draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart);
     VkDrawIndexedIndirectCommand createIndirectDrawCommand(uint32_t& instanceId);
     void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
         std::vector<MeshShaderDataFragment>& fragmentShaderData, glm::mat4 modelMatrix);
@@ -56,21 +55,13 @@ public:
 
     std::shared_ptr<Material> getMaterial() const;
 private:
-    void createVertexBuffer(std::shared_ptr<Device> device);
-    void createIndexBuffer(std::shared_ptr<Device> device);
     void handleTexture(std::shared_ptr<Device> device, std::shared_ptr<Renderer> renderer);
     void handleBumpTexture(std::shared_ptr<Device> device, std::shared_ptr<Renderer> renderer);
 
     MeshInfo m_info;
     
     glm::mat4 m_modelMatrix;
-
-    std::vector<Vertex> m_vertices;
-    std::vector<uint32_t> m_indices;
-
-    std::shared_ptr<Buffer> m_vertexBuffer;
-    std::shared_ptr<Buffer> m_indexBuffer;
-
+    
     std::shared_ptr<Material> m_material;
 };
 

@@ -27,8 +27,6 @@ public:
     ~Renderer();
 
     void initDescriptorResources();
-    void renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
-
     uint32_t prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
     void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
         uint32_t imageIndex);

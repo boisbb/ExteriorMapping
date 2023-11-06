@@ -42,10 +42,6 @@ void Scene::draw(VkCommandBuffer commandBuffer)
 
     vkCmdDrawIndexedIndirect(commandBuffer, m_indirectDrawBuffer->getVkBuffer(), 0, m_drawCount,
         sizeof(VkDrawIndexedIndirectCommand));
-
-    // uint32_t instanceStart = 0;
-    // for (auto& model : m_models)
-    //     model->draw(commandBuffer, instanceStart);
 }
 
 void Scene::setLightPos(const glm::vec3& lightPos)

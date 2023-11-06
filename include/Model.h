@@ -31,7 +31,6 @@ public:
     void afterImportInit(std::shared_ptr<Device> device,
         std::shared_ptr<Renderer> renderer);
 
-    void draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart);
     void createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
         uint32_t& instanceId);
     void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,

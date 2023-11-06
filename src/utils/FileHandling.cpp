@@ -20,6 +20,7 @@ std::vector<char> readFile(const std::string& filename)
 
     if (!file.is_open())
     {
+        std::cout << filename << std::endl;
         throw std::runtime_error("failed to open file");
     }
 

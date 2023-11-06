@@ -35,14 +35,6 @@ void Model::afterImportInit(std::shared_ptr<Device> device,
         mesh->afterImportInit(device, renderer);
 }
 
-void Model::draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart)
-{
-    for (auto mesh : m_meshes)
-    {
-        mesh->draw(commandBuffer, instanceStart);
-    }
-}
-
 void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
         uint32_t& instanceId)
 {

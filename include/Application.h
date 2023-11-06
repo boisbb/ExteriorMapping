@@ -39,9 +39,6 @@
 #include "Scene.h"
 #include "Camera.h"
 
-#define WIDTH 800
-#define HEIGHT 600
-
 namespace vke
 {
 

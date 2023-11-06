@@ -96,85 +96,6 @@ void Renderer::initDescriptorResources()
     }
 }
 
-void Renderer::renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
-{
-    camera->reconstructMatrices();
-
-    VkCommandBuffer currentCommandBuffer = m_commandBuffers[m_currentFrame];
-
-    VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
-    vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
-
-    uint32_t imageIndex;
-    VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(m_currentFrame);
-    VkResult result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_swapChain->getSwapChain(),
-        UINT64_MAX, currentImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR)
-    {
-        // rebuildSwapChain();
-        throw std::runtime_error("Error: out of date KHR.");
-    }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-    {
-        throw std::runtime_error("Error: failed to acquire swap chain image.");
-    }
-
-    vkResetFences(m_device->getVkDevice(), 1, &currentFence);
-
-    vkResetCommandBuffer(currentCommandBuffer, 0);
-    recordCommandBuffer(currentCommandBuffer, scene, imageIndex);
-
-    updateDescriptorData(scene, camera);
-
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore waitSemamphores[] = {currentImageAvailableSemaphore};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemamphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &currentCommandBuffer;
-
-    VkSemaphore currentRenderFinishedSemaphore = m_swapChain->getRenderFinishedSemaphore(m_currentFrame);
-    VkSemaphore signalSemaphores[] = {currentRenderFinishedSemaphore};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
-
-    if (vkQueueSubmit(m_device->getGraphicsQueue(), 1, &submitInfo, currentFence) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to submit draw command buffer!");
-    }
-
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-
-    VkSwapchainKHR swapChains[] = {m_swapChain->getSwapChain()};
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
-    presentInfo.pResults = nullptr;
-
-    result = vkQueuePresentKHR(m_device->getPresentQueue(), &presentInfo);
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-    {
-        // TODO: also sort out resizing of window
-        // recreateSwapChain();
-        throw std::runtime_error("OUT OF DATE KHR");
-    }
-    else if (result != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to present swap chain image");
-    }
-
-    m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
 uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
 {
     camera->reconstructMatrices();
@@ -521,8 +442,6 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
     uint32_t imageIndex)
 {
-
-
     m_pipeline->bind(commandBuffer);
 
     VkDescriptorSet descriptorSet = m_generalDescriptorSets[m_currentFrame]->getDescriptorSet();
@@ -532,7 +451,6 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::sha
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
 
     scene->draw(commandBuffer);
-
 }
 
 void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
