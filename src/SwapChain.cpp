@@ -68,15 +68,12 @@ void SwapChain::createSwapChain()
     else
     {
         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        createInfo.queueFamilyIndexCount = 0;
-        createInfo.pQueueFamilyIndices = nullptr;
     }
 
     createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
     createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     createInfo.presentMode = presentMode;
     createInfo.clipped = VK_TRUE;
-    createInfo.oldSwapchain = VK_NULL_HANDLE;
 
     if (vkCreateSwapchainKHR(m_device->getVkDevice(), &createInfo, nullptr, &m_swapChain) != VK_SUCCESS)
     {
@@ -135,7 +132,7 @@ void SwapChain::createRenderPass()
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE ;
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -157,6 +154,15 @@ void SwapChain::createRenderPass()
     dependency.srcAccessMask = 0;
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    // VkSubpassDependency dependency{};
+    // dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    // dependency.dstSubpass = 0;
+    // dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    // dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    // dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    // dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    
 
     std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
 
@@ -208,12 +214,16 @@ void SwapChain::createSyncObjects()
     m_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
+    m_computeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    m_computeInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         if (vkCreateSemaphore(m_device->getVkDevice(), &semaphoreInfo, nullptr, &m_imageAvailableSemaphores[i]) != VK_SUCCESS
@@ -222,12 +232,21 @@ void SwapChain::createSyncObjects()
         {
             throw std::runtime_error("failed to create semaphores!");
         }
+
+        if (vkCreateSemaphore(m_device->getVkDevice(), &semaphoreInfo, nullptr, &m_computeFinishedSemaphores[i]) != VK_SUCCESS
+            || vkCreateFence(m_device->getVkDevice(), &fenceInfo, nullptr, &m_computeInFlightFences[i]) != VK_SUCCESS)
+            throw std::runtime_error("failed to create compute semaphores");
     }
 }
 
 VkFence SwapChain::getFenceId(int id)
 {
     return m_inFlightFences[id];
+}
+
+VkFence SwapChain::getComputeFenceId(int id)
+{
+    return m_computeInFlightFences[id];
 }
 
 VkSwapchainKHR SwapChain::getSwapChain()
@@ -243,6 +262,11 @@ VkSemaphore SwapChain::getImageAvailableSemaphore(int id)
 VkSemaphore SwapChain::getRenderFinishedSemaphore(int id)
 {
     return m_renderFinishedSemaphores[id];
+}
+
+VkSemaphore SwapChain::getComputeFinishedSemaphore(int id)
+{
+    return m_computeFinishedSemaphores[id];
 }
 
 VkFramebuffer SwapChain::getFramebuffer(int id)
@@ -276,13 +300,13 @@ VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfac
 
 VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes)
 {
-    for (const auto& availablePresentMode : availablePresentModes)
-    {
-        if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-        {
-            return availablePresentMode;
-        }
-    }
+    // for (const auto& availablePresentMode : availablePresentModes)
+    // {
+    //     if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+    //     {
+    //         return availablePresentMode;
+    //     }
+    // }
 
     return VK_PRESENT_MODE_FIFO_KHR;
 }

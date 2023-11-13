@@ -5,15 +5,47 @@ namespace vke
 {
 
 Pipeline::Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std::string vertFile,
-    std::string fragFile, std::vector<VkDescriptorSetLayout> descriptorSetLayouts)
+    std::string fragFile, std::string compFile, std::vector<VkDescriptorSetLayout> graphicsSetLayouts,
+    std::vector<VkDescriptorSetLayout> computeSetLayouts)
     : m_device(device)
+{
+    createGraphicsPipeline(renderPass, vertFile, fragFile, graphicsSetLayouts);
+    createComputePipeline(compFile, computeSetLayouts);
+}
+
+Pipeline::~Pipeline()
+{
+}
+
+VkPipeline Pipeline::getGraphicsPipeline() const
+{
+    return m_graphicsPipeline;
+}
+
+VkPipelineLayout Pipeline::getGraphicsPipelineLayout() const
+{
+    return m_graphicsPipelineLayout;
+}
+
+VkPipeline Pipeline::getComputePipeline() const
+{
+    return m_computePipeline;
+}
+
+VkPipelineLayout Pipeline::getComputePipelineLayout() const
+{
+    return m_computePipelineLayout;
+}
+
+void Pipeline::createGraphicsPipeline(VkRenderPass renderPass, std::string vertFile, std::string fragFile,
+    std::vector<VkDescriptorSetLayout> graphicsSetLayouts)
 {
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = descriptorSetLayouts.size();
-    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
+    pipelineLayoutInfo.setLayoutCount = graphicsSetLayouts.size();
+    pipelineLayoutInfo.pSetLayouts = graphicsSetLayouts.data();
 
-    if (vkCreatePipelineLayout(m_device->getVkDevice(), &pipelineLayoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(m_device->getVkDevice(), &pipelineLayoutInfo, nullptr, &m_graphicsPipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
@@ -139,7 +171,7 @@ Pipeline::Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std:
     pipelineInfo.pDepthStencilState = &depthStencil;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = m_pipelineLayout;
+    pipelineInfo.layout = m_graphicsPipelineLayout;
     pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -154,24 +186,47 @@ Pipeline::Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std:
     vkDestroyShaderModule(m_device->getVkDevice(), vertShaderModule, nullptr);
 }
 
-Pipeline::~Pipeline()
+void Pipeline::createComputePipeline(std::string compFile, std::vector<VkDescriptorSetLayout> computeSetLayouts)
 {
+    std::vector<char> compShaderCode = utils::readFile(compFile);
+
+    VkShaderModule compShaderModule = createShaderModule(compShaderCode);
+
+    VkPipelineShaderStageCreateInfo compShaderStageInfo{};
+    compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    compShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    compShaderStageInfo.module = compShaderModule;
+    compShaderStageInfo.pName = "main";
+
+    VkPipelineLayoutCreateInfo computePipelineLayoutInfo{};
+    computePipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    computePipelineLayoutInfo.setLayoutCount = 0;//computeSetLayouts.size();
+    computePipelineLayoutInfo.pSetLayouts = nullptr;//computeSetLayouts.data();
+
+    if (vkCreatePipelineLayout(m_device->getVkDevice(), &computePipelineLayoutInfo, nullptr, &m_computePipelineLayout) != VK_SUCCESS)
+        throw std::runtime_error("fail while creating compute pipeline");
+
+    VkComputePipelineCreateInfo computePipelineInfo{};
+    computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineInfo.layout = m_computePipelineLayout;
+    computePipelineInfo.stage = compShaderStageInfo;
+
+    if (vkCreateComputePipelines(m_device->getVkDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_computePipeline) != VK_SUCCESS)
+        throw std::runtime_error("failed to create compute pipeline");
+
+    vkDestroyShaderModule(m_device->getVkDevice(), compShaderModule, nullptr);
 }
 
-VkPipeline Pipeline::getPipeline() const
-{
-    return m_graphicsPipeline;
-}
-
-VkPipelineLayout Pipeline::getPipelineLayout() const
-{
-    return m_pipelineLayout;
-}
-
-void Pipeline::bind(VkCommandBuffer commandBuffer)
+void Pipeline::bindGraphics(VkCommandBuffer commandBuffer)
 {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline);
 }
+
+void Pipeline::bindCompute(VkCommandBuffer commandBuffer)
+{
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline);
+}
+
 
 VkShaderModule Pipeline::createShaderModule(const std::vector<char> &code)
 {

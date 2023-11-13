@@ -45,7 +45,6 @@ Device::Device(std::shared_ptr<Window> window)
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
     auto props = properties.limits.maxBoundDescriptorSets;
-    std::cout << std::endl;
 }
 
 Device::~Device()
@@ -156,6 +155,7 @@ void Device::createLogicalDevice()
 
     vkGetDeviceQueue(m_device, indices.graphicsFamily.value(), 0, &m_graphicsQueue);
     vkGetDeviceQueue(m_device, indices.presentFamily.value(), 0, &m_presentQueue);
+    vkGetDeviceQueue(m_device, indices.graphicsFamily.value(), 0, &m_computeQueue);
 }
 
 void Device::createCommandPool()
@@ -249,6 +249,11 @@ VkQueue Device::getGraphicsQueue() const
 VkQueue Device::getPresentQueue() const
 {
     return m_presentQueue;
+}
+
+VkQueue Device::getComputeQueue() const
+{
+    return m_computeQueue;
 }
 
 VkPhysicalDevice Device::getPhysicalDevice() const
@@ -516,7 +521,8 @@ QueueFamilyIndices Device::findQueueFamilies(VkPhysicalDevice device)
             indices.presentFamily = i;
         }
 
-        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) &&
+            (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT))
         {
             indices.graphicsFamily = i;
         }

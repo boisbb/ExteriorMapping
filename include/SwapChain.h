@@ -17,12 +17,23 @@ public:
 
     VkRenderPass getRenderPass();
     VkFence getFenceId(int id);
+    VkFence getComputeFenceId(int id);
     VkSwapchainKHR getSwapChain();
     VkSemaphore getImageAvailableSemaphore(int id);
     VkSemaphore getRenderFinishedSemaphore(int id);
+    VkSemaphore getComputeFinishedSemaphore(int id);
     VkFramebuffer getFramebuffer(int id);
     VkExtent2D getExtent();
     uint32_t getImageCount() const;
+
+    // Sync members
+    std::vector<VkSemaphore> m_imageAvailableSemaphores;
+    std::vector<VkSemaphore> m_renderFinishedSemaphores;
+    std::vector<VkFence> m_inFlightFences;
+
+    // Compute sync members
+    std::vector<VkSemaphore> m_computeFinishedSemaphores;
+    std::vector<VkFence> m_computeInFlightFences;
 private:
     void createSwapChain();
     void createImageViews();
@@ -59,11 +70,6 @@ private:
     // Depth buffer
     std::shared_ptr<Image> m_depthImage;
     VkImageView m_depthImageView;
-
-    // Sync members
-    std::vector<VkSemaphore> m_imageAvailableSemaphores;
-    std::vector<VkSemaphore> m_renderFinishedSemaphores;
-    std::vector<VkFence> m_inFlightFences;
 };
 
 }

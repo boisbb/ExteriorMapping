@@ -98,5 +98,6 @@ void main()
     }
 
     finalColor.rgb = (ambient + diffuse) * finalColor.rgb;
+    finalColor.a = 1.f;
     // finalColor = vec4(fsIn.fragColor, 1.f);
 }

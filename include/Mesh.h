@@ -54,6 +54,17 @@ public:
     void setMaterial(std::shared_ptr<Material> material);
 
     std::shared_ptr<Material> getMaterial() const;
+
+    // testing
+    void draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart);
+    void createVertexBuffer(std::shared_ptr<Device> device);
+    void createIndexBuffer(std::shared_ptr<Device> device);
+    
+    std::vector<Vertex> m_vertices;
+    std::vector<uint32_t> m_indices;
+
+    std::shared_ptr<Buffer> m_vertexBuffer;
+    std::shared_ptr<Buffer> m_indexBuffer;
 private:
     void handleTexture(std::shared_ptr<Device> device, std::shared_ptr<Renderer> renderer);
     void handleBumpTexture(std::shared_ptr<Device> device, std::shared_ptr<Renderer> renderer);

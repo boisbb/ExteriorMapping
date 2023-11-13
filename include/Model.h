@@ -38,6 +38,9 @@ public:
 
     void setModelMatrix(glm::mat4 matrix);
     glm::mat4 getModelMatrix() const;
+
+    // testing
+    void draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart);
 private:
     std::vector<std::shared_ptr<Mesh>> m_meshes;
 

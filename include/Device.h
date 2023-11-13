@@ -40,6 +40,7 @@ public:
     VkCommandPool getCommandPool() const;
     VkQueue getGraphicsQueue() const;
     VkQueue getPresentQueue() const;
+    VkQueue getComputeQueue() const;
     VkPhysicalDevice getPhysicalDevice() const;
     VkPhysicalDeviceFeatures getFeatures() const;
 
@@ -91,6 +92,7 @@ private:
 
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;
+    VkQueue m_computeQueue;
 
     bool m_enableValidationLayers = true;
 

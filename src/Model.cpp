@@ -47,6 +47,14 @@ void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>
     }
 }
 
+void Model::draw(VkCommandBuffer commandBuffer, uint32_t& instanceStart)
+{
+    for (auto mesh : m_meshes)
+    {
+        mesh->draw(commandBuffer, instanceStart);
+    }
+}
+
 void Model::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
     std::vector<MeshShaderDataFragment>& fragmentShaderData)
 {

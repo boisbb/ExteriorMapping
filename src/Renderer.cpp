@@ -7,6 +7,7 @@
 #include "descriptors/Pool.h"
 #include "descriptors/Set.h"
 #include "utils/Constants.h"
+#include "unistd.h"
 
 #include <cstring>
 #include <chrono>
@@ -17,16 +18,17 @@ namespace vke
 {
 
 Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
-        std::string fragmentShaderFile)
+        std::string fragmentShaderFile, std::string computeShaderFile)
     : m_device(device), m_window(window), m_currentFrame(0),
-    vubos(MAX_FRAMES_IN_FLIGHT), fubos(MAX_FRAMES_IN_FLIGHT),
-    vssbos(MAX_FRAMES_IN_FLIGHT), fssbos(MAX_FRAMES_IN_FLIGHT),
+    m_vubos(MAX_FRAMES_IN_FLIGHT), m_fubos(MAX_FRAMES_IN_FLIGHT),
+    m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT)
 {
     m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
     createCommandBuffers();
+    createComputeCommandBuffers();
     createDescriptors();
-    createPipeline(vertexShaderFile, fragmentShaderFile);
+    createPipeline(vertexShaderFile, fragmentShaderFile, computeShaderFile);
 }
 
 Renderer::~Renderer()
@@ -42,10 +44,10 @@ void Renderer::initDescriptorResources()
             m_descriptorPool);
 
         std::vector<VkDescriptorBufferInfo> bufferInfos{
-            vubos[i]->getInfo(),
-            vssbos[i]->getInfo(),
-            fubos[i]->getInfo(),
-            fssbos[i]->getInfo()
+            m_vubos[i]->getInfo(),
+            m_vssbos[i]->getInfo(),
+            m_fubos[i]->getInfo(),
+            m_fssbos[i]->getInfo()
         };
 
         std::vector<uint32_t> bufferBinding
@@ -98,12 +100,58 @@ void Renderer::initDescriptorResources()
 
 uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
 {
-    camera->reconstructMatrices();
 
-    VkCommandBuffer currentCommandBuffer = m_commandBuffers[m_currentFrame];
+    // Compute part
+
+    VkFence currentComputeFence = m_swapChain->getComputeFenceId(m_currentFrame);
+    vkWaitForFences(m_device->getVkDevice(), 1, &currentComputeFence, VK_TRUE, UINT64_MAX);
+
+    vkResetFences(m_device->getVkDevice(), 1, &currentComputeFence);
+    
+    VkCommandBuffer currentComputeCommandBuffer = m_computeCommandBuffers[m_currentFrame];
+
+    vkResetCommandBuffer(currentComputeCommandBuffer, 0);
+
+    recordComputeCommandBuffer(currentComputeCommandBuffer, scene);
+
+    VkSemaphore currentComputeFinishedSemaphore = m_swapChain->getComputeFinishedSemaphore(m_currentFrame);
+
+    VkSubmitInfo computeSubmitInfo{};
+    computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    computeSubmitInfo.commandBufferCount = 1;
+    computeSubmitInfo.pCommandBuffers = &currentComputeCommandBuffer;
+    computeSubmitInfo.signalSemaphoreCount = 0;
+    computeSubmitInfo.pSignalSemaphores = nullptr;//&currentComputeFinishedSemaphore;
+
+    if (vkQueueSubmit(m_device->getComputeQueue(), 1, &computeSubmitInfo, currentComputeFence) != VK_SUCCESS)
+        throw std::runtime_error("failed to submit compute command buffer");
+
+    // Graphics part
 
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
+
+    //
+    static bool updateTings = true;
+
+    if (updateTings)
+    {
+        std::cout << "updating" << std::endl;
+
+        camera->reconstructMatrices();
+        updateDescriptorData(scene, camera);
+
+    }
+
+    if (m_currentFrame == 1)
+        updateTings = false;
+    // 
+    
+    vkResetFences(m_device->getVkDevice(), 1, &currentFence);
+
+    VkCommandBuffer currentCommandBuffer = m_commandBuffers[m_currentFrame];
+
+    vkResetCommandBuffer(currentCommandBuffer, 0);
 
     uint32_t imageIndex;
     VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(m_currentFrame);
@@ -120,11 +168,6 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
         throw std::runtime_error("Error: failed to acquire swap chain image.");
     }
 
-    vkResetFences(m_device->getVkDevice(), 1, &currentFence);
-
-    vkResetCommandBuffer(currentCommandBuffer, 0);
-    updateDescriptorData(scene, camera);
-
     beginRenderPass(m_currentFrame, imageIndex);
 
     return imageIndex;
@@ -138,11 +181,15 @@ void Renderer::presentFrame(const uint32_t& imageIndex)
     VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(m_currentFrame);
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
     
+    VkSemaphore currentComputeFinishedSemaphore = m_swapChain->getComputeFinishedSemaphore(m_currentFrame);
+    
+    VkSemaphore waitSemamphores[] = { // currentComputeFinishedSemaphore,
+        currentImageAvailableSemaphore };
+    VkPipelineStageFlags waitStages[] = { // VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore waitSemamphores[] = {currentImageAvailableSemaphore};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemamphores;
     submitInfo.pWaitDstStageMask = waitStages;
@@ -151,6 +198,7 @@ void Renderer::presentFrame(const uint32_t& imageIndex)
 
     VkSemaphore currentRenderFinishedSemaphore = m_swapChain->getRenderFinishedSemaphore(m_currentFrame);
     VkSemaphore signalSemaphores[] = {currentRenderFinishedSemaphore};
+
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -184,6 +232,102 @@ void Renderer::presentFrame(const uint32_t& imageIndex)
     }
 
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void Renderer::renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
+{
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    // Compute submission        
+    vkWaitForFences(m_device->getVkDevice(), 1, &m_swapChain->m_computeInFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
+    
+    vkResetFences(m_device->getVkDevice(), 1, &m_swapChain->m_computeInFlightFences[m_currentFrame]);
+
+    vkResetCommandBuffer(m_computeCommandBuffers[m_currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
+    recordComputeCommandBuffer(m_computeCommandBuffers[m_currentFrame], scene);
+
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &m_computeCommandBuffers[m_currentFrame];
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &m_swapChain->m_computeFinishedSemaphores[m_currentFrame];
+
+    if (vkQueueSubmit(m_device->getComputeQueue(), 1, &submitInfo, m_swapChain->m_computeInFlightFences[m_currentFrame]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit compute command buffer!");
+    };
+
+    // Graphics submission
+    vkWaitForFences(m_device->getVkDevice(), 1, &m_swapChain->m_inFlightFences[m_currentFrame], VK_TRUE, 1000000000);
+
+    camera->reconstructMatrices();
+
+    updateDescriptorData(scene, camera);
+
+    uint32_t imageIndex;
+    VkResult result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_swapChain->getSwapChain(), UINT64_MAX,
+        m_swapChain->m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        // recreateSwapChain();
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+        throw std::runtime_error("failed to acquire swap chain image!");
+    }
+
+    vkResetFences(m_device->getVkDevice(), 1, &m_swapChain->m_inFlightFences[m_currentFrame]);
+
+    vkResetCommandBuffer(m_commandBuffers[m_currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
+
+    beginRenderPass(m_currentFrame, imageIndex);
+    recordCommandBuffer(m_commandBuffers[m_currentFrame], scene, imageIndex);
+    endRenderPass(m_currentFrame);
+
+    VkSemaphore waitSemaphores[] = { m_swapChain->m_computeFinishedSemaphores[m_currentFrame],
+        m_swapChain->m_imageAvailableSemaphores[m_currentFrame] };
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    submitInfo.waitSemaphoreCount = 2;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &m_commandBuffers[m_currentFrame];
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &m_swapChain->m_renderFinishedSemaphores[m_currentFrame];
+
+    if (vkQueueSubmit(m_device->getGraphicsQueue(), 1, &submitInfo, m_swapChain->m_inFlightFences[m_currentFrame]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit draw command buffer!");
+    }
+
+    VkPresentInfoKHR presentInfo{};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &m_swapChain->m_renderFinishedSemaphores[m_currentFrame];
+
+    VkSwapchainKHR swapChains[] = {m_swapChain->getSwapChain()};
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = swapChains;
+
+    presentInfo.pImageIndices = &imageIndex;
+
+
+    //sleep(1);
+    result = vkQueuePresentKHR(m_device->getPresentQueue(), &presentInfo);
+    //sleep(1);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+        //framebufferResized = false;
+        //recreateSwapChain();
+        std::runtime_error("FAILED");
+    }
+    else if (result != VK_SUCCESS) {
+        throw std::runtime_error("failed to present swap chain image!");
+    }
+    m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
 }
 
 std::shared_ptr<SwapChain> Renderer::getSwapChain() const
@@ -237,6 +381,26 @@ VkCommandBuffer Renderer::getCurrentCommandBuffer() const
     return m_commandBuffers[m_currentFrame];
 }
 
+std::shared_ptr<DescriptorSetLayout> Renderer::getDescriptorSetLayout() const
+{
+    return m_descriptorSetLayout;
+}
+
+std::shared_ptr<DescriptorPool> Renderer::getDescriptorPool() const
+{
+    return m_descriptorPool;
+}
+
+std::shared_ptr<DescriptorSetLayout> Renderer::getComputeDescriptorSetLayout() const
+{
+    return m_computeSetLayout;
+}
+
+std::shared_ptr<DescriptorPool> Renderer::getComputeDescriptorPool() const
+{
+    return m_computePool;
+}
+
 int Renderer::addTexture(std::shared_ptr<Texture> texture, std::string filename)
 {
     m_textures.push_back(texture);
@@ -257,7 +421,7 @@ void Renderer::beginRenderPass(int currentFrame, uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;;
     beginInfo.pInheritanceInfo = nullptr;
 
     if (vkBeginCommandBuffer(m_commandBuffers[currentFrame], &beginInfo) != VK_SUCCESS)
@@ -322,26 +486,42 @@ void Renderer::createCommandBuffers()
     }
 }
 
+void Renderer::createComputeCommandBuffers()
+{
+    m_computeCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+    VkCommandBufferAllocateInfo computeAllocInfo{};
+    computeAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    computeAllocInfo.commandPool = m_device->getCommandPool();
+    computeAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    computeAllocInfo.commandBufferCount = (uint32_t)m_computeCommandBuffers.size();
+
+    if (vkAllocateCommandBuffers(m_device->getVkDevice(), &computeAllocInfo, m_computeCommandBuffers.data()) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate compute command buffers!");
+    }
+}
+
 void Renderer::createDescriptors()
 {
     // General mesh data
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataVertex),
+        m_vubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataVertex),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        vubos[i]->map();
+        m_vubos[i]->map();
 
-        fubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataFragment),
+        m_fubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataFragment),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        fubos[i]->map();
+        m_fubos[i]->map();
 
-        vssbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataVertex) * MAX_SBOS,
+        m_vssbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataVertex) * MAX_SBOS,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        vssbos[i]->map();
+        m_vssbos[i]->map();
 
-        fssbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataFragment) * MAX_SBOS,
+        m_fssbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataFragment) * MAX_SBOS,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        fssbos[i]->map();
+        m_fssbos[i]->map();
     }
 
     VkDescriptorSetLayoutBinding vuboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -360,8 +540,7 @@ void Renderer::createDescriptors()
         fssboLayoutBinding
     };
 
-    m_descriptorSetLayout = std::make_shared<DescriptorSetLayout>(
-        m_device, layoutBindings);
+    m_descriptorSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutBindings);
 
     VkDescriptorPoolSize vuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
@@ -428,29 +607,50 @@ void Renderer::createDescriptors()
 
 }
 
-void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile)
+void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
+    std::string computeShaderFile)
 {
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
+    std::vector<VkDescriptorSetLayout> graphicsSetLayouts = {
         m_descriptorSetLayout->getLayout(),
         m_materialSetLayout->getLayout()
     };
 
+    std::vector<VkDescriptorSetLayout> computeSetLayouts = {
+        // m_computeSetLayout->getLayout()
+    };
+
     m_pipeline = std::make_shared<Pipeline>(m_device, m_swapChain->getRenderPass(), vertexShaderFile,
-        fragmentShaderFile, descriptorSetLayouts);
+        fragmentShaderFile, computeShaderFile, graphicsSetLayouts, computeSetLayouts);
 }
 
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
     uint32_t imageIndex)
 {
-    m_pipeline->bind(commandBuffer);
+    m_pipeline->bindGraphics(commandBuffer);
 
     VkDescriptorSet descriptorSet = m_generalDescriptorSets[m_currentFrame]->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getGraphicsPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
 
     VkDescriptorSet textureSet = m_materialDescriptorSets[m_currentFrame]->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getGraphicsPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
 
-    scene->draw(commandBuffer);
+    scene->draw(commandBuffer, m_currentFrame);
+}
+
+void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene)
+{
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+        throw std::runtime_error("failed to begin compute command buffer");
+
+    m_pipeline->bindCompute(commandBuffer);
+
+    scene->dispatch(commandBuffer, m_pipeline->getComputePipelineLayout(), m_currentFrame);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+        throw std::runtime_error("failed to end compute command buffer");
 }
 
 void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
@@ -460,11 +660,11 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, std::sh
     UniformDataVertex vubo{};
     vubo.view = camera->getView();
     vubo.proj = camera->getProjection();
-    vubos[m_currentFrame]->copyMapped(&vubo, sizeof(UniformDataVertex));
+    m_vubos[m_currentFrame]->copyMapped(&vubo, sizeof(UniformDataVertex));
 
     UniformDataFragment fubo{};
     fubo.lightPos = scene->getLightPos();
-    fubos[m_currentFrame]->copyMapped(&fubo, sizeof(UniformDataFragment));
+    m_fubos[m_currentFrame]->copyMapped(&fubo, sizeof(UniformDataFragment));
 
     std::vector<MeshShaderDataVertex> vssboData;
     std::vector<MeshShaderDataFragment> fssboData;
@@ -474,8 +674,8 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, std::sh
         model->updateDescriptorData(vssboData, fssboData);
     }
 
-    vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());
-    fssbos[m_currentFrame]->copyMapped(fssboData.data(), sizeof(MeshShaderDataFragment) * fssboData.size());
+    m_vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());
+    m_fssbos[m_currentFrame]->copyMapped(fssboData.data(), sizeof(MeshShaderDataFragment) * fssboData.size());
 
     // glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 }

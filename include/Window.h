@@ -18,8 +18,7 @@
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3native.h>
 
-#define WIDTH 800
-#define HEIGHT 600
+#include "utils/Constants.h"
 
 namespace vke
 {
