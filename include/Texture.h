@@ -18,7 +18,7 @@ class Texture
 {
 public:
     Texture(std::shared_ptr<Device> device, unsigned char* pixels, glm::vec2 dims, int channels = 4,
-        VkFormat format = VK_FORMAT_R8G8B8_SRGB);
+        VkFormat format = VK_FORMAT_R8G8B8A8_SRGB);
     ~Texture();
 
     std::shared_ptr<Sampler> getSampler() const;

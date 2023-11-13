@@ -65,4 +65,23 @@ std::vector<unsigned char> threeChannelsToOne(unsigned char* pixels, const int& 
     return newValues;
 }
 
+std::vector<unsigned char> threeChannelsToFour(unsigned char* pixels, const int& width,
+    const int& height)
+{
+    std::vector<unsigned char> newValues(width * height * 4);
+
+    for (int i = 0; i < width * height; i++)
+    {
+        int pixelsId = i * 3;
+        int newValsId = i * 4;
+
+        newValues[newValsId] = pixels[pixelsId];
+        newValues[newValsId + 1] = pixels[pixelsId + 1];
+        newValues[newValsId + 2] = pixels[pixelsId + 2];
+        newValues[newValsId + 3] = 255;
+    }
+
+    return newValues;
+}
+
 }

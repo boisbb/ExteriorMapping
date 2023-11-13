@@ -147,16 +147,24 @@ void Mesh::handleTexture(std::shared_ptr<Device> device, std::shared_ptr<Rendere
         int width, height, channels;
         unsigned char* pixels = utils::loadImage(textureFile, width, height, channels);
 
-        VkFormat format;
+        VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+        std::shared_ptr<Texture> newTexture;
         if (channels == 3)
-            format = VK_FORMAT_R8G8B8_SRGB;
+        {
+            std::vector<unsigned char> newPixels = utils::threeChannelsToFour(pixels, width, height);
+            channels = 4;
+            newTexture = std::make_shared<Texture>(device, newPixels.data(), glm::vec2(width, height),
+                channels, format);
+            // std::cout << "transfering" << std::endl;
+        }
         else if (channels == 4)
-            format = VK_FORMAT_R8G8B8A8_SRGB;
+        {
+            std::cout << "not transferring" << std::endl;
+            newTexture = std::make_shared<Texture>(device, pixels,
+                glm::vec2(width, height), channels, format);
+        }
         else
             throw std::runtime_error("Error: weird number of channels.");
-
-        std::shared_ptr<Texture> newTexture = std::make_shared<Texture>(device, pixels,
-            glm::vec2(width, height), channels, format);
 
         textureId = renderer->addTexture(newTexture, textureFile);
     }
