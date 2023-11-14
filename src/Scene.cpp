@@ -48,19 +48,19 @@ void Scene::dispatch(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLay
 
 void Scene::draw(VkCommandBuffer commandBuffer, uint32_t currentFrame)
 {
-    // VkBuffer vertexBuffers[] = { m_vertexBuffer->getVkBuffer() };
-    // VkDeviceSize offsets[] = { 0 };
-// 
-    // vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-// 
-    // vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->getVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
-// 
-    // vkCmdDrawIndexedIndirect(commandBuffer, m_indirectDrawBuffer->getVkBuffer(), 0, m_drawCount,
-    //     sizeof(VkDrawIndexedIndirectCommand));
+    VkBuffer vertexBuffers[] = { m_vertexBuffer->getVkBuffer() };
+    VkDeviceSize offsets[] = { 0 };
 
-    uint32_t instanceStart = 0;
-    for (auto& model : m_models)
-        model->draw(commandBuffer, instanceStart);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->getVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+    vkCmdDrawIndexedIndirect(commandBuffer, m_indirectDrawBuffer->getVkBuffer(), 0, m_drawCount,
+        sizeof(VkDrawIndexedIndirectCommand));
+
+    // uint32_t instanceStart = 0;
+    // for (auto& model : m_models)
+    //     model->draw(commandBuffer, instanceStart);
 
     // if (instanceStart != 107)
     //     std::cout << instanceStart << std::endl;

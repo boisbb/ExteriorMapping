@@ -96,6 +96,28 @@ void Renderer::initDescriptorResources()
             m_materialDescriptorSets[i]->addImages(imageBinding, imageInfos, j);
         }
     }
+
+    // for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    // {
+    //     m_indirectDrawBuffers[i] = std::make_unique<Buffer>(device, sizeof(VkDrawIndexedIndirectCommand) * MAX_SBOS,
+    //         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    //         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    //     m_indirectDrawBuffers[i]->map();
+// 
+    //     m_indirectDrawBuffers[i]->copyMapped(m_indirectDrawBuffer->getMapped(), m_indirectDrawBuffer->getSize());
+// 
+    //     m_computeDescriptorSets[i] = std::make_shared<DescriptorSet>(device, descriptorSetLayout, descriptorPool);
+// 
+    //     std::vector<VkDescriptorBufferInfo> bufferInfos = {
+    //         m_indirectDrawBuffers[i]->getInfo()
+    //     };
+// 
+    //     std::vector<uint32_t> bufferBinding = {
+    //         0
+    //     };
+// 
+    //     m_computeDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
+    // }
 }
 
 uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
@@ -120,8 +142,8 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
     computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     computeSubmitInfo.commandBufferCount = 1;
     computeSubmitInfo.pCommandBuffers = &currentComputeCommandBuffer;
-    computeSubmitInfo.signalSemaphoreCount = 0;
-    computeSubmitInfo.pSignalSemaphores = nullptr;//&currentComputeFinishedSemaphore;
+    computeSubmitInfo.signalSemaphoreCount = 1;
+    computeSubmitInfo.pSignalSemaphores = &currentComputeFinishedSemaphore;
 
     if (vkQueueSubmit(m_device->getComputeQueue(), 1, &computeSubmitInfo, currentComputeFence) != VK_SUCCESS)
         throw std::runtime_error("failed to submit compute command buffer");
@@ -131,21 +153,8 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
 
-    //
-    static bool updateTings = true;
-
-    if (updateTings)
-    {
-        std::cout << "updating" << std::endl;
-
-        camera->reconstructMatrices();
-        updateDescriptorData(scene, camera);
-
-    }
-
-    if (m_currentFrame == 1)
-        updateTings = false;
-    // 
+    camera->reconstructMatrices();
+    updateDescriptorData(scene, camera);
     
     vkResetFences(m_device->getVkDevice(), 1, &currentFence);
 
@@ -183,14 +192,14 @@ void Renderer::presentFrame(const uint32_t& imageIndex)
     
     VkSemaphore currentComputeFinishedSemaphore = m_swapChain->getComputeFinishedSemaphore(m_currentFrame);
     
-    VkSemaphore waitSemamphores[] = { // currentComputeFinishedSemaphore,
+    VkSemaphore waitSemamphores[] = { currentComputeFinishedSemaphore,
         currentImageAvailableSemaphore };
-    VkPipelineStageFlags waitStages[] = { // VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.waitSemaphoreCount = 2;
     submitInfo.pWaitSemaphores = waitSemamphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
@@ -234,101 +243,6 @@ void Renderer::presentFrame(const uint32_t& imageIndex)
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
-{
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    // Compute submission        
-    vkWaitForFences(m_device->getVkDevice(), 1, &m_swapChain->m_computeInFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
-    
-    vkResetFences(m_device->getVkDevice(), 1, &m_swapChain->m_computeInFlightFences[m_currentFrame]);
-
-    vkResetCommandBuffer(m_computeCommandBuffers[m_currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
-    recordComputeCommandBuffer(m_computeCommandBuffers[m_currentFrame], scene);
-
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &m_computeCommandBuffers[m_currentFrame];
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &m_swapChain->m_computeFinishedSemaphores[m_currentFrame];
-
-    if (vkQueueSubmit(m_device->getComputeQueue(), 1, &submitInfo, m_swapChain->m_computeInFlightFences[m_currentFrame]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit compute command buffer!");
-    };
-
-    // Graphics submission
-    vkWaitForFences(m_device->getVkDevice(), 1, &m_swapChain->m_inFlightFences[m_currentFrame], VK_TRUE, 1000000000);
-
-    camera->reconstructMatrices();
-
-    updateDescriptorData(scene, camera);
-
-    uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_swapChain->getSwapChain(), UINT64_MAX,
-        m_swapChain->m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        // recreateSwapChain();
-        return;
-    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        throw std::runtime_error("failed to acquire swap chain image!");
-    }
-
-    vkResetFences(m_device->getVkDevice(), 1, &m_swapChain->m_inFlightFences[m_currentFrame]);
-
-    vkResetCommandBuffer(m_commandBuffers[m_currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
-
-    beginRenderPass(m_currentFrame, imageIndex);
-    recordCommandBuffer(m_commandBuffers[m_currentFrame], scene, imageIndex);
-    endRenderPass(m_currentFrame);
-
-    VkSemaphore waitSemaphores[] = { m_swapChain->m_computeFinishedSemaphores[m_currentFrame],
-        m_swapChain->m_imageAvailableSemaphores[m_currentFrame] };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    submitInfo.waitSemaphoreCount = 2;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &m_commandBuffers[m_currentFrame];
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &m_swapChain->m_renderFinishedSemaphores[m_currentFrame];
-
-    if (vkQueueSubmit(m_device->getGraphicsQueue(), 1, &submitInfo, m_swapChain->m_inFlightFences[m_currentFrame]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit draw command buffer!");
-    }
-
-    VkPresentInfoKHR presentInfo{};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &m_swapChain->m_renderFinishedSemaphores[m_currentFrame];
-
-    VkSwapchainKHR swapChains[] = {m_swapChain->getSwapChain()};
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-
-    presentInfo.pImageIndices = &imageIndex;
-
-
-    //sleep(1);
-    result = vkQueuePresentKHR(m_device->getPresentQueue(), &presentInfo);
-    //sleep(1);
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-        //framebufferResized = false;
-        //recreateSwapChain();
-        std::runtime_error("FAILED");
-    }
-    else if (result != VK_SUCCESS) {
-        throw std::runtime_error("failed to present swap chain image!");
-    }
-    m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-}
 
 std::shared_ptr<SwapChain> Renderer::getSwapChain() const
 {

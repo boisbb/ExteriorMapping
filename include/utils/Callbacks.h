@@ -1,12 +1,21 @@
 #pragma once
 
 // GLFW
+#ifdef linux
 #define VK_USE_PLATFORM_XCB_KHR
+#elif _WIN32
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#ifdef linux
 #define GLFW_EXPOSE_NATIVE_X11
+#elif _WIN32
+#define GLFW_EXPOSE_NATIVE_WIN32
+#endif
 #include <GLFW/glfw3native.h>
 
+// vke
 #include "Application.h"
 #include "Window.h"
 

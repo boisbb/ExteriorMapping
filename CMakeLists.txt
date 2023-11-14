@@ -5,7 +5,12 @@ project( VulkanBoilerPlate
     LANGUAGES CXX
 )
 
-set(CMAKE_BUILD_TYPE Debug)
+include(FetchContent)
+
+set(FETCHCONTENT_BASE_DIR 
+    ${PROJECT_SOURCE_DIR}/external/downloaded 
+    CACHE PATH "Missing description." FORCE)
+
 
 set( CMAKE_CXX_STANDARD 17 )
 
@@ -68,14 +73,30 @@ set( SOURCE
 
 add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE} ${EXTERNAL})
 
+# glfw download and build
+FetchContent_Declare(glfw
+GIT_REPOSITORY https://github.com/glfw/glfw.git
+GIT_TAG master)
+
+set( GLFW_BUILD_DOCS OFF CACHE BOOL  "GLFW lib only" )
+set( GLFW_INSTALL OFF CACHE BOOL  "GLFW lib only" )
+
+FetchContent_MakeAvailable(glfw)
+
+# assimp download and build
+FetchContent_Declare(assimp
+GIT_REPOSITORY https://github.com/assimp/assimp.git
+GIT_TAG master)
+
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INJECT_DEBUG_POSTFIX OFF CACHE BOOL "" FORCE)
+set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(assimp)
+
 # Vulkan linking
 find_package(Vulkan REQUIRED)
-target_link_libraries(${PROJECT_NAME} ${Vulkan_LIBRARIES})
-target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIR})
-
-# GLFW linking
-find_package(glfw3 3.3 REQUIRED)
-target_link_libraries(${PROJECT_NAME} glfw)
 
 # ImGui linking
 set(IMGUI_PATH "external/imgui/")
@@ -83,12 +104,20 @@ set(IMGUI_PATH "external/imgui/")
 file(GLOB IMGUI_SOURCES ${IMGUI_PATH}/*.cpp)
 add_library("ImGui" STATIC ${IMGUI_SOURCES})
 target_include_directories("ImGui" PUBLIC ${IMGUI_PATH})
+target_link_libraries("ImGui" PUBLIC glfw)
 
-target_link_libraries(${PROJECT_NAME} ImGui)
+target_include_directories(${PROJECT_NAME} PUBLIC 
+    ${Vulkan_INCLUDE_DIR}
+    ${FETCHCONTENT_BASE_DIR}/glfw-src/include
+    ${FETCHCONTENT_BASE_DIR}/assimp-src/include
+)
 
-# ASSIMP linking
-find_package(assimp REQUIRED)
-target_link_libraries(${PROJECT_NAME} assimp)
+target_link_libraries(${PROJECT_NAME}
+    glfw
+    assimp
+    ${Vulkan_LIBRARIES}
+    ImGui
+)
 
 # target include dirs
-include_directories(src include external)
+target_include_directories(${PROJECT_NAME} PUBLIC src include external)

@@ -105,14 +105,14 @@ void Application::draw()
     {
         consumeInput();
 
-        m_renderer->renderFrame(m_scene, m_camera);
+        // m_renderer->renderFrame(m_scene, m_camera);
 
-        // uint32_t imageIndex = m_renderer->prepareFrame(m_scene, m_camera);
-// 
-        // m_renderer->recordCommandBuffer(m_renderer->getCurrentCommandBuffer(), m_scene, imageIndex);
-        // renderImgui();
-// 
-        // m_renderer->presentFrame(imageIndex);
+        uint32_t imageIndex = m_renderer->prepareFrame(m_scene, m_camera);
+
+        m_renderer->recordCommandBuffer(m_renderer->getCurrentCommandBuffer(), m_scene, imageIndex);
+        renderImgui();
+
+        m_renderer->presentFrame(imageIndex);
 
 #if PRINT_FPS
         frames++;

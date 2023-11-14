@@ -52,9 +52,6 @@ public:
 
     void beginRenderPass(int currentFrame, uint32_t imageIndex);
     void endRenderPass(int currentFrame);
-
-    // testing
-    void renderFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
 private:
     void createCommandBuffers();
     void createComputeCommandBuffers();
