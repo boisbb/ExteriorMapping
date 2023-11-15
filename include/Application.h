@@ -28,11 +28,7 @@
 #include <GLFW/glfw3native.h>
 
 // GLM
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "glm_include_unified.h"
 
 // ImGui
 #include <imgui/imgui.h>

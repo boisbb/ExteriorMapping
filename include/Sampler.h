@@ -4,8 +4,7 @@
 
 #include <vulkan/vulkan.h>
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
+#include "glm_include_unified.h"
 
 namespace vke
 {

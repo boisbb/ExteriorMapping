@@ -256,7 +256,7 @@ std::shared_ptr<Model> importModel(const std::string& filename, std::vector<Vert
     std::shared_ptr<Model> model = std::make_shared<Model>();
 
     processNode(model, scene->mRootNode, scene, scene->mRootNode->mTransformation, vertices, indices,
-        fs::absolute(dirPath).c_str());
+        fs::absolute(dirPath).string());
 
     return model;
 }

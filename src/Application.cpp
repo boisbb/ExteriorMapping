@@ -54,21 +54,21 @@ void Application::init()
 
     m_camera = std::make_shared<Camera>(swapExtent, glm::vec3(2.f, 10.f, 2.f));
 
-    // std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
-    //     m_vertices, m_indices);
-    // negus->afterImportInit(m_device, m_renderer);
+    std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
+        m_vertices, m_indices);
+    negus->afterImportInit(m_device, m_renderer);
 
     // std::shared_ptr<Model> pepe = vke::utils::importModel("../res/models/pepePlane/pepePlane.obj",
     //     m_vertices, m_indices);
     // pepe->afterImportInit(m_device, m_renderer);
 
-    std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
-        m_vertices, m_indices);
-    porsche->afterImportInit(m_device, m_renderer);
+    //std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
+    //    m_vertices, m_indices);
+    //porsche->afterImportInit(m_device, m_renderer);
     
-    std::shared_ptr<Model> sponza = vke::utils::importModel("../res/models/dabrovic_sponza/sponza.obj",
-        m_vertices, m_indices);
-    sponza->afterImportInit(m_device, m_renderer);
+    //std::shared_ptr<Model> sponza = vke::utils::importModel("../res/models/dabrovic_sponza/sponza.obj",
+    //    m_vertices, m_indices);
+    //sponza->afterImportInit(m_device, m_renderer);
 
     m_light = vke::utils::importModel("../res/models/basicCube/cube.obj",
         m_vertices, m_indices);
@@ -79,11 +79,11 @@ void Application::init()
     m_light->setModelMatrix(lightMatrix);
 
 
-    m_models.push_back(sponza);
-    m_models.push_back(porsche);
+    //m_models.push_back(sponza);
+    //m_models.push_back(porsche);
     //m_models.push_back(pepe);
-    //m_models.push_back(negus);
-    //m_models.push_back(m_light);
+    m_models.push_back(negus);
+    // m_models.push_back(m_light);
 
     m_scene->setModels(m_device, m_renderer->getComputeDescriptorSetLayout(),
         m_renderer->getComputeDescriptorPool(), m_models, m_vertices, m_indices);

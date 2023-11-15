@@ -7,7 +7,6 @@
 #include "descriptors/Pool.h"
 #include "descriptors/Set.h"
 #include "utils/Constants.h"
-#include "unistd.h"
 
 #include <cstring>
 #include <chrono>
@@ -145,11 +144,11 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
     computeSubmitInfo.signalSemaphoreCount = 1;
     computeSubmitInfo.pSignalSemaphores = &currentComputeFinishedSemaphore;
 
-    if (vkQueueSubmit(m_device->getComputeQueue(), 1, &computeSubmitInfo, currentComputeFence) != VK_SUCCESS)
+    VkResult res = vkQueueSubmit(m_device->getComputeQueue(), 1, &computeSubmitInfo, currentComputeFence);
+    if (res != VK_SUCCESS)
         throw std::runtime_error("failed to submit compute command buffer");
 
     // Graphics part
-
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
 
@@ -211,7 +210,8 @@ void Renderer::presentFrame(const uint32_t& imageIndex)
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(m_device->getGraphicsQueue(), 1, &submitInfo, currentFence) != VK_SUCCESS)
+    VkResult res = vkQueueSubmit(m_device->getGraphicsQueue(), 1, &submitInfo, currentFence);
+    if (res != VK_SUCCESS)
     {
         throw std::runtime_error("failed to submit draw command buffer!");
     }

@@ -8,9 +8,7 @@
 #include <vulkan/vulkan.h>
 
 // GLM
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#include <glm/glm.hpp>
+#include "glm_include_unified.h"
 
 namespace vke
 {

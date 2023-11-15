@@ -14,11 +14,6 @@ set(FETCHCONTENT_BASE_DIR
 
 set( CMAKE_CXX_STANDARD 17 )
 
-set ( EXTERNAL
-    external/glm/glm.hpp
-    external/glm/gtx/string_cast.hpp
-)
-
 set ( INCLUDE
     include/Application.h
     include/Window.h
@@ -35,6 +30,7 @@ set ( INCLUDE
     include/Image.h
     include/Texture.h
     include/Sampler.h
+    include/glm_include_unified.h
     include/descriptors/SetLayout.h
     include/descriptors/Pool.h
     include/descriptors/Set.h
@@ -71,7 +67,7 @@ set( SOURCE
     src/utils/Import.cpp
 )
 
-add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE} ${EXTERNAL})
+add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE})
 
 # glfw download and build
 FetchContent_Declare(glfw
@@ -103,8 +99,14 @@ set(IMGUI_PATH "external/imgui/")
 
 file(GLOB IMGUI_SOURCES ${IMGUI_PATH}/*.cpp)
 add_library("ImGui" STATIC ${IMGUI_SOURCES})
-target_include_directories("ImGui" PUBLIC ${IMGUI_PATH})
-target_link_libraries("ImGui" PUBLIC glfw)
+target_include_directories("ImGui" PUBLIC 
+    ${IMGUI_PATH}
+    ${Vulkan_INCLUDE_DIR}
+)
+target_link_libraries("ImGui" PUBLIC 
+    glfw
+    ${Vulkan_LIBRARIES}
+)
 
 target_include_directories(${PROJECT_NAME} PUBLIC 
     ${Vulkan_INCLUDE_DIR}
@@ -120,4 +122,10 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # target include dirs
-target_include_directories(${PROJECT_NAME} PUBLIC src include external)
+target_include_directories(${PROJECT_NAME} PUBLIC include external)
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/
+    FILES
+    ${SOURCE}
+    ${INCLUDE}
+)
