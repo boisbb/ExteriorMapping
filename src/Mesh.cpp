@@ -58,17 +58,17 @@ void Mesh::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderD
 
     fragmentShaderData.push_back(MeshShaderDataFragment());
     if (m_material->hasTexture())
-        fragmentShaderData.back().textureId = m_material->getTextureId();
+        fragmentShaderData.back().multiple.y = m_material->getTextureId();
     else
-        fragmentShaderData.back().textureId = RET_ID_NOT_FOUND;
+        fragmentShaderData.back().multiple.y = RET_ID_NOT_FOUND;
 
     if (m_material->hasBumpTexture())
-        fragmentShaderData.back().bumpId = m_material->getBumpTextureId();
+        fragmentShaderData.back().multiple.z = m_material->getBumpTextureId();
     else
-        fragmentShaderData.back().bumpId = RET_ID_NOT_FOUND;
+        fragmentShaderData.back().multiple.z = RET_ID_NOT_FOUND;
 
-    fragmentShaderData.back().diffuseColor = m_material->getDiffuseColor();
-    fragmentShaderData.back().opacity = m_material->getOpacity();
+    fragmentShaderData.back().diffuseColor = glm::vec4(m_material->getDiffuseColor(), 1.f);
+    fragmentShaderData.back().multiple.x = m_material->getOpacity();
 }
 
 void Mesh::setModelMatrix(glm::mat4 matrix)

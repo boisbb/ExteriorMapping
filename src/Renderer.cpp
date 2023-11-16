@@ -591,6 +591,10 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, std::sh
     m_vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());
     m_fssbos[m_currentFrame]->copyMapped(fssboData.data(), sizeof(MeshShaderDataFragment) * fssboData.size());
 
+    MeshShaderDataFragment* mapped = (MeshShaderDataFragment*)m_fssbos[m_currentFrame]->getMapped();
+    auto  a = mapped[0];
+
+    std::cout << std::endl;
     // glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 }
 

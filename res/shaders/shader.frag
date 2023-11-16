@@ -2,10 +2,11 @@
 #extension GL_EXT_nonuniform_qualifier: enable
 
 struct MeshShaderDataFragment {
-    vec3 diffuseColor;
-    float opacity;
-    int textureId;
-    int bumpId;
+    vec4 diffuseColor;
+    vec4 multiple;
+    //float opacity;
+    //float textureId;
+    //float bumpId;
 };
 
 struct FsInput
@@ -61,7 +62,7 @@ void main()
 
     vec3 normNormal = vec3(1.0f);
     
-    int bumpId = fssbo.objects[instanceId].bumpId;
+    int bumpId = int(fssbo.objects[instanceId].multiple.z);
     if (bumpId >= 0)
     {
         normNormal = bumpToNormal(bumpId);
@@ -81,14 +82,14 @@ void main()
     float diffuseCoef = max(dot(lightDirection, normNormal), 0.0f);
     vec3 diffuse = diffuseCoef * vec3(1.f);
 
-    int textureId = fssbo.objects[instanceId].textureId;
+    int textureId = int(fssbo.objects[instanceId].multiple.y);
     
-    float opacity = fssbo.objects[instanceId].opacity;
+    float opacity = fssbo.objects[instanceId].multiple.x;
 
     if (textureId < 0)
     {
-        vec3 diffuseColor = fssbo.objects[instanceId].diffuseColor;
-        float opacity = fssbo.objects[instanceId].opacity;
+        vec3 diffuseColor = fssbo.objects[instanceId].diffuseColor.rgb;
+        float opacity = fssbo.objects[instanceId].multiple.x;
         finalColor = vec4(diffuseColor, opacity);
     }
     else if (textureId >= 0)
@@ -98,6 +99,5 @@ void main()
     }
 
     finalColor.rgb = (ambient + diffuse) * finalColor.rgb;
-    finalColor.a = 1.f;
     // finalColor = vec4(fsIn.fragColor, 1.f);
 }

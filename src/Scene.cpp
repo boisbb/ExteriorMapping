@@ -58,6 +58,8 @@ void Scene::draw(VkCommandBuffer commandBuffer, uint32_t currentFrame)
     vkCmdDrawIndexedIndirect(commandBuffer, m_indirectDrawBuffer->getVkBuffer(), 0, m_drawCount,
         sizeof(VkDrawIndexedIndirectCommand));
 
+    //vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(6), 1, 0, 0, 0);
+
     // uint32_t instanceStart = 0;
     // for (auto& model : m_models)
     //     model->draw(commandBuffer, instanceStart);
