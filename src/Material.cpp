@@ -9,6 +9,7 @@ Material::Material()
     : m_ambientColor{ 1.f },
     m_diffuseColor{ 1.f },
     m_specularColor{ 1.f },
+    m_opacity{ 1.f },
     m_textureId{ RET_ID_NOT_FOUND },
     m_hasTexture{ false },
     m_bumpTextureId{ RET_ID_NOT_FOUND },
@@ -112,6 +113,11 @@ bool Material::hasTexture() const
 bool Material::hasBumpTexture() const
 {
     return m_hasBumpTexture;
+}
+
+bool Material::isTransparent() const
+{
+    return m_opacity != 1.f;
 }
 
 void Material::initTexture()

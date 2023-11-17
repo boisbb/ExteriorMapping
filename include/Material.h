@@ -37,6 +37,7 @@ public:
 
     bool hasTexture() const;
     bool hasBumpTexture() const;
+    bool isTransparent() const;
 
     void initTexture();
 private:

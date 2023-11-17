@@ -200,8 +200,8 @@ void Pipeline::createComputePipeline(std::string compFile, std::vector<VkDescrip
 
     VkPipelineLayoutCreateInfo computePipelineLayoutInfo{};
     computePipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    computePipelineLayoutInfo.setLayoutCount = 0;//computeSetLayouts.size();
-    computePipelineLayoutInfo.pSetLayouts = nullptr;//computeSetLayouts.data();
+    computePipelineLayoutInfo.setLayoutCount = computeSetLayouts.size();
+    computePipelineLayoutInfo.pSetLayouts = computeSetLayouts.data();
 
     if (vkCreatePipelineLayout(m_device->getVkDevice(), &computePipelineLayoutInfo, nullptr, &m_computePipelineLayout) != VK_SUCCESS)
         throw std::runtime_error("fail while creating compute pipeline");

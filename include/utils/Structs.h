@@ -38,6 +38,10 @@ struct UniformDataFragment {
     float __padding;
 };
 
+struct UniformDataCompute {
+    uint32_t totalMeshes;
+};
+
 struct MeshShaderDataVertex {
     glm::mat4 model;
 };

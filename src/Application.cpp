@@ -85,8 +85,8 @@ void Application::init()
     //m_models.push_back(negus);
     //m_models.push_back(m_light);
 
-    m_scene->setModels(m_device, m_renderer->getComputeDescriptorSetLayout(),
-        m_renderer->getComputeDescriptorPool(), m_models, m_vertices, m_indices);
+    m_scene->setModels(m_device, m_renderer->getSceneComputeDescriptorSetLayout(),
+        m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
 
     m_renderer->initDescriptorResources();
 

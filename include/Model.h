@@ -31,6 +31,8 @@ public:
     void afterImportInit(std::shared_ptr<Device> device,
         std::shared_ptr<Renderer> renderer);
 
+    void createIndirectDrawCommandsTransparent(std::vector<VkDrawIndexedIndirectCommand>& commands,
+        uint32_t& instanceId);
     void createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
         uint32_t& instanceId);
     void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
@@ -40,6 +42,7 @@ public:
     glm::mat4 getModelMatrix() const;
 private:
     std::vector<std::shared_ptr<Mesh>> m_meshes;
+    std::vector<std::shared_ptr<Mesh>> m_transparentMeshes;
 
     glm::mat4 m_modelMatrix;
 };

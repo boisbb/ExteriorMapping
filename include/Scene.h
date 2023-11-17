@@ -25,6 +25,8 @@ public:
         std::shared_ptr<DescriptorPool> descriptorPool, std::vector<std::shared_ptr<Model>> models,
         const std::vector<Vertex>& vertices, const std::vector<uint32_t> indices);
     std::vector<std::shared_ptr<Model>>& getModels();
+    uint32_t getDrawCount() const;
+
 
     void dispatch(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t currentFrame);
     void draw(VkCommandBuffer commandBuffer, uint32_t currentFrame);

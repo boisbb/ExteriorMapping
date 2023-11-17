@@ -30,7 +30,7 @@ void Scene::setModels(const std::shared_ptr<Device>& device, std::shared_ptr<Des
     createVertexBuffer(device, vertices);
     createIndexBuffer(device, indices);
     createIndirectDrawBuffer(device);
-    // createDescriptorResources(device, descriptorSetLayout, descriptorPool);
+    createDescriptorResources(device, descriptorSetLayout, descriptorPool);
 }
 
 std::vector<std::shared_ptr<Model>>& Scene::getModels()
@@ -38,10 +38,15 @@ std::vector<std::shared_ptr<Model>>& Scene::getModels()
     return m_models;
 }
 
+uint32_t Scene::getDrawCount() const
+{
+    return m_drawCount;
+}
+
 void Scene::dispatch(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t currentFrame)
 {
-    // VkDescriptorSet computeSet = m_computeDescriptorSets[currentFrame]->getDescriptorSet();
-    // vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &computeSet, 0, nullptr);
+    VkDescriptorSet computeSet = m_computeDescriptorSets[currentFrame]->getDescriptorSet();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &computeSet, 0, nullptr);
 
     vkCmdDispatch(commandBuffer, 1, 1, 1);
 }
@@ -55,7 +60,7 @@ void Scene::draw(VkCommandBuffer commandBuffer, uint32_t currentFrame)
 
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->getVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdDrawIndexedIndirect(commandBuffer, m_indirectDrawBuffer->getVkBuffer(), 0, m_drawCount,
+    vkCmdDrawIndexedIndirect(commandBuffer, m_indirectDrawBuffers[currentFrame]->getVkBuffer(), 0, m_drawCount,
         sizeof(VkDrawIndexedIndirectCommand));
 
     //vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(6), 1, 0, 0, 0);
@@ -117,10 +122,12 @@ void Scene::createIndirectDrawBuffer(const std::shared_ptr<Device>& device)
     std::vector<VkDrawIndexedIndirectCommand> commands;
 
     uint32_t instanceId = 0;
+
     for (auto& model : m_models)
-    {
         model->createIndirectDrawCommands(commands, instanceId);
-    }
+
+    for (auto& model : m_models)
+        model->createIndirectDrawCommandsTransparent(commands, instanceId);
 
     m_drawCount = instanceId;
 
@@ -142,27 +149,27 @@ void Scene::createIndirectDrawBuffer(const std::shared_ptr<Device>& device)
 void Scene::createDescriptorResources(const std::shared_ptr<Device>& device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
     std::shared_ptr<DescriptorPool> descriptorPool)
 {
-    // for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    // {
-    //     m_indirectDrawBuffers[i] = std::make_unique<Buffer>(device, sizeof(VkDrawIndexedIndirectCommand) * MAX_SBOS,
-    //         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-    //         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    //     m_indirectDrawBuffers[i]->map();
-// 
-    //     m_indirectDrawBuffers[i]->copyMapped(m_indirectDrawBuffer->getMapped(), m_indirectDrawBuffer->getSize());
-// 
-    //     m_computeDescriptorSets[i] = std::make_shared<DescriptorSet>(device, descriptorSetLayout, descriptorPool);
-// 
-    //     std::vector<VkDescriptorBufferInfo> bufferInfos = {
-    //         m_indirectDrawBuffers[i]->getInfo()
-    //     };
-// 
-    //     std::vector<uint32_t> bufferBinding = {
-    //         0
-    //     };
-// 
-    //     m_computeDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
-    // }
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_indirectDrawBuffers[i] = std::make_unique<Buffer>(device, sizeof(VkDrawIndexedIndirectCommand) * MAX_SBOS,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        m_indirectDrawBuffers[i]->map();
+
+        m_indirectDrawBuffers[i]->copyMapped(m_indirectDrawBuffer->getMapped(), m_indirectDrawBuffer->getSize());
+
+        m_computeDescriptorSets[i] = std::make_shared<DescriptorSet>(device, descriptorSetLayout, descriptorPool);
+
+        std::vector<VkDescriptorBufferInfo> bufferInfos = {
+            m_indirectDrawBuffers[i]->getInfo()
+        };
+
+        std::vector<uint32_t> bufferBinding = {
+            0
+        };
+
+        m_computeDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
+    }
 }
 
 }

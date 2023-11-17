@@ -1,5 +1,6 @@
 #include "Model.h"
 #include "Mesh.h"
+#include "Material.h"
 #include "Device.h"
 #include "Renderer.h"
 #include "descriptors/SetLayout.h"
@@ -25,18 +26,37 @@ std::vector<std::shared_ptr<Mesh>> Model::getMeshes() const
 
 void Model::addMesh(std::shared_ptr<Mesh> mesh)
 {
-    m_meshes.push_back(mesh);
+    if (mesh->getMaterial()->isTransparent())
+        m_transparentMeshes.push_back(mesh);
+    else
+        m_meshes.push_back(mesh);
+
 }
 
 void Model::afterImportInit(std::shared_ptr<Device> device,
     std::shared_ptr<Renderer> renderer)
 {
-    for (auto mesh : m_meshes)
+    for (auto& mesh : m_meshes)
+        mesh->afterImportInit(device, renderer);
+    
+    for (auto& mesh : m_transparentMeshes)
         mesh->afterImportInit(device, renderer);
 }
 
-void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
-        uint32_t& instanceId)
+void Model::createIndirectDrawCommandsTransparent(std::vector<VkDrawIndexedIndirectCommand> &commands, 
+    uint32_t &instanceId)
+{
+    for (auto& mesh : m_transparentMeshes)
+    {
+        VkDrawIndexedIndirectCommand command = mesh->createIndirectDrawCommand(instanceId);
+        commands.push_back(command);
+
+        instanceId++;
+    }
+}
+
+void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand> &commands,
+    uint32_t &instanceId)
 {
     for (auto& mesh : m_meshes)
     {
@@ -50,10 +70,12 @@ void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>
 void Model::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
     std::vector<MeshShaderDataFragment>& fragmentShaderData)
 {
-    for (auto mesh : m_meshes)
-    {
+    for (auto& mesh : m_meshes)
         mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
-    }
+
+    for (auto& mesh : m_transparentMeshes)
+        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
+
 }
 
 void Model::setModelMatrix(glm::mat4 matrix)

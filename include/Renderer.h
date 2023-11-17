@@ -44,8 +44,10 @@ public:
     VkCommandBuffer getCurrentCommandBuffer() const;
     std::shared_ptr<DescriptorSetLayout> getDescriptorSetLayout() const;
     std::shared_ptr<DescriptorPool> getDescriptorPool() const;
-    std::shared_ptr<DescriptorSetLayout> getComputeDescriptorSetLayout() const;
-    std::shared_ptr<DescriptorPool> getComputeDescriptorPool() const;
+    //std::shared_ptr<DescriptorSetLayout> getComputeDescriptorSetLayout() const;
+    //std::shared_ptr<DescriptorPool> getComputeDescriptorPool() const;
+    std::shared_ptr<DescriptorSetLayout> getSceneComputeDescriptorSetLayout() const;
+    std::shared_ptr<DescriptorPool> getSceneComputeDescriptorPool() const;
 
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
@@ -77,6 +79,7 @@ private:
 
     std::vector<std::unique_ptr<Buffer>> m_vubos;
     std::vector<std::unique_ptr<Buffer>> m_fubos;
+    std::vector<std::unique_ptr<Buffer>> m_cubos;
     std::vector<std::unique_ptr<Buffer>> m_vssbos;
     std::vector<std::unique_ptr<Buffer>> m_fssbos;
 
@@ -85,11 +88,13 @@ private:
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_materialSetLayout;
-    std::shared_ptr<DescriptorSetLayout> m_computeSetLayout;
+    //std::shared_ptr<DescriptorSetLayout> m_computeSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_computeSceneSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
     std::shared_ptr<DescriptorPool> m_materialPool;
-    std::shared_ptr<DescriptorPool> m_computePool;
+    // std::shared_ptr<DescriptorPool> m_computePool;
+    std::shared_ptr<DescriptorPool> m_computeScenePool;
 
     std::vector<int> bufferBindings;
 
