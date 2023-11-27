@@ -44,15 +44,21 @@ public:
 
     void afterImportInit(std::shared_ptr<Device> device,
         std::shared_ptr<Renderer> renderer);
-    VkDrawIndexedIndirectCommand createIndirectDrawCommand(uint32_t& instanceId);
+    VkDrawIndexedIndirectCommand createIndirectDrawCommand(const uint32_t& drawId, uint32_t& instanceId);
     void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-        std::vector<MeshShaderDataFragment>& fragmentShaderData, glm::mat4 modelMatrix);
+        std::vector<MeshShaderDataFragment>& fragmentShaderData, 
+        std::vector<MeshShaderDataCompute>& computeShaderData,  glm::mat4 modelMatrix);
 
     void setModelMatrix(glm::mat4 matrix);
+    void setTransform(glm::mat4 matrix);
     void setMaterial(std::shared_ptr<Material> material);
+    void setBbProperties(glm::vec3 center, float radius);
 
     std::shared_ptr<Material> getMaterial() const;
-    
+    glm::vec3 getBbCenter() const;
+    float getBbRadius() const;
+    uint32_t getDrawId() const;
+
     std::vector<Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
 
@@ -63,10 +69,15 @@ private:
     void handleBumpTexture(std::shared_ptr<Device> device, std::shared_ptr<Renderer> renderer);
 
     MeshInfo m_info;
-    
+
+    glm::vec3 m_bbCenter;
+    float m_bbRadius;
+
     glm::mat4 m_modelMatrix;
     
     std::shared_ptr<Material> m_material;
+
+    uint32_t m_drawId;
 };
 
 }

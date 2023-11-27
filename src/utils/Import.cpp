@@ -7,6 +7,42 @@ namespace fs = std::filesystem;
 
 namespace vke::utils
 {
+
+void calculateSphereBb(glm::vec3 bbL, glm::vec3 bbH, glm::vec3& center, float& radius)
+{
+    center = glm::vec3(
+        static_cast<float>((bbL.x + bbH.x)) / 2.f,
+        static_cast<float>((bbL.y + bbH.y)) / 2.f,
+        static_cast<float>((bbL.z + bbH.z)) / 2.f
+    );
+
+    std::vector<glm::vec3> bb = {
+        bbL,
+        glm::vec3(bbL.x, bbL.y, bbH.z),
+        glm::vec3(bbL.x, bbH.y, bbL.z),
+        glm::vec3(bbL.x, bbH.y, bbH.z),
+
+        glm::vec3(bbH.x, bbL.y, bbL.z),
+        glm::vec3(bbH.x, bbL.y, bbH.z),
+        glm::vec3(bbH.x, bbH.y, bbL.z),
+        bbH
+    };
+
+    radius = 0;
+
+    for (auto& point : bb)
+    {
+        float x = (center.x - point.x) * (center.x - point.x);
+        float y = (center.y - point.y) * (center.y - point.y);
+        float z = (center.z - point.z) * (center.z - point.z);
+
+        float newRadius = sqrt(x + y + z);
+
+        if (newRadius > radius)
+            radius = newRadius;
+    }
+}
+
 // Inspired by:
 // https://stackoverflow.com/questions/29184311/how-to-rotate-a-skinned-models-bones-in-c-using-assimp
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from)
@@ -35,6 +71,9 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
     info.firstIndex = indices.size();
     info.vertexOffset = vertices.size();
 
+    // glm::vec3 bbH(-INFINITY);
+    // glm::vec3 bbL(INFINITY);
+    glm::vec4 bounds(0.f);
     for (uint32_t j = 0; j < mesh->mNumVertices; j++)
     {
         Vertex vertex;
@@ -43,6 +82,26 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
         position.x = mesh->mVertices[j].x;
         position.y = mesh->mVertices[j].y;
         position.z = mesh->mVertices[j].z;
+
+        bounds += glm::vec4(position.x, position.y, position.z, 0.f);
+
+        // if (position.x > bbH.x)
+        //     bbH.x = position.x;
+        // 
+        // if (position.y > bbH.y)
+        //     bbH.y = position.y;
+// 
+        // if (position.z > bbH.z)
+        //     bbH.z = position.z;
+// 
+        // if (position.x < bbL.x)
+        //     bbL.x = position.x;
+        // 
+        // if (position.y < bbL.y)
+        //     bbL.y = position.y;
+// 
+        // if (position.z < bbL.z)
+        //     bbL.z = position.z;
 
         vertex.pos = position;
 
@@ -122,7 +181,7 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
 
     info.indexCount = indices.size() - info.firstIndex;
     std::shared_ptr<Mesh> myMesh = std::make_shared<Mesh>(localVertices, localIndices, info);
-    myMesh->setModelMatrix(modelMatrix);
+    myMesh->setModelMatrix(glm::mat4(1.f));
 
     std::shared_ptr<Material> myMaterial = std::make_shared<Material>();
 
@@ -205,6 +264,25 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
         myMaterial->setSpecularColor({ 1.f, 1.f, 1.f });
         myMaterial->setOpacity(1.f);
     }
+
+    bounds /= static_cast<float>(mesh->mNumVertices);
+
+    for (uint32_t j = 0; j < mesh->mNumVertices; j++)
+    {
+        glm::vec3 position;
+        position.x = mesh->mVertices[j].x;
+        position.y = mesh->mVertices[j].y;
+        position.z = mesh->mVertices[j].z;
+
+        bounds.w = glm::max(bounds.w, glm::distance(glm::vec3(bounds), 
+            glm::vec3(position.x, position.y, position.z)));
+    }
+
+    //calculateSphereBb(bbL, bbH, center, radius);
+
+    myMesh->setBbProperties(glm::vec3(bounds.x, bounds.y, bounds.z), bounds.w);
+
+    std::cout << "Info: " << bounds.x << " " << bounds.y << " " << bounds.z << " " << bounds.w << std::endl;
 
     // // std::cout << "Mesh info:" << std::endl;
     // // std::cout << "vertices: " << vertices.size() << std::endl;

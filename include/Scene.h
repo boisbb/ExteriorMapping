@@ -10,6 +10,7 @@ namespace vke
 
 class Model;
 class Vertex;
+class Camera;
 class Buffer;
 class DescriptorPool;
 class DescriptorSetLayout;
@@ -24,9 +25,15 @@ public:
     void setModels(const std::shared_ptr<Device>& device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
         std::shared_ptr<DescriptorPool> descriptorPool, std::vector<std::shared_ptr<Model>> models,
         const std::vector<Vertex>& vertices, const std::vector<uint32_t> indices);
+    void setLightChanged(bool lightChanged);
+    void setSceneChanged(bool sceneChanged);
+
     std::vector<std::shared_ptr<Model>>& getModels();
     uint32_t getDrawCount() const;
+    void* getIndirectDrawBufferData(int currentFrame);
 
+    bool lightChanged() const;
+    bool sceneChanged() const;
 
     void dispatch(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t currentFrame);
     void draw(VkCommandBuffer commandBuffer, uint32_t currentFrame);
@@ -35,6 +42,8 @@ public:
     // TODO: Just for testing now.
     void setLightPos(const glm::vec3& lightPos);
     glm::vec3 getLightPos() const;
+
+    void checkModelsVisible(std::shared_ptr<Camera> camera, int currentFrame);
 
 private:
     void createVertexBuffer(const std::shared_ptr<Device>& device, const std::vector<Vertex>& vertices);
@@ -56,8 +65,11 @@ private:
 
     std::vector<std::shared_ptr<DescriptorSet>> m_computeDescriptorSets;
 
+    bool m_sceneChanged;
+
     // TODO: Just for testing now.
     glm::vec3 m_lightPos = { 0, 20, 0 };
+    bool m_lightChanged;
 
     uint32_t m_drawCount;
 };

@@ -39,7 +39,9 @@ struct UniformDataFragment {
 };
 
 struct UniformDataCompute {
-    uint32_t totalMeshes;
+    glm::vec4 frustumPlanes[6];
+    unsigned int totalMeshes;
+    bool frustumCull;
 };
 
 struct MeshShaderDataVertex {
@@ -53,6 +55,10 @@ struct MeshShaderDataFragment {
     //int textureId;
     //int bumpId;
     //float __padding[2];
+};
+
+struct MeshShaderDataCompute {
+    glm::vec4 boundingSphere;
 };
 
 struct Vertex {

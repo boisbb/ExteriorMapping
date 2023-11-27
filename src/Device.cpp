@@ -278,9 +278,6 @@ uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags prope
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
     {
-        std::cout << "test" << std::endl;
-        std::cout << (memProperties.memoryTypes[i].propertyFlags & properties) << std::endl;
-        std::cout << (typeFilter & (1 << i)) << std::endl;
         if (typeFilter & (1 << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
         {
             return i;

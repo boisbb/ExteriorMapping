@@ -3,6 +3,7 @@
 #include "Material.h"
 #include "Device.h"
 #include "Renderer.h"
+#include "Camera.h"
 #include "descriptors/SetLayout.h"
 #include "descriptors/Pool.h"
 #include "utils/Structs.h"
@@ -46,21 +47,25 @@ void Model::afterImportInit(std::shared_ptr<Device> device,
 void Model::createIndirectDrawCommandsTransparent(std::vector<VkDrawIndexedIndirectCommand> &commands, 
     uint32_t &instanceId)
 {
+    uint32_t drawId = commands.size();
     for (auto& mesh : m_transparentMeshes)
     {
-        VkDrawIndexedIndirectCommand command = mesh->createIndirectDrawCommand(instanceId);
+
+        VkDrawIndexedIndirectCommand command = mesh->createIndirectDrawCommand(drawId, instanceId);
         commands.push_back(command);
 
         instanceId++;
+        drawId++;
     }
 }
 
 void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand> &commands,
     uint32_t &instanceId)
 {
+    uint32_t drawId = commands.size();
     for (auto& mesh : m_meshes)
     {
-        VkDrawIndexedIndirectCommand command = mesh->createIndirectDrawCommand(instanceId);
+        VkDrawIndexedIndirectCommand command = mesh->createIndirectDrawCommand(drawId, instanceId);
         commands.push_back(command);
 
         instanceId++;
@@ -68,24 +73,54 @@ void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>
 }
 
 void Model::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-    std::vector<MeshShaderDataFragment>& fragmentShaderData)
+    std::vector<MeshShaderDataFragment>& fragmentShaderData, 
+    std::vector<MeshShaderDataCompute>& computeShaderData)
 {
     for (auto& mesh : m_meshes)
-        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
+        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, computeShaderData, m_modelMatrix);
 
     for (auto& mesh : m_transparentMeshes)
-        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
+        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, computeShaderData, m_modelMatrix);
 
 }
 
 void Model::setModelMatrix(glm::mat4 matrix)
 {
     m_modelMatrix = matrix;
+
+    for (auto& mesh : m_meshes)
+        mesh->setTransform(matrix);
+    
+    for (auto& mesh : m_transparentMeshes)
+        mesh->setTransform(matrix);
 }
 
 glm::mat4 Model::getModelMatrix() const
 {
     return m_modelMatrix;
+}
+
+
+// Frustum culling cpu test
+void Model::checkMeshesVisible(std::shared_ptr<Camera> camera, VkDrawIndexedIndirectCommand *commands)
+{
+    for (auto& mesh : m_meshes)
+    {
+        glm::vec3 center = mesh->getBbCenter();
+        float radius = mesh->getBbRadius();
+
+        std::vector<glm::vec4> frustumPlanes = camera->getFrustumPlanes();
+
+        for (auto i = 0; i < frustumPlanes.size(); i++)
+        {
+            if ((frustumPlanes[i].x * center.x) + (frustumPlanes[i].y * center.y) + (frustumPlanes[i].z * center.z) + frustumPlanes[i].w <= -radius)
+            {
+                uint32_t drawId = mesh->getDrawId();
+
+                commands[drawId].instanceCount = 0;
+            }
+        }
+    }
 }
 
 }

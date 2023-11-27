@@ -18,6 +18,7 @@
 #include <chrono>
 
 #define PRINT_FPS false
+#define DRAW_LIGHT false
 
 
 bool enableValidationLayers = true;
@@ -41,7 +42,6 @@ void Application::init()
 {
     m_window = std::make_shared<Window>(WIDTH, HEIGHT);
     m_device = std::make_shared<Device>(m_window);
-    std::cout << "renderer" << std::endl;
     m_renderer = std::make_shared<Renderer>(m_device, m_window, "../res/shaders/vert.spv",
         "../res/shaders/frag.spv", "../res/shaders/comp.spv");
     m_scene = std::make_shared<Scene>();
@@ -52,15 +52,19 @@ void Application::init()
     glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
         (float)m_renderer->getSwapChain()->getExtent().height);
 
-    m_camera = std::make_shared<Camera>(swapExtent, glm::vec3(2.f, 10.f, 2.f));
+    m_camera = std::make_shared<Camera>(glm::vec2(WIDTH, HEIGHT), glm::vec3(2.f, 10.f, 2.f));
 
     std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
         m_vertices, m_indices);
     negus->afterImportInit(m_device, m_renderer);
 
-    // std::shared_ptr<Model> pepe = vke::utils::importModel("../res/models/pepePlane/pepePlane.obj",
-    //     m_vertices, m_indices);
-    // pepe->afterImportInit(m_device, m_renderer);
+    std::shared_ptr<Model> pepe = vke::utils::importModel("../res/models/pepePlane/pepePlane.obj",
+        m_vertices, m_indices);
+    pepe->afterImportInit(m_device, m_renderer);
+
+    std::shared_ptr<Model> sphereG = vke::utils::importModel("../res/models/basicSphere/basicSphere.obj",
+        m_vertices, m_indices);
+    sphereG->afterImportInit(m_device, m_renderer);
 
     std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
         m_vertices, m_indices);
@@ -70,13 +74,15 @@ void Application::init()
         m_vertices, m_indices);
     sponza->afterImportInit(m_device, m_renderer);
 
-    // m_light = vke::utils::importModel("../res/models/basicCube/cube.obj",
-    //     m_vertices, m_indices);
-    // m_light->afterImportInit(m_device, m_renderer);
-    // glm::mat4 lightMatrix = m_light->getModelMatrix();
-    // lightMatrix = glm::translate(lightMatrix, lightPos);
-    // lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
-    // m_light->setModelMatrix(lightMatrix);
+#if DRAW_LIGHT
+    m_light = vke::utils::importModel("../res/models/basicCube/cube.obj",
+        m_vertices, m_indices);
+    m_light->afterImportInit(m_device, m_renderer);
+    glm::mat4 lightMatrix = m_light->getModelMatrix();
+    lightMatrix = glm::translate(lightMatrix, lightPos);
+    lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
+    m_light->setModelMatrix(lightMatrix);
+#endif
 
 
     m_models.push_back(sponza);
@@ -84,6 +90,26 @@ void Application::init()
     //m_models.push_back(pepe);
     //m_models.push_back(negus);
     //m_models.push_back(m_light);
+    //m_models.push_back(sphereG);
+
+    // size_t modelSize = m_models.size();
+    // for (size_t i = 0; i < modelSize; i++)
+    // {
+    //     for (auto& mesh : m_models[i]->getMeshes())
+    //     {
+    //         glm::vec3 center = mesh->getBbCenter();
+    //         float radius = mesh->getBbRadius();
+    // 
+    //         std::shared_ptr<Model> sphere = vke::utils::importModel("../res/models/basicSphere/basicSphere.obj",
+    //             m_vertices, m_indices);
+    //         sphere->afterImportInit(m_device, m_renderer);
+    //         glm::mat4 newMat = glm::translate(glm::mat4{1.f}, center);
+    //         newMat = glm::scale(newMat, glm::vec3(radius));
+    //         sphere->setModelMatrix(newMat);
+    // 
+    //         m_models.push_back(sphere);
+    //     }
+    // }
 
     m_scene->setModels(m_device, m_renderer->getSceneComputeDescriptorSetLayout(),
         m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
@@ -201,13 +227,39 @@ void Application::renderImgui()
 
     ImGui::Begin("Config");
 
-    glm::vec3 lightPos = m_scene->getLightPos();
-    if (ImGui::SliderFloat3("Light Position:", &lightPos.x, -50.f, 50.f))
+    if (ImGui::CollapsingHeader("Light"))
     {
-        m_scene->setLightPos(lightPos);
-        glm::mat4 lightMatrix = glm::translate(glm::mat4(1.f), lightPos);
-        lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
-        m_light->setModelMatrix(lightMatrix);
+        glm::vec3 lightPos = m_scene->getLightPos();
+        if (ImGui::SliderFloat3("Light Position:", &lightPos.x, -50.f, 50.f))
+        {
+            m_scene->setLightPos(lightPos);
+            m_scene->setLightChanged(true);
+            
+#if DRAW_LIGHT
+            glm::mat4 lightMatrix = glm::translate(glm::mat4(1.f), lightPos);
+            lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
+            m_light->setModelMatrix(lightMatrix);
+#endif
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Culling"))
+    {
+        if (ImGui::Checkbox("Frustum Culling", &frustumCulling))
+        {
+            m_renderer->setFrustumCulling(frustumCulling);
+        }
+
+        VkDrawIndexedIndirectCommand* commands = (VkDrawIndexedIndirectCommand*)m_scene->getIndirectDrawBufferData(m_renderer->getCurrentFrame());
+        int renderedModels = 0;
+        for (int i = 0; i < m_scene->getDrawCount(); i++)
+        {
+            renderedModels += commands[i].instanceCount;
+        }
+
+        std::string rm = "Rendered meshes: " + std::to_string(renderedModels);
+
+        ImGui::Text(rm.c_str());
     }
 
     ImGui::End();

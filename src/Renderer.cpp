@@ -20,8 +20,10 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
         std::string fragmentShaderFile, std::string computeShaderFile)
     : m_device(device), m_window(window), m_currentFrame(0),
     m_vubos(MAX_FRAMES_IN_FLIGHT), m_fubos(MAX_FRAMES_IN_FLIGHT), m_cubos(MAX_FRAMES_IN_FLIGHT),
-    m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT),
-    m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT)
+    m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
+    m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
+    m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0),
+    m_frustumCull(true)
 {
     m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
     createCommandBuffers();
@@ -99,7 +101,20 @@ void Renderer::initDescriptorResources()
     // Compute
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        
+        m_computeDescriptorSets[i] = std::make_shared<DescriptorSet>(m_device, m_computeSetLayout,
+            m_computePool);
+
+        std::vector<VkDescriptorBufferInfo> bufferInfos = {
+            m_cubos[i]->getInfo(),
+            m_cssbos[i]->getInfo()
+        };
+
+        std::vector<uint32_t> bufferBinding = {
+            0, 1
+        };
+
+
+        m_computeDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
     }
 }
 
@@ -109,6 +124,9 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
     // Compute part
     VkFence currentComputeFence = m_swapChain->getComputeFenceId(m_currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentComputeFence, VK_TRUE, UINT64_MAX);
+
+    camera->reconstructMatrices();
+    updateDescriptorData(scene, camera);
 
     vkResetFences(m_device->getVkDevice(), 1, &currentComputeFence);
     
@@ -134,9 +152,6 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
     // Graphics part
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
-
-    camera->reconstructMatrices();
-    updateDescriptorData(scene, camera);
     
     vkResetFences(m_device->getVkDevice(), 1, &currentFence);
 
@@ -160,7 +175,6 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
     }
 
     beginRenderPass(m_currentFrame, imageIndex);
-
     return imageIndex;
 }
 
@@ -288,15 +302,15 @@ std::shared_ptr<DescriptorPool> Renderer::getDescriptorPool() const
     return m_descriptorPool;
 }
 
-// std::shared_ptr<DescriptorSetLayout> Renderer::getComputeDescriptorSetLayout() const
-// {
-//     return m_computeSetLayout;
-// }
-// 
-// std::shared_ptr<DescriptorPool> Renderer::getComputeDescriptorPool() const
-// {
-//     return m_computePool;
-// }
+std::shared_ptr<DescriptorSetLayout> Renderer::getComputeDescriptorSetLayout() const
+{
+    return m_computeSetLayout;
+}
+
+std::shared_ptr<DescriptorPool> Renderer::getComputeDescriptorPool() const
+{
+    return m_computePool;
+}
 
 std::shared_ptr<DescriptorSetLayout> Renderer::getSceneComputeDescriptorSetLayout() const
 {
@@ -306,6 +320,11 @@ std::shared_ptr<DescriptorSetLayout> Renderer::getSceneComputeDescriptorSetLayou
 std::shared_ptr<DescriptorPool> Renderer::getSceneComputeDescriptorPool() const
 {
     return m_computeScenePool;
+}
+
+void Renderer::setFrustumCulling(bool frustumCulling)
+{
+    m_frustumCull = frustumCulling;
 }
 
 int Renderer::addTexture(std::shared_ptr<Texture> texture, std::string filename)
@@ -512,38 +531,61 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_BINDLESS_RESOURCES), VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
         materialPoolSizes);
 
-    // Compute
+    // Compute general
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         m_cubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataCompute),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cubos[i]->map();
+
+        m_cssbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataCompute) * MAX_SBOS,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_cssbos[i]->map();
     }
 
-    // VkDescriptorSetLayoutBinding cuboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    //     1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding cuboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding cssboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+
+    std::vector<VkDescriptorSetLayoutBinding> computeGeneralLayoutBindings = {
+        cuboLayoutBinding,
+        cssboLayoutBinding
+    };
+
+    m_computeSetLayout = std::make_shared<DescriptorSetLayout>(m_device, computeGeneralLayoutBindings);
+
+    VkDescriptorPoolSize cuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    VkDescriptorPoolSize cssboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
+    
+    std::vector<VkDescriptorPoolSize> computeGeneralSizes = {
+        cuboPoolSize,
+        cssboPoolSize
+    };
+
+    m_computePool = std::make_shared<DescriptorPool>(m_device,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, computeGeneralSizes);
+
+    //  Compute scene
     VkDescriptorSetLayoutBinding drawLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
 
-    std::vector<VkDescriptorSetLayoutBinding> computeLayoutBindings = {
-        // cuboLayoutBinding,
+    std::vector<VkDescriptorSetLayoutBinding> computeSceneLayoutBindings = {
         drawLayoutBinding
     };
 
-    m_computeSceneSetLayout = std::make_shared<DescriptorSetLayout>(m_device, computeLayoutBindings);
+    m_computeSceneSetLayout = std::make_shared<DescriptorSetLayout>(m_device, computeSceneLayoutBindings);
 
-    // VkDescriptorPoolSize cuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize drawPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
     
-    std::vector<VkDescriptorPoolSize> computeSizes = {
-        // cuboPoolSize,
+    std::vector<VkDescriptorPoolSize> computeSceneSizes = {
         drawPoolSize
     };
-    m_computeScenePool = std::make_shared<DescriptorPool>(m_device,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, computeSizes);
-
+    m_computeScenePool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 
+        0, computeSceneSizes);
 }
 
 void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
@@ -555,6 +597,7 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
     };
 
     std::vector<VkDescriptorSetLayout> computeSetLayouts = {
+        m_computeSetLayout->getLayout(),
         m_computeSceneSetLayout->getLayout()
     };
 
@@ -584,6 +627,9 @@ void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const s
     if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
         throw std::runtime_error("failed to begin compute command buffer");
 
+    VkDescriptorSet computeSet = m_computeDescriptorSets[m_currentFrame]->getDescriptorSet();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline->getComputePipelineLayout(), 0, 1, &computeSet, 0, nullptr);
+
     m_pipeline->bindCompute(commandBuffer);
 
     scene->dispatch(commandBuffer, m_pipeline->getComputePipelineLayout(), m_currentFrame);
@@ -594,32 +640,57 @@ void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const s
 
 void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera)
 {
-    std::vector<std::shared_ptr<Model>>& models = scene->getModels();
-
     UniformDataVertex vubo{};
     vubo.view = camera->getView();
     vubo.proj = camera->getProjection();
     m_vubos[m_currentFrame]->copyMapped(&vubo, sizeof(UniformDataVertex));
 
-    UniformDataFragment fubo{};
-    fubo.lightPos = scene->getLightPos();
-    m_fubos[m_currentFrame]->copyMapped(&fubo, sizeof(UniformDataFragment));
-
-    std::vector<MeshShaderDataVertex> vssboData;
-    std::vector<MeshShaderDataFragment> fssboData;
-
-    for (auto& model : models)
-    {
-        model->updateDescriptorData(vssboData, fssboData);
-    }
-
-    m_vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());
-    m_fssbos[m_currentFrame]->copyMapped(fssboData.data(), sizeof(MeshShaderDataFragment) * fssboData.size());
-
     UniformDataCompute cubo{};
     cubo.totalMeshes = scene->getDrawCount();
+    cubo.frustumCull = m_frustumCull;
+
+    std::vector<glm::vec4> frustumPlanes = camera->getFrustumPlanes();
+    for (int i = 0; i < frustumPlanes.size(); i++)
+    {
+        cubo.frustumPlanes[i] = frustumPlanes[i];
+    }
 
     m_cubos[m_currentFrame]->copyMapped(&cubo, sizeof(UniformDataCompute));
+
+    if (scene->lightChanged())
+    {
+        UniformDataFragment fubo{};
+        fubo.lightPos = scene->getLightPos();
+        m_fubos[m_currentFrame]->copyMapped(&fubo, sizeof(UniformDataFragment));
+
+        m_lightsFramesUpdated++;
+
+        if (m_lightsFramesUpdated == MAX_FRAMES_IN_FLIGHT)
+            scene->setLightChanged(false);
+    }
+
+    if (scene->sceneChanged())
+    {
+        std::vector<MeshShaderDataVertex> vssboData;
+        std::vector<MeshShaderDataFragment> fssboData;
+        std::vector<MeshShaderDataCompute> cssboData;
+
+        std::vector<std::shared_ptr<Model>>& models = scene->getModels();
+
+        for (auto& model : models)
+        {
+            model->updateDescriptorData(vssboData, fssboData, cssboData);
+        }
+
+        m_vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());
+        m_fssbos[m_currentFrame]->copyMapped(fssboData.data(), sizeof(MeshShaderDataFragment) * fssboData.size());
+        m_cssbos[m_currentFrame]->copyMapped(cssboData.data(), sizeof(MeshShaderDataCompute) * cssboData.size());
+
+        m_sceneFramesUpdated++;
+
+        if (m_sceneFramesUpdated == MAX_FRAMES_IN_FLIGHT)
+            scene->setSceneChanged(false);
+    }
     // glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 }
 

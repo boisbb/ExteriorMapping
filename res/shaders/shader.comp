@@ -9,17 +9,69 @@ struct DrawCall
     uint firstInstance;
 };
 
-// layout(binding = 0) uniform UniformDataCompute {
-//     uint totalMeshes;
-// } ubo;
+struct MeshShaderDataCompute {
+    vec4 boundingSphere;
+};
 
-layout(std430, binding = 0) buffer draws {
+layout(set=0, binding=0) uniform UniformDataCompute {
+    vec4 frustumPlanes[6];
+    uint totalMeshes;
+    bool frustumCull;
+} ubo;
+
+layout(set=0, binding=1) readonly buffer ssbo {
+    MeshShaderDataCompute objects[];
+} cssbo;
+
+layout(std430, set=1, binding=0) buffer draws {
     DrawCall drawCalls[];
 } drawssbo;
 
-layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x=256, local_size_y=1, local_size_z=1) in;
+
+bool isFrustumCulled(vec4 sphere)
+{
+    vec3 center = sphere.xyz;
+    float radius = sphere.w;
+
+    for (int i = 0; i < 6; i++)
+    {
+        if (dot(vec4(center, 1.0), ubo.frustumPlanes[i]) + radius < 0.0)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 void main()
 {
-    // drawssbo.drawCalls[0].instanceCount = 0;
+    uint gId = gl_GlobalInvocationID.x;
+
+    if (gId < ubo.totalMeshes)
+    {
+        if (ubo.frustumCull)
+        {
+            bool isCulled = isFrustumCulled(cssbo.objects[gId].boundingSphere);
+
+            if (isCulled)
+            {
+                drawssbo.drawCalls[gId].instanceCount = 0;
+            }
+            else
+            {
+                drawssbo.drawCalls[gId].instanceCount = 1;
+            }
+        }
+        else
+        {
+            drawssbo.drawCalls[gId].instanceCount = 1;
+        }
+    }
 }
+
+
+// visible = visible && center.z * ubo.frustum.y - abs(center.x) * ubo.frustum.x > -radius;
+// visible = visible && center.z * ubo.frustum.w - abs(center.y) * ubo.frustum.z > -radius;
+// visible = visible && center.z + radius > ubo.nearFar.x && center.z - radius < ubo.nearFar.y;

@@ -11,6 +11,8 @@ set(FETCHCONTENT_BASE_DIR
     ${PROJECT_SOURCE_DIR}/external/downloaded 
     CACHE PATH "Missing description." FORCE)
 
+# set(CMAKE_BUILD_TYPE Debug)
+
 
 set( CMAKE_CXX_STANDARD 17 )
 
@@ -41,6 +43,7 @@ set ( INCLUDE
     include/utils/FileHandling.h
     include/utils/Import.h
     include/utils/Input.h
+    include/utils/Math.h
 )
 
 set( SOURCE
@@ -65,6 +68,7 @@ set( SOURCE
     src/descriptors/Set.cpp
     src/utils/FileHandling.cpp
     src/utils/Import.cpp
+    src/utils/Math.cpp
 )
 
 add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE})

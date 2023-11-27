@@ -8,15 +8,16 @@
 #include "utils/Structs.h"
 #include "utils/FileHandling.h"
 #include "utils/Constants.h"
+#include "utils/Math.h"
 
 namespace vke
 {
 
-Mesh::Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices,
-    MeshInfo info)
-    : m_modelMatrix{ 1.f },
+Mesh::Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices, MeshInfo info)
+    : m_modelMatrix{1.f},
     m_material(nullptr), m_info(info),
-    m_vertices(vertices), m_indices(indices)
+    m_vertices(vertices), m_indices(indices),
+    m_bbCenter(0.f), m_bbRadius(0.f)   
 {
 }
 
@@ -38,7 +39,7 @@ void Mesh::afterImportInit(std::shared_ptr<Device> device,
     }
 }
 
-VkDrawIndexedIndirectCommand Mesh::createIndirectDrawCommand(uint32_t& instanceId)
+VkDrawIndexedIndirectCommand Mesh::createIndirectDrawCommand(const uint32_t& drawId, uint32_t& instanceId)
 {
     VkDrawIndexedIndirectCommand command{};
     command.firstIndex = m_info.firstIndex;
@@ -47,14 +48,17 @@ VkDrawIndexedIndirectCommand Mesh::createIndirectDrawCommand(uint32_t& instanceI
     command.instanceCount = 1;
     command.vertexOffset = m_info.vertexOffset;
 
+    m_drawId = drawId;
+
     return command;
 }
 
 void Mesh::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-    std::vector<MeshShaderDataFragment>& fragmentShaderData, glm::mat4 modelMatrix)
+    std::vector<MeshShaderDataFragment>& fragmentShaderData,
+    std::vector<MeshShaderDataCompute>& computeShaderData, glm::mat4 modelMatrix)
 {
     vertexShaderData.push_back(MeshShaderDataVertex());
-    vertexShaderData.back().model = modelMatrix * m_modelMatrix;
+    vertexShaderData.back().model = m_modelMatrix;
 
     fragmentShaderData.push_back(MeshShaderDataFragment());
     if (m_material->hasTexture())
@@ -69,11 +73,38 @@ void Mesh::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderD
 
     fragmentShaderData.back().diffuseColor = glm::vec4(m_material->getDiffuseColor(), 1.f);
     fragmentShaderData.back().multiple.x = m_material->getOpacity();
+
+    computeShaderData.push_back(MeshShaderDataCompute());
+    computeShaderData.back().boundingSphere = glm::vec4(
+        m_bbCenter.x,
+        m_bbCenter.y,
+        m_bbCenter.z,
+        m_bbRadius
+    );
 }
 
 void Mesh::setModelMatrix(glm::mat4 matrix)
 {
     m_modelMatrix = matrix;
+
+    glm::vec3 scale = utils::getScaleFromMatrix(m_modelMatrix);
+
+    float maxScale = std::max(scale.x, std::max(scale.y, scale.z));
+
+    m_bbCenter = glm::vec3(m_modelMatrix * glm::vec4(m_bbCenter, 1.f));
+    m_bbRadius *= maxScale;
+}
+
+void Mesh::setTransform(glm::mat4 matrix)
+{
+    m_modelMatrix = matrix * m_modelMatrix;
+
+    glm::vec3 scale = utils::getScaleFromMatrix(m_modelMatrix);
+
+    float maxScale = std::max(scale.x, std::max(scale.y, scale.z));
+
+    m_bbCenter = glm::vec3(m_modelMatrix * glm::vec4(m_bbCenter, 1.f));
+    m_bbRadius *= maxScale;
 }
 
 void Mesh::setMaterial(std::shared_ptr<Material> material)
@@ -81,9 +112,30 @@ void Mesh::setMaterial(std::shared_ptr<Material> material)
     m_material = material;
 }
 
+void Mesh::setBbProperties(glm::vec3 center, float radius)
+{
+    m_bbCenter = center;
+    m_bbRadius = radius;
+}
+
 std::shared_ptr<Material> Mesh::getMaterial() const
 {
     return m_material;
+}
+
+glm::vec3 Mesh::getBbCenter() const
+{
+    return m_bbCenter;
+}
+
+float Mesh::getBbRadius() const
+{
+    return m_bbRadius;
+}
+
+uint32_t Mesh::getDrawId() const
+{
+    return m_drawId;
 }
 
 void Mesh::handleTexture(std::shared_ptr<Device> device, std::shared_ptr<Renderer> renderer)

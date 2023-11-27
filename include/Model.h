@@ -15,6 +15,7 @@ class DescriptorSetLayout;
 class DescriptorPool;
 class Mesh;
 class Device;
+class Camera;
 class Renderer;
 class MeshShaderDataVertex;
 
@@ -36,10 +37,13 @@ public:
     void createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
         uint32_t& instanceId);
     void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-        std::vector<MeshShaderDataFragment>& fragmentShaderData);
+        std::vector<MeshShaderDataFragment>& fragmentShaderData, 
+        std::vector<MeshShaderDataCompute>& computeShaderData);
 
     void setModelMatrix(glm::mat4 matrix);
     glm::mat4 getModelMatrix() const;
+
+    void checkMeshesVisible(std::shared_ptr<Camera> camera, VkDrawIndexedIndirectCommand* commands);
 private:
     std::vector<std::shared_ptr<Mesh>> m_meshes;
     std::vector<std::shared_ptr<Mesh>> m_transparentMeshes;

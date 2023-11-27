@@ -18,13 +18,18 @@
 namespace vke::utils
 {
 
+void calculateSphereBb(glm::vec3 bbL, glm::vec3 bbH, glm::vec3& center,
+    float& radius);
+
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from);
 std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
     const aiMatrix4x4& accTransform, std::vector<Vertex>& vertices,
     std::vector<uint32_t>& indices, std::string directory);
+
 void processNode(const std::shared_ptr<Model>& model, aiNode* node, const aiScene* scene,
     const aiMatrix4x4& accTransform, std::vector<Vertex>& vertices,
     std::vector<uint32_t>& indices, std::string directory);
+
 std::shared_ptr<Model> importModel(const std::string& filename, std::vector<Vertex>& vertices,
     std::vector<uint32_t>& indices);
 

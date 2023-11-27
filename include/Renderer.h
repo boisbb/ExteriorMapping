@@ -44,10 +44,12 @@ public:
     VkCommandBuffer getCurrentCommandBuffer() const;
     std::shared_ptr<DescriptorSetLayout> getDescriptorSetLayout() const;
     std::shared_ptr<DescriptorPool> getDescriptorPool() const;
-    //std::shared_ptr<DescriptorSetLayout> getComputeDescriptorSetLayout() const;
-    //std::shared_ptr<DescriptorPool> getComputeDescriptorPool() const;
+    std::shared_ptr<DescriptorSetLayout> getComputeDescriptorSetLayout() const;
+    std::shared_ptr<DescriptorPool> getComputeDescriptorPool() const;
     std::shared_ptr<DescriptorSetLayout> getSceneComputeDescriptorSetLayout() const;
     std::shared_ptr<DescriptorPool> getSceneComputeDescriptorPool() const;
+
+    void setFrustumCulling(bool frustumCulling);
 
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
@@ -82,23 +84,29 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_cubos;
     std::vector<std::unique_ptr<Buffer>> m_vssbos;
     std::vector<std::unique_ptr<Buffer>> m_fssbos;
+    std::vector<std::unique_ptr<Buffer>> m_cssbos;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_materialDescriptorSets;
+    std::vector<std::shared_ptr<DescriptorSet>> m_computeDescriptorSets;
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_materialSetLayout;
-    //std::shared_ptr<DescriptorSetLayout> m_computeSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_computeSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_computeSceneSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
     std::shared_ptr<DescriptorPool> m_materialPool;
-    // std::shared_ptr<DescriptorPool> m_computePool;
+    std::shared_ptr<DescriptorPool> m_computePool;
     std::shared_ptr<DescriptorPool> m_computeScenePool;
 
     std::vector<int> bufferBindings;
 
     int m_currentFrame;
+    int m_sceneFramesUpdated;
+    int m_lightsFramesUpdated;
+
+    bool m_frustumCull;
 };
 
 }

@@ -2,6 +2,8 @@
 
 #include "glm_include_unified.h"
 
+#include <vector>
+
 namespace vke
 {
 
@@ -22,18 +24,25 @@ public:
         glm::vec3& viewDir, float& speed);
     void getCameraRotateInfo(glm::vec2& resolution, float& sensitivity);
     glm::vec3 getEye() const;
+    glm::vec4 getFrustum() const;
+    std::vector<glm::vec4> getFrustumPlanes() const;
+    glm::vec2 getNearFar() const;
 
     void setCameraInfo(const glm::vec3& eye,
         const glm::vec3& up, const glm::vec3& viewDir, const float& speed);
 
     void reconstructMatrices();
 private:
+
+    void buildFrustum();
     
     glm::vec2 m_resolution;
     glm::vec3 m_eye;
     glm::vec3 m_center;
     glm::vec3 m_up;
     glm::vec3 m_viewDirection;
+    glm::vec4 m_frustum;
+    std::vector<glm::vec4> m_frustumPlanes;
 
     glm::mat4 m_view;
     glm::mat4 m_projection;

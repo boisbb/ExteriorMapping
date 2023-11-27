@@ -13,7 +13,9 @@ namespace vke
 Scene::Scene()
     : m_drawCount(0),
     m_indirectDrawBuffers(MAX_FRAMES_IN_FLIGHT),
-    m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT)
+    m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT),
+    m_sceneChanged(true),
+    m_lightChanged(true)
 {
 }
 
@@ -33,6 +35,16 @@ void Scene::setModels(const std::shared_ptr<Device>& device, std::shared_ptr<Des
     createDescriptorResources(device, descriptorSetLayout, descriptorPool);
 }
 
+void Scene::setLightChanged(bool lightChanged)
+{
+    m_lightChanged = lightChanged;
+}
+
+void Scene::setSceneChanged(bool sceneChanged)
+{
+    m_sceneChanged = sceneChanged;
+}
+
 std::vector<std::shared_ptr<Model>>& Scene::getModels()
 {
     return m_models;
@@ -43,10 +55,25 @@ uint32_t Scene::getDrawCount() const
     return m_drawCount;
 }
 
+void* Scene::getIndirectDrawBufferData(int currentFrame)
+{
+    return m_indirectDrawBuffers[currentFrame]->getMapped();
+}
+
+bool Scene::lightChanged() const
+{
+    return m_lightChanged;
+}
+
+bool Scene::sceneChanged() const
+{
+    return m_sceneChanged;
+}
+
 void Scene::dispatch(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, uint32_t currentFrame)
 {
     VkDescriptorSet computeSet = m_computeDescriptorSets[currentFrame]->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &computeSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &computeSet, 0, nullptr);
 
     vkCmdDispatch(commandBuffer, 1, 1, 1);
 }
@@ -81,6 +108,15 @@ void Scene::setLightPos(const glm::vec3& lightPos)
 glm::vec3 Scene::getLightPos() const
 {
     return m_lightPos;
+}
+
+void Scene::checkModelsVisible(std::shared_ptr<Camera> camera, int currentFrame)
+{
+    int id = 0;
+    for (auto& model : m_models)
+    {
+        model->checkMeshesVisible(camera, (VkDrawIndexedIndirectCommand*)m_indirectDrawBuffers[currentFrame]->getMapped());
+    }
 }
 
 void Scene::createVertexBuffer(const std::shared_ptr<Device>& device,
