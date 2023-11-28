@@ -54,18 +54,18 @@ void Application::init()
 
     m_camera = std::make_shared<Camera>(glm::vec2(WIDTH, HEIGHT), glm::vec3(2.f, 10.f, 2.f));
 
-    std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
-        m_vertices, m_indices);
-    negus->afterImportInit(m_device, m_renderer);
-
-    std::shared_ptr<Model> pepe = vke::utils::importModel("../res/models/pepePlane/pepePlane.obj",
-        m_vertices, m_indices);
-    pepe->afterImportInit(m_device, m_renderer);
-
-    std::shared_ptr<Model> sphereG = vke::utils::importModel("../res/models/basicSphere/basicSphere.obj",
-        m_vertices, m_indices);
-    sphereG->afterImportInit(m_device, m_renderer);
-
+    //std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
+    //    m_vertices, m_indices);
+    //negus->afterImportInit(m_device, m_renderer);
+    //
+    //std::shared_ptr<Model> pepe = vke::utils::importModel("../res/models/pepePlane/pepePlane.obj",
+    //    m_vertices, m_indices);
+    //pepe->afterImportInit(m_device, m_renderer);
+    //
+    //std::shared_ptr<Model> sphereG = vke::utils::importModel("../res/models/basicSphere/basicSphere.obj",
+    //    m_vertices, m_indices);
+    //sphereG->afterImportInit(m_device, m_renderer);
+    //
     std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
         m_vertices, m_indices);
     porsche->afterImportInit(m_device, m_renderer);

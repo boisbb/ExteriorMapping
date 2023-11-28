@@ -1,3 +1,8 @@
+#ifdef _WIN32
+#define NOMINMAX
+#include <Windows.h>
+#endif
+
 #include "Mesh.h"
 #include "Buffer.h"
 #include "Device.h"
@@ -9,6 +14,7 @@
 #include "utils/FileHandling.h"
 #include "utils/Constants.h"
 #include "utils/Math.h"
+
 
 namespace vke
 {
