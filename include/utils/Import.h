@@ -18,9 +18,6 @@
 namespace vke::utils
 {
 
-void calculateSphereBb(glm::vec3 bbL, glm::vec3 bbH, glm::vec3& center,
-    float& radius);
-
 inline glm::mat4 aiMatrix4x4ToGlm(const aiMatrix4x4* from);
 std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
     const aiMatrix4x4& accTransform, std::vector<Vertex>& vertices,

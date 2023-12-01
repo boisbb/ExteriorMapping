@@ -13,7 +13,7 @@ struct VsOut
     mat3 tbn;
 }; 
 
-layout(binding = 0) uniform UniformDataVertex {
+layout(set=2, binding = 0) uniform UniformDataVertex {
     mat4 view;
     mat4 proj;
 } ubo;

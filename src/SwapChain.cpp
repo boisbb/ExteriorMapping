@@ -30,6 +30,11 @@ VkRenderPass SwapChain::getRenderPass()
     return m_renderPass;
 }
 
+VkRenderPass SwapChain::getRenderPassDontCare()
+{
+    return m_renderPassDontCare;
+}
+
 void SwapChain::createSwapChain()
 {
     SwapChainSupportDetails swapChainSupport = m_device->getSwapChainSupport();
@@ -88,8 +93,6 @@ void SwapChain::createSwapChain()
     m_swapChainExtent = extent;
 
     m_imageCount = imageCount;
-
-    std::cout << imageCount << std::endl;
 }
 
 void SwapChain::createImageViews()
@@ -157,15 +160,6 @@ void SwapChain::createRenderPass()
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-    // VkSubpassDependency dependency{};
-    // dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    // dependency.dstSubpass = 0;
-    // dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    // dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    // dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    // dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    
-
     std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
 
     VkRenderPassCreateInfo renderPassInfo{};
@@ -178,6 +172,23 @@ void SwapChain::createRenderPass()
     renderPassInfo.pDependencies = &dependency;
 
     if (vkCreateRenderPass(m_device->getVkDevice(), &renderPassInfo, nullptr, &m_renderPass) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create render pass!");
+    }
+
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+
+    std::array<VkAttachmentDescription, 2> attachmentsDc = { colorAttachment, depthAttachment };
+
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = attachmentsDc.size();
+    renderPassInfo.pAttachments = attachmentsDc.data();
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+
+    if (vkCreateRenderPass(m_device->getVkDevice(), &renderPassInfo, nullptr, &m_renderPassDontCare) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create render pass!");
     }
@@ -286,6 +297,20 @@ uint32_t SwapChain::getImageCount() const
     return m_imageCount;
 }
 
+void SwapChain::recreate(VkExtent2D windowExtent)
+{
+    vkDeviceWaitIdle(m_device->getVkDevice());
+
+    m_windowExtent = windowExtent;
+
+    cleanup();
+
+    createSwapChain();
+    createImageViews();
+    createDepthResources();
+    createFramebuffers();
+}
+
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats)
 {
     for (const auto& availableFormat : availableFormats)
@@ -358,6 +383,21 @@ VkFormat SwapChain::findDepthFormat()
 bool SwapChain::hasStencilComponent(VkFormat format)
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+
+void SwapChain::cleanup()
+{
+    for (int i = 0; i < m_swapChainFramebuffers.size(); i++)
+    {
+        vkDestroyFramebuffer(m_device->getVkDevice(), m_swapChainFramebuffers[i], nullptr);
+    }
+
+    for (int i = 0; i < m_swapChainImageViews.size(); i++)
+    {
+        vkDestroyImageView(m_device->getVkDevice(), m_swapChainImageViews[i], nullptr);
+    }
+
+    vkDestroySwapchainKHR(m_device->getVkDevice(), m_swapChain, nullptr);
 }
 
 }

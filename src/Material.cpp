@@ -23,48 +23,48 @@ Material::~Material()
 {
 }
 
-void Material::setAmbientColor(glm::vec3 color)
+void Material::setAmbientColor(const glm::vec3& color)
 {
     m_ambientColor = color;
 }
 
-void Material::setDiffuseColor(glm::vec3 color)
+void Material::setDiffuseColor(const glm::vec3& color)
 {
     m_diffuseColor = color;
 }
 
-void Material::setSpecularColor(glm::vec3 color)
+void Material::setSpecularColor(const glm::vec3& color)
 {
     m_specularColor = color;
 }
 
-void Material::setOpacity(float opacity)
+void Material::setOpacity(const float& opacity)
 {
     m_opacity = opacity;
 }
 
-void Material::setTextureId(int id)
+void Material::setTextureId(const int& id)
 {
     m_textureId = id;
 }
 
-void Material::setBumpTextureFile(std::string filename)
+void Material::setBumpTextureFile(const std::string& filename)
 {
     m_bumpTextureFile = filename;
     m_hasBumpTexture = true;
 }
 
-void Material::setBumpTextureId(int id)
+void Material::setBumpTextureId(const int& id)
 {
     m_bumpTextureId = id;
 }
 
-void Material::setHasBumpTexture(bool hasBumpMap)
+void Material::setHasBumpTexture(const bool& hasBumpMap)
 {
     m_hasBumpTexture = hasBumpMap;
 }
 
-void Material::setTextureFile(std::string filename)
+void Material::setTextureFile(const std::string& filename)
 {
     m_textureFile = filename;
     m_hasTexture = true;

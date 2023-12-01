@@ -15,6 +15,7 @@ namespace vke
 class Model;
 class Scene;
 class Camera;
+class View;
 class DescriptorSetLayout;
 class DescriptorPool;
 class Pipeline;
@@ -26,12 +27,19 @@ public:
         std::string fragmentShaderFile, std::string computeShaderFile);
     ~Renderer();
 
+    void computePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
+    uint32_t renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>> views);
+
     void initDescriptorResources();
-    uint32_t prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
+    uint32_t prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
+        std::shared_ptr<Window> window, bool& resizeViews);
     void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
-        uint32_t imageIndex);
-    void recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene);
-    void presentFrame(const uint32_t& imageIndex);
+        const std::shared_ptr<View>& view, uint32_t imageIndex);
+    void recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
+        const std::shared_ptr<View>& view);
+    void submitFrame();
+    void presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> window, std::shared_ptr<View> view,
+        bool& resizeViews);
 
     std::shared_ptr<SwapChain> getSwapChain() const;
     VkCommandBuffer getCommandBuffer(int id) const;
@@ -48,14 +56,18 @@ public:
     std::shared_ptr<DescriptorPool> getComputeDescriptorPool() const;
     std::shared_ptr<DescriptorSetLayout> getSceneComputeDescriptorSetLayout() const;
     std::shared_ptr<DescriptorPool> getSceneComputeDescriptorPool() const;
+    std::shared_ptr<DescriptorSetLayout> getViewDescriptorSetLayout() const;
+    std::shared_ptr<DescriptorPool> getViewDescriptorPool() const;
 
     void setFrustumCulling(bool frustumCulling);
 
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
-    void beginRenderPass(int currentFrame, uint32_t imageIndex);
+    void beginCommandBuffer();
+    void beginRenderPass(std::shared_ptr<View> view, int currentFrame, uint32_t imageIndex, bool clear = true);
     void endRenderPass(int currentFrame);
+    void endCommandBuffer();
 private:
     void createCommandBuffers();
     void createComputeCommandBuffers();
@@ -63,7 +75,8 @@ private:
     void createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
         std::string computeShaderFile);
 
-    void updateDescriptorData(const std::shared_ptr<Scene>& scene, std::shared_ptr<Camera> camera);
+    void updateDescriptorData(const std::shared_ptr<Scene>& scene);
+    void updateComputeDescriptorData(const std::shared_ptr<Scene>& scene);
 
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
@@ -77,11 +90,12 @@ private:
     std::vector<std::shared_ptr<Texture>> m_bumpTextures;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
+    std::vector<VkCommandBuffer> m_commandBuffers2;
     std::vector<VkCommandBuffer> m_computeCommandBuffers;
 
-    std::vector<std::unique_ptr<Buffer>> m_vubos;
+    // std::vector<std::unique_ptr<Buffer>> m_vubos;
     std::vector<std::unique_ptr<Buffer>> m_fubos;
-    std::vector<std::unique_ptr<Buffer>> m_cubos;
+    // std::vector<std::unique_ptr<Buffer>> m_cubos;
     std::vector<std::unique_ptr<Buffer>> m_vssbos;
     std::vector<std::unique_ptr<Buffer>> m_fssbos;
     std::vector<std::unique_ptr<Buffer>> m_cssbos;
@@ -91,11 +105,13 @@ private:
     std::vector<std::shared_ptr<DescriptorSet>> m_computeDescriptorSets;
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_viewSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_materialSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_computeSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_computeSceneSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
+    std::shared_ptr<DescriptorPool> m_viewPool;
     std::shared_ptr<DescriptorPool> m_materialPool;
     std::shared_ptr<DescriptorPool> m_computePool;
     std::shared_ptr<DescriptorPool> m_computeScenePool;

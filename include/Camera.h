@@ -30,6 +30,7 @@ public:
 
     void setCameraInfo(const glm::vec3& eye,
         const glm::vec3& up, const glm::vec3& viewDir, const float& speed);
+    void setCameraResolution(const glm::vec2& resolution);
 
     void reconstructMatrices();
 private:

@@ -37,10 +37,10 @@ public:
     void createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
         uint32_t& instanceId);
     void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-        std::vector<MeshShaderDataFragment>& fragmentShaderData, 
-        std::vector<MeshShaderDataCompute>& computeShaderData);
+        std::vector<MeshShaderDataFragment>& fragmentShaderData);
+    void updateComputeDescriptorData(std::vector<MeshShaderDataCompute>& computeShaderData);
 
-    void setModelMatrix(glm::mat4 matrix);
+    void setModelMatrix(const glm::mat4& matrix);
     glm::mat4 getModelMatrix() const;
 
     void checkMeshesVisible(std::shared_ptr<Camera> camera, VkDrawIndexedIndirectCommand* commands);

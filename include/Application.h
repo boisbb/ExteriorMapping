@@ -43,6 +43,7 @@
 #include "Model.h"
 #include "Scene.h"
 #include "Camera.h"
+#include "View.h"
 
 namespace vke
 {
@@ -69,8 +70,8 @@ private:
     std::shared_ptr<Scene> m_scene;
     std::shared_ptr<Model> m_light;
     std::vector<std::shared_ptr<Model>> m_models;
-    std::shared_ptr<Camera> m_camera;
-
+    std::vector<std::shared_ptr<View>> m_views;
+    
     std::vector<Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
 

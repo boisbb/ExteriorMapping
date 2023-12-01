@@ -21,13 +21,36 @@
 // glm
 #include "glm_include_unified.h"
 
+#include "View.h"
 #include "Camera.h"
 
 namespace vke::utils
 {
 
-void consumeDeviceInput(GLFWwindow* window, std::shared_ptr<Camera>& camera)
+void consumeDeviceInput(GLFWwindow* window, std::vector<std::shared_ptr<View>> views)
 {
+    double mouseX;
+    double mouseY;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+
+    std::shared_ptr<Camera> camera = views[0]->getCamera();
+    std::shared_ptr<View> view = views[0];
+
+    for (int i = 0; i < views.size(); i++)
+    {
+        auto& v = views[i];
+        glm::vec2 offset = v->getViewportStart();
+        glm::vec2 resolution = v->getResolution();
+
+        if ((mouseX >= offset.x && mouseX < offset.x + resolution.x)
+         && (mouseY >= offset.y && mouseY < offset.y + resolution.y))
+        {
+            camera = v->getCamera();
+            view = v;
+        }
+    }
+
+
     static bool firstClick = true;
     static double prevMouseX = 0;
     static double prevMouseY = 0;
@@ -72,25 +95,23 @@ void consumeDeviceInput(GLFWwindow* window, std::shared_ptr<Camera>& camera)
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
-        glm::vec2 resolution;
         float sensitivity = 0.f;
 
+        glm::vec2 resolution;
         camera->getCameraRotateInfo(resolution, sensitivity);
         
+        glm::vec2 viewportOffset = view->getViewportStart();
         if (firstClick)
         {
-            glfwSetCursorPos(window, resolution.x / 2, resolution.y / 2);
+            glfwSetCursorPos(window, viewportOffset.x + (resolution.x / 2), viewportOffset.y + (resolution.y / 2));
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
             firstClick = false;
         }
         else
         {
-            double mouseX;
-            double mouseY;
-            glfwGetCursorPos(window, &mouseX, &mouseY);
 
-            float rotx = sensitivity * (float)(mouseY - (resolution.y / 2)) / resolution.y;
-            float roty = sensitivity * (float)(mouseX - (resolution.x / 2)) / resolution.x;
+            float rotx = sensitivity * (float)(mouseY - (viewportOffset.y + (resolution.y / 2))) / resolution.y;
+            float roty = sensitivity * (float)(mouseX - (viewportOffset.x + (resolution.x / 2))) / resolution.x;
 
             glm::vec3 newViewDir = glm::rotate(viewDir, glm::radians(-rotx), glm::normalize(glm::cross(viewDir, up)));
 
@@ -101,7 +122,7 @@ void consumeDeviceInput(GLFWwindow* window, std::shared_ptr<Camera>& camera)
 
             viewDir = glm::rotate(viewDir, glm::radians(-roty), up);
 
-            glfwSetCursorPos(window, (resolution.x / 2), (resolution.y / 2));
+            glfwSetCursorPos(window, viewportOffset.x + (resolution.x / 2), viewportOffset.y + (resolution.y / 2));
         }
 
     }

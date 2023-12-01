@@ -52,7 +52,6 @@ void Application::init()
     glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
         (float)m_renderer->getSwapChain()->getExtent().height);
 
-    m_camera = std::make_shared<Camera>(glm::vec2(WIDTH, HEIGHT), glm::vec3(2.f, 10.f, 2.f));
 
     //std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
     //    m_vertices, m_indices);
@@ -114,6 +113,17 @@ void Application::init()
     m_scene->setModels(m_device, m_renderer->getSceneComputeDescriptorSetLayout(),
         m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
 
+    std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(600, HEIGHT), glm::vec2(0.f, 0.f), glm::vec2(0.f, 0.f),
+        m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
+    std::shared_ptr<View> view2 = std::make_shared<View>(glm::vec2(600, HEIGHT), glm::vec2(600.f, 0.f), glm::vec2(600.f, 0.f), 
+        m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
+
+    std::shared_ptr<Camera> camera = std::make_shared<Camera>(glm::vec2(600, HEIGHT), glm::vec3(2.f, 20.f, 2.f));
+    view2->setCamera(camera);
+
+    m_views.push_back(view);
+    m_views.push_back(view2);
+
     m_renderer->initDescriptorResources();
 
     initImgui();
@@ -126,19 +136,25 @@ void Application::draw()
     int frames = 0;
     auto start = high_resolution_clock::now();
 #endif
+    bool resizeViews = false;
 
     while (!glfwWindowShouldClose(m_window->getWindow()))
     {
         consumeInput();
 
-        // m_renderer->renderFrame(m_scene, m_camera);
+        m_renderer->computePass(m_scene, m_views);
 
-        uint32_t imageIndex = m_renderer->prepareFrame(m_scene, m_camera);
+        uint32_t imageIndex = m_renderer->renderPass(m_scene, m_views);
 
-        m_renderer->recordCommandBuffer(m_renderer->getCurrentCommandBuffer(), m_scene, imageIndex);
+        m_renderer->beginRenderPass(m_views[0], m_renderer->getCurrentFrame(), imageIndex, false);
         renderImgui();
+        m_renderer->endRenderPass(m_renderer->getCurrentFrame());
 
-        m_renderer->presentFrame(imageIndex);
+        m_renderer->endCommandBuffer();
+        m_renderer->submitFrame();
+        m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
+
+
 
 #if PRINT_FPS
         frames++;
@@ -161,7 +177,7 @@ void Application::consumeInput()
 
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse && !io.WantCaptureKeyboard)
-        vke::utils::consumeDeviceInput(m_window->getWindow(), m_camera);
+        vke::utils::consumeDeviceInput(m_window->getWindow(), m_views);
 }
 
 void Application::initImgui()

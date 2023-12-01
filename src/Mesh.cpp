@@ -60,8 +60,7 @@ VkDrawIndexedIndirectCommand Mesh::createIndirectDrawCommand(const uint32_t& dra
 }
 
 void Mesh::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-    std::vector<MeshShaderDataFragment>& fragmentShaderData,
-    std::vector<MeshShaderDataCompute>& computeShaderData, glm::mat4 modelMatrix)
+    std::vector<MeshShaderDataFragment>& fragmentShaderData, glm::mat4 modelMatrix)
 {
     vertexShaderData.push_back(MeshShaderDataVertex());
     vertexShaderData.back().model = m_modelMatrix;
@@ -80,6 +79,10 @@ void Mesh::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderD
     fragmentShaderData.back().diffuseColor = glm::vec4(m_material->getDiffuseColor(), 1.f);
     fragmentShaderData.back().multiple.x = m_material->getOpacity();
 
+}
+
+void Mesh::updateComputeDescriptorData(std::vector<MeshShaderDataCompute> &computeShaderData)
+{
     computeShaderData.push_back(MeshShaderDataCompute());
     computeShaderData.back().boundingSphere = glm::vec4(
         m_bbCenter.x,
@@ -89,7 +92,7 @@ void Mesh::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderD
     );
 }
 
-void Mesh::setModelMatrix(glm::mat4 matrix)
+void Mesh::setModelMatrix(const glm::mat4& matrix)
 {
     m_modelMatrix = matrix;
 
@@ -101,7 +104,7 @@ void Mesh::setModelMatrix(glm::mat4 matrix)
     m_bbRadius *= maxScale;
 }
 
-void Mesh::setTransform(glm::mat4 matrix)
+void Mesh::setTransform(const glm::mat4& matrix)
 {
     m_modelMatrix = matrix * m_modelMatrix;
 
@@ -118,7 +121,7 @@ void Mesh::setMaterial(std::shared_ptr<Material> material)
     m_material = material;
 }
 
-void Mesh::setBbProperties(glm::vec3 center, float radius)
+void Mesh::setBbProperties(const glm::vec3& center, float radius)
 {
     m_bbCenter = center;
     m_bbRadius = radius;
@@ -167,7 +170,6 @@ void Mesh::handleTexture(std::shared_ptr<Device> device, std::shared_ptr<Rendere
         }
         else if (channels == 4)
         {
-            std::cout << "not transferring" << std::endl;
             newTexture = std::make_shared<Texture>(device, pixels,
                 glm::vec2(width, height), channels, format);
         }

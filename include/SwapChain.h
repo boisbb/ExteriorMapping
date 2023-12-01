@@ -16,6 +16,7 @@ public:
     ~SwapChain();
 
     VkRenderPass getRenderPass();
+    VkRenderPass getRenderPassDontCare();
     VkFence getFenceId(int id);
     VkFence getComputeFenceId(int id);
     VkSwapchainKHR getSwapChain();
@@ -25,6 +26,8 @@ public:
     VkFramebuffer getFramebuffer(int id);
     VkExtent2D getExtent();
     uint32_t getImageCount() const;
+
+    void recreate(VkExtent2D windowExtent);
 
     // Sync members
     std::vector<VkSemaphore> m_imageAvailableSemaphores;
@@ -52,12 +55,16 @@ private:
 
     bool hasStencilComponent(VkFormat format);
 
+    void cleanup();
+
+
     std::shared_ptr<Device> m_device;
 
     VkExtent2D m_windowExtent;
 
     VkSwapchainKHR m_swapChain;
     VkRenderPass m_renderPass;
+    VkRenderPass m_renderPassDontCare;
 
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;

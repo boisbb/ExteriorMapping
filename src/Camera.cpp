@@ -79,6 +79,11 @@ void Camera::setCameraInfo(const glm::vec3& eye,
     m_moveSpeed = speed;
 }
 
+void Camera::setCameraResolution(const glm::vec2& resolution)
+{
+    m_resolution = resolution;
+}
+
 void Camera::reconstructMatrices()
 {
     m_view = glm::mat4(1.f);

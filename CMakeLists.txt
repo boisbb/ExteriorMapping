@@ -28,6 +28,7 @@ set ( INCLUDE
     include/Model.h
     include/Mesh.h
     include/Camera.h
+    include/View.h
     include/Material.h
     include/Image.h
     include/Texture.h
@@ -54,6 +55,7 @@ set( SOURCE
     src/SwapChain.cpp
     src/Buffer.cpp
     src/Camera.cpp
+    src/View.cpp
     src/Pipeline.cpp
     src/Renderer.cpp
     src/Scene.cpp

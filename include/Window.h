@@ -26,9 +26,6 @@
 #endif
 #include <GLFW/glfw3native.h>
 
-// vke
-#include "utils/Constants.h"
-
 namespace vke
 {
 
@@ -42,8 +39,10 @@ public:
 
     VkExtent2D getExtent();
     GLFWwindow* getWindow();
+    bool resized() const;
 
-    bool framebufferResized = false;
+    void setResized(bool resized);
+
 private:
     void init();
 
@@ -51,6 +50,8 @@ private:
 
     int m_width;
     int m_height;
+
+    bool m_windowResized = false;
 
     GLFWwindow* m_window;
 };

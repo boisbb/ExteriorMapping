@@ -1,5 +1,5 @@
 #include "Window.h"
-#include "utils/Constants.h"
+#include "utils/Callbacks.h"
 
 namespace vke
 {
@@ -24,15 +24,34 @@ void Window::createWindowSurface(VkInstance &instance, VkSurfaceKHR *surface)
 
 VkExtent2D Window::getExtent()
 {
+    m_width = 0;
+    m_height = 0;
+    glfwGetFramebufferSize(m_window, &m_width, &m_height);
+    
+    while (m_width == 0 || m_height == 0) {
+        glfwGetFramebufferSize(m_window, &m_width, &m_height);
+        glfwWaitEvents();
+    }
+
     return {
-        static_cast<uint32_t>(WIDTH),
-        static_cast<uint32_t>(HEIGHT)
+        static_cast<uint32_t>(m_width),
+        static_cast<uint32_t>(m_height)
     };
 }
 
 GLFWwindow *Window::getWindow()
 {
     return m_window;
+}
+
+bool Window::resized() const
+{
+    return m_windowResized;
+}
+
+void Window::setResized(bool resized)
+{
+    m_windowResized = resized;
 }
 
 void Window::init()
@@ -49,10 +68,12 @@ void Window::createGlfwWindow()
         throw std::runtime_error("vulkan not supported!");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
-    m_window = glfwCreateWindow(WIDTH, HEIGHT, "VulkanApp", nullptr, nullptr);
+    m_window = glfwCreateWindow(m_width, m_height, "VulkanApp", nullptr, nullptr);
     glfwSetWindowUserPointer(m_window, this);
+
+    glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
 }
 
 }

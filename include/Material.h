@@ -16,15 +16,15 @@ public:
     Material();
     ~Material();
 
-    void setAmbientColor(glm::vec3 color);
-    void setDiffuseColor(glm::vec3 color);
-    void setSpecularColor(glm::vec3 color);
-    void setOpacity(float opacity);
-    void setTextureFile(std::string filename);
-    void setTextureId(int id);
-    void setBumpTextureFile(std::string filename);
-    void setBumpTextureId(int id);
-    void setHasBumpTexture(bool hasBumpMap);
+    void setAmbientColor(const glm::vec3& color);
+    void setDiffuseColor(const glm::vec3& color);
+    void setSpecularColor(const glm::vec3& color);
+    void setOpacity(const float& opacity);
+    void setTextureFile(const std::string& filename);
+    void setTextureId(const int& id);
+    void setBumpTextureFile(const std::string& filename);
+    void setBumpTextureId(const int& id);
+    void setHasBumpTexture(const bool& hasBumpMap);
 
     glm::vec3 getAmbientColor() const;
     glm::vec3 getDiffuseColor() const;

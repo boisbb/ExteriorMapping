@@ -6,6 +6,7 @@
 #include "descriptors/Set.h"
 #include "descriptors/Pool.h"
 #include "utils/Structs.h"
+#include "utils/Constants.h"
 
 namespace vke
 {

@@ -22,7 +22,7 @@
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
     auto wind = reinterpret_cast<vke::Window*>(glfwGetWindowUserPointer(window));
-    wind->framebufferResized = true;
+    wind->setResized(true);
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(

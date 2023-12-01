@@ -73,18 +73,26 @@ void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>
 }
 
 void Model::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-    std::vector<MeshShaderDataFragment>& fragmentShaderData, 
-    std::vector<MeshShaderDataCompute>& computeShaderData)
+    std::vector<MeshShaderDataFragment>& fragmentShaderData)
 {
     for (auto& mesh : m_meshes)
-        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, computeShaderData, m_modelMatrix);
+        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
 
     for (auto& mesh : m_transparentMeshes)
-        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, computeShaderData, m_modelMatrix);
+        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
 
 }
 
-void Model::setModelMatrix(glm::mat4 matrix)
+void Model::updateComputeDescriptorData(std::vector<MeshShaderDataCompute> &computeShaderData)
+{
+    for (auto& mesh : m_meshes)
+        mesh->updateComputeDescriptorData(computeShaderData);
+
+    for (auto& mesh : m_transparentMeshes)
+        mesh->updateComputeDescriptorData(computeShaderData);
+}
+
+void Model::setModelMatrix(const glm::mat4& matrix)
 {
     m_modelMatrix = matrix;
 

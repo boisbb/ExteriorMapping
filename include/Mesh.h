@@ -46,13 +46,13 @@ public:
         std::shared_ptr<Renderer> renderer);
     VkDrawIndexedIndirectCommand createIndirectDrawCommand(const uint32_t& drawId, uint32_t& instanceId);
     void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-        std::vector<MeshShaderDataFragment>& fragmentShaderData, 
-        std::vector<MeshShaderDataCompute>& computeShaderData,  glm::mat4 modelMatrix);
+        std::vector<MeshShaderDataFragment>& fragmentShaderData, glm::mat4 modelMatrix);
+    void updateComputeDescriptorData(std::vector<MeshShaderDataCompute>& computeShaderData);
 
-    void setModelMatrix(glm::mat4 matrix);
-    void setTransform(glm::mat4 matrix);
+    void setModelMatrix(const glm::mat4& matrix);
+    void setTransform(const glm::mat4& matrix);
     void setMaterial(std::shared_ptr<Material> material);
-    void setBbProperties(glm::vec3 center, float radius);
+    void setBbProperties(const glm::vec3& center, float radius);
 
     std::shared_ptr<Material> getMaterial() const;
     glm::vec3 getBbCenter() const;
