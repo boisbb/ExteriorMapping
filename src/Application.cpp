@@ -29,6 +29,7 @@ namespace vke
 {
 
 Application::Application()
+    : m_viewRowColumns(1, 0)
 {
     init();
 }
@@ -52,7 +53,6 @@ void Application::init()
     glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
         (float)m_renderer->getSwapChain()->getExtent().height);
 
-
     //std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
     //    m_vertices, m_indices);
     //negus->afterImportInit(m_device, m_renderer);
@@ -65,6 +65,7 @@ void Application::init()
     //    m_vertices, m_indices);
     //sphereG->afterImportInit(m_device, m_renderer);
     //
+
     std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
         m_vertices, m_indices);
     porsche->afterImportInit(m_device, m_renderer);
@@ -113,16 +114,10 @@ void Application::init()
     m_scene->setModels(m_device, m_renderer->getSceneComputeDescriptorSetLayout(),
         m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
 
-    std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(600, HEIGHT), glm::vec2(0.f, 0.f), glm::vec2(0.f, 0.f),
-        m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
-    std::shared_ptr<View> view2 = std::make_shared<View>(glm::vec2(600, HEIGHT), glm::vec2(600.f, 0.f), glm::vec2(600.f, 0.f), 
-        m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
+    // std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(WIDTH, HEIGHT), glm::vec2(0.f, 0.f),
+    //     m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
 
-    std::shared_ptr<Camera> camera = std::make_shared<Camera>(glm::vec2(600, HEIGHT), glm::vec3(2.f, 20.f, 2.f));
-    view2->setCamera(camera);
-
-    m_views.push_back(view);
-    m_views.push_back(view2);
+    addViewColumn(0, 0);
 
     m_renderer->initDescriptorResources();
 
@@ -259,23 +254,84 @@ void Application::renderImgui()
         }
     }
 
-    if (ImGui::CollapsingHeader("Culling"))
+    if (ImGui::CollapsingHeader("Views"))
     {
-        if (ImGui::Checkbox("Frustum Culling", &frustumCulling))
+        ImGui::Indent();
+        if (ImGui::Button("-"))
         {
-            m_renderer->setFrustumCulling(frustumCulling);
+            std::cout << "Delete View row" << std::endl;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("+"))
+        {
+            std::cout << "Add View row" << std::endl;
         }
 
-        VkDrawIndexedIndirectCommand* commands = (VkDrawIndexedIndirectCommand*)m_scene->getIndirectDrawBufferData(m_renderer->getCurrentFrame());
-        int renderedModels = 0;
-        for (int i = 0; i < m_scene->getDrawCount(); i++)
+        int viewId = 0;
+        for (int i = 0; i < m_viewRowColumns.size(); i++)
         {
-            renderedModels += commands[i].instanceCount;
+            std::string rowText = "Row #" + std::to_string(i);
+
+            if (ImGui::CollapsingHeader(rowText.c_str()))
+            {
+                ImGui::PushID(i);
+                ImGui::Indent();
+
+                if (ImGui::Button("-"))
+                {
+                    std::cout << "Delete row view " << i <<std::endl;
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("+"))
+                {
+                    std::cout << "Add row view " << i <<std::endl;
+                    addViewColumn(i, viewId);
+                }
+
+                for (int j = 0; j < m_viewRowColumns[i]; j++)
+                {
+                    std::string colText = "#" + std::to_string(j);
+                    if (ImGui::CollapsingHeader(colText.c_str()))
+                    {
+                        auto& view = m_views[viewId];
+
+                        ImGui::PushID(j);
+                        ImGui::Indent();
+
+                        bool frustumCulling = view->getFrustumCull();
+
+                        if (ImGui::Checkbox("Frustum Culling", &frustumCulling))
+                        {
+                            view->setFrustumCull(frustumCulling);
+                        }
+
+                        VkDrawIndexedIndirectCommand* commands = m_scene->getViewDrawData(view, m_renderer->getCurrentFrame());
+                        
+                        int renderedModels = 0;
+                        for (int k = 0; k < m_scene->getDrawCount(); k++)
+                        {
+                            renderedModels += commands[k].instanceCount;
+                        }
+
+                        std::string rm = "Rendered meshes: " + std::to_string(renderedModels);
+
+                        ImGui::Text(rm.c_str());
+
+                        ImGui::Unindent();
+                        ImGui::PopID();
+                    }
+                }
+
+                ImGui::Unindent();
+                ImGui::PopID();
+            }
+
+            viewId += m_viewRowColumns[i];
         }
 
-        std::string rm = "Rendered meshes: " + std::to_string(renderedModels);
-
-        ImGui::Text(rm.c_str());
+        ImGui::Unindent();
     }
 
     ImGui::End();
@@ -287,6 +343,44 @@ void Application::renderImgui()
 void Application::cleanup()
 {
     
+}
+
+void Application::addViewColumn(int rowId, int rowViewStartId)
+{
+    VkExtent2D windowExtent = m_window->getExtent();
+
+    int rowViewsCount = m_viewRowColumns[rowId];
+
+    int newViewWidth = static_cast<float>(windowExtent.width) / static_cast<float>(rowViewsCount + 1);
+    int newViewHeight = static_cast<float>(windowExtent.height) / static_cast<float>(m_viewRowColumns.size());
+
+    int newViewWidthOffset = 0;
+    int newViewHeightOffset = rowId * newViewHeight;
+
+    std::cout << std::endl;
+    std::cout << rowViewStartId << std::endl;
+    std::cout << newViewWidthOffset << std::endl;
+    std::cout << newViewWidth << std::endl;
+    std::cout << newViewHeight << std::endl;
+
+    for (int i = 0; i < rowViewsCount; i++)
+    {
+        newViewWidthOffset = newViewWidth * i;
+        std::cout << newViewWidthOffset << std::endl;
+
+        m_views[rowViewStartId + i]->setResolution(glm::vec2(newViewWidth, newViewHeight));
+        m_views[rowViewStartId + i]->setViewportStart(glm::vec2(newViewWidthOffset, newViewHeightOffset));
+        
+    }
+
+    newViewWidthOffset = newViewWidth * rowViewsCount;
+
+    std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(newViewWidth, newViewHeight), glm::vec2(newViewWidthOffset, newViewHeightOffset),
+        m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
+    
+    m_views.insert(m_views.begin() + rowViewsCount, view);
+
+    m_viewRowColumns[rowId] += 1;
 }
 
 }

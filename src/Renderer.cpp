@@ -24,8 +24,7 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     m_fubos(MAX_FRAMES_IN_FLIGHT), // m_cubos(MAX_FRAMES_IN_FLIGHT),
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
-    m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0),
-    m_frustumCull(true)
+    m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0)
 {
     m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
     createCommandBuffers();
@@ -122,7 +121,6 @@ void Renderer::initDescriptorResources()
 
 void Renderer::computePass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>>& views)
 {
-
     // Compute part
     VkFence currentComputeFence = m_swapChain->getComputeFenceId(m_currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentComputeFence, VK_TRUE, UINT64_MAX);
@@ -141,7 +139,12 @@ void Renderer::computePass(const std::shared_ptr<Scene> &scene, const std::vecto
     for (auto& view : views)
     {
         view->getCamera()->reconstructMatrices();
-        view->updateComputeDescriptorData(m_currentFrame, scene, true);
+        view->updateComputeDescriptorData(m_currentFrame, scene);
+
+        if (!scene->viewResourcesExist(view))
+        {
+            scene->createViewResources(view, m_device, m_computeSceneSetLayout, m_computeScenePool);
+        }
 
         recordComputeCommandBuffer(m_computeCommandBuffers[m_currentFrame], scene, view);
     }
@@ -187,8 +190,6 @@ uint32_t Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::ve
 uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
     std::shared_ptr<Window> window, bool& resizeViews)
 {
-    // std::shared_ptr<Camera> camera = view->getCamera();
-
     // Graphics part
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
@@ -385,11 +386,6 @@ std::shared_ptr<DescriptorPool> Renderer::getViewDescriptorPool() const
     return m_viewPool;
 }
 
-void Renderer::setFrustumCulling(bool frustumCulling)
-{
-    m_frustumCull = frustumCulling;
-}
-
 int Renderer::addTexture(std::shared_ptr<Texture> texture, std::string filename)
 {
     m_textures.push_back(texture);
@@ -426,7 +422,6 @@ void Renderer::beginRenderPass(std::shared_ptr<View> view, int currentFrame, uin
     VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
 
     glm::vec2 viewportStart = view->getViewportStart();
-    glm::vec2 scissorStart = view->getScissorStart();
     glm::vec2 viewResolution = view->getResolution();
 
     VkRenderPassBeginInfo renderPassInfo{};
@@ -438,7 +433,7 @@ void Renderer::beginRenderPass(std::shared_ptr<View> view, int currentFrame, uin
         renderPassInfo.renderPass = m_swapChain->getRenderPassDontCare();
 
     renderPassInfo.framebuffer = m_swapChain->getFramebuffer(imageIndex);
-    renderPassInfo.renderArea.offset = {(int)scissorStart.x, (int)scissorStart.y};
+    renderPassInfo.renderArea.offset = {(int)viewportStart.x, (int)viewportStart.y};
     renderPassInfo.renderArea.extent = {(unsigned int)viewResolution.x, (unsigned int)viewResolution.y};
 
     std::array<VkClearValue, 2> clearValues{};
@@ -460,8 +455,8 @@ void Renderer::beginRenderPass(std::shared_ptr<View> view, int currentFrame, uin
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
     VkRect2D scissor{};
-    scissor.offset = {0,0};//{(int)scissorStart.x, (int)scissorStart.y};
-    scissor.extent = m_swapChain->getExtent();//{(unsigned int)viewResolution.x, (unsigned int)viewResolution.y};
+    scissor.offset = {0,0};
+    scissor.extent = m_swapChain->getExtent();
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 }
 
@@ -710,8 +705,8 @@ void Renderer::createDescriptors()
     std::vector<VkDescriptorPoolSize> computeSceneSizes = {
         drawPoolSize
     };
-    m_computeScenePool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 
-        0, computeSceneSizes);
+    m_computeScenePool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 
+        static_cast<uint32_t>(MAX_VIEWS), 0, computeSceneSizes);
 }
 
 void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
@@ -747,7 +742,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::sha
     VkDescriptorSet viewSet = view->getViewDescriptorSet(m_currentFrame)->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getGraphicsPipelineLayout(), 2, 1, &viewSet, 0, nullptr);
 
-    scene->draw(commandBuffer, m_currentFrame);
+    scene->draw(view, commandBuffer, m_currentFrame);
 }
 
 void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
@@ -761,7 +756,7 @@ void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const s
 
     m_pipeline->bindCompute(commandBuffer);
 
-    scene->dispatch(commandBuffer, m_pipeline->getComputePipelineLayout(), m_currentFrame);
+    scene->dispatch(view, commandBuffer, m_pipeline->getComputePipelineLayout(), m_currentFrame);
 }
 
 void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene)

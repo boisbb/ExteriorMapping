@@ -70,8 +70,3 @@ void main()
         }
     }
 }
-
-
-// visible = visible && center.z * ubo.frustum.y - abs(center.x) * ubo.frustum.x > -radius;
-// visible = visible && center.z * ubo.frustum.w - abs(center.y) * ubo.frustum.z > -radius;
-// visible = visible && center.z + radius > ubo.nearFar.x && center.z - radius < ubo.nearFar.y;

@@ -64,6 +64,8 @@ private:
     void renderImgui();
     void cleanup();
 
+    void addViewColumn(int rowId, int rowViewStartId);
+
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Renderer> m_renderer;
@@ -75,7 +77,7 @@ private:
     std::vector<Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
 
-    bool frustumCulling = true;
+    std::vector<uint32_t> m_viewRowColumns;
 };
 
 }

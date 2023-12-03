@@ -59,8 +59,6 @@ public:
     std::shared_ptr<DescriptorSetLayout> getViewDescriptorSetLayout() const;
     std::shared_ptr<DescriptorPool> getViewDescriptorPool() const;
 
-    void setFrustumCulling(bool frustumCulling);
-
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
@@ -121,8 +119,6 @@ private:
     int m_currentFrame;
     int m_sceneFramesUpdated;
     int m_lightsFramesUpdated;
-
-    bool m_frustumCull;
 };
 
 }

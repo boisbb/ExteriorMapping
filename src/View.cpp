@@ -6,13 +6,12 @@
 namespace vke
 {
 
-View::View(const glm::vec2& resolution, const glm::vec2& viewportStart, const glm::vec2& scissorStart,
-    std::shared_ptr<Device> device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
-    std::shared_ptr<DescriptorPool> descriptorPool)
-    : m_resolution(resolution), m_viewportStart(viewportStart), m_scissorStart(scissorStart),
+View::View(const glm::vec2& resolution, const glm::vec2& viewportStart, std::shared_ptr<Device> device, 
+    std::shared_ptr<DescriptorSetLayout> descriptorSetLayout, std::shared_ptr<DescriptorPool> descriptorPool)
+    : m_resolution(resolution), m_viewportStart(viewportStart),
     m_camera(std::make_shared<Camera>(m_resolution, glm::vec3(2.f, 10.f, 2.f))),
     m_vubos(MAX_FRAMES_IN_FLIGHT), m_cubos(MAX_FRAMES_IN_FLIGHT),
-    m_viewDescriptorSets(MAX_FRAMES_IN_FLIGHT)
+    m_viewDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_frustumCull(true)
 {
     createDescriptorResources(device, descriptorSetLayout, descriptorPool);
 }
@@ -20,18 +19,17 @@ View::View(const glm::vec2& resolution, const glm::vec2& viewportStart, const gl
 View::~View()
 {
 }
+
 glm::vec2 View::getResolution() const
 {
     return m_resolution;
 }
+
 glm::vec2 View::getViewportStart() const
 {
     return m_viewportStart;
 }
-glm::vec2 View::getScissorStart() const
-{
-    return m_scissorStart;
-}
+
 std::shared_ptr<Camera> View::getCamera() const
 {
     return m_camera;
@@ -40,22 +38,32 @@ std::shared_ptr<DescriptorSet> View::getViewDescriptorSet(int currentFrame)
 {
     return m_viewDescriptorSets[currentFrame];
 }
+
+bool View::getFrustumCull() const
+{
+    return m_frustumCull;
+}
+
 void View::setResolution(const glm::vec2 &resolution)
 {
     m_resolution = resolution;
+
+    m_camera->setCameraResolution(resolution);
 }
+
 void View::setViewportStart(const glm::vec2 &viewPortStart)
 {
     m_viewportStart = viewPortStart;
 }
 
-void View::setScissorStart(const glm::vec2 &scissorStart)
-{
-    m_scissorStart = scissorStart;
-}
 void View::setCamera(std::shared_ptr<Camera> camera)
 {
     m_camera = camera;
+}
+
+void View::setFrustumCull(bool frustumCull)
+{
+    m_frustumCull = frustumCull;
 }
 
 void View::updateDescriptorData(int currentFrame)
@@ -67,11 +75,11 @@ void View::updateDescriptorData(int currentFrame)
     m_vubos[currentFrame]->copyMapped(&vubo, sizeof(UniformDataVertex));
 }
 
-void View::updateComputeDescriptorData(int currentFrame, const std::shared_ptr<Scene>& scene, bool frustumCull)
+void View::updateComputeDescriptorData(int currentFrame, const std::shared_ptr<Scene>& scene)
 {
     UniformDataCompute cubo{};
     cubo.totalMeshes = scene->getDrawCount();
-    cubo.frustumCull = frustumCull;
+    cubo.frustumCull = m_frustumCull;
 
     std::vector<glm::vec4> frustumPlanes = m_camera->getFrustumPlanes();
     for (int i = 0; i < frustumPlanes.size(); i++)
