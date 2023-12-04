@@ -13,14 +13,14 @@ struct VsOut
     mat3 tbn;
 }; 
 
-layout(set=2, binding = 0) uniform UniformDataVertex {
+layout(std430, binding=1) readonly buffer ssbo {
+    MeshShaderDataVertex objects[];
+} vssbo;
+
+layout(set=2, binding=0) uniform UniformDataVertex {
     mat4 view;
     mat4 proj;
 } ubo;
-
-layout(std430, binding = 1) readonly buffer ssbo {
-    MeshShaderDataVertex objects[];
-} vssbo;
 
 layout(location = 0) in vec3 inPosition;
 layout(location = 1) in vec3 inColor;

@@ -26,6 +26,8 @@
 #endif
 #include <GLFW/glfw3native.h>
 
+#include "glm_include_unified.h"
+
 namespace vke
 {
 
@@ -38,6 +40,7 @@ public:
     void createWindowSurface(VkInstance& instance, VkSurfaceKHR* surface);
 
     VkExtent2D getExtent();
+    glm::vec2 getResolution();
     GLFWwindow* getWindow();
     bool resized() const;
 

@@ -111,6 +111,8 @@ void Camera::reconstructMatrices()
 
 void Camera::buildFrustum()
 {
+    // https://github.com/SaschaWillems/Vulkan/blob/master/examples/computecullandlod/computecullandlod.cpp
+
     glm::mat4 viewProjTransp = glm::transpose(m_projection * m_view);
 
     m_frustumPlanes[0] = viewProjTransp[3] + viewProjTransp[0];

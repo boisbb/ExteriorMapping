@@ -39,6 +39,11 @@ VkExtent2D Window::getExtent()
     };
 }
 
+glm::vec2 Window::getResolution()
+{
+    return glm::vec2(m_width, m_height);
+}
+
 GLFWwindow *Window::getWindow()
 {
     return m_window;

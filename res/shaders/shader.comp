@@ -13,12 +13,6 @@ struct MeshShaderDataCompute {
     vec4 boundingSphere;
 };
 
-layout(set=2, binding=1) uniform UniformDataCompute {
-    vec4 frustumPlanes[6];
-    uint totalMeshes;
-    bool frustumCull;
-} ubo;
-
 layout(set=0, binding=1) readonly buffer ssbo {
     MeshShaderDataCompute objects[];
 } cssbo;
@@ -27,8 +21,15 @@ layout(std430, set=1, binding=0) buffer draws {
     DrawCall drawCalls[];
 } drawssbo;
 
+layout(set=2, binding=1) uniform UniformDataCompute {
+    vec4 frustumPlanes[6];
+    uint totalMeshes;
+    bool frustumCull;
+} ubo;
+
 layout (local_size_x=256, local_size_y=1, local_size_z=1) in;
 
+// https://github.com/SaschaWillems/Vulkan/blob/master/shaders/glsl/computecullandlod/cull.comp
 bool isFrustumCulled(vec4 sphere)
 {
     vec3 center = sphere.xyz;

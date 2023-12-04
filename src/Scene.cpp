@@ -111,8 +111,6 @@ void Scene::createViewResources(std::shared_ptr<View> view, const std::shared_pt
         return;
     }
 
-    std::cout << "CREATING" << std::endl;
-
     std::array<std::shared_ptr<Buffer>, MAX_FRAMES_IN_FLIGHT> drawBufferArray;
     std::array<std::shared_ptr<DescriptorSet>, MAX_FRAMES_IN_FLIGHT> descriptorArray;
 

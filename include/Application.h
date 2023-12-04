@@ -57,14 +57,27 @@ public:
 
     bool framebufferResized = false;
 private:
+
+    struct ViewColInfo {
+        int rowId;
+        int viewId;
+        bool remove;
+    };
+
     void init();
     void draw();
     void consumeInput();
     void initImgui();
-    void renderImgui();
+    void renderImgui(int lastFps);
     void cleanup();
 
     void addViewColumn(int rowId, int rowViewStartId);
+    void removeViewColumn(int rowId, int rowViewStartId);
+    void addViewRow();
+    void removeViewRow();
+    void resizeAllViews();
+
+    void createModels();
 
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Device> m_device;

@@ -31,6 +31,7 @@ public:
     uint32_t renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>> views);
 
     void initDescriptorResources();
+
     uint32_t prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
         std::shared_ptr<Window> window, bool& resizeViews);
     void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
@@ -63,7 +64,8 @@ public:
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
     void beginCommandBuffer();
-    void beginRenderPass(std::shared_ptr<View> view, int currentFrame, uint32_t imageIndex, bool clear = true);
+    void beginRenderPass(glm::vec2 viewportStart, glm::vec2 viewResolution, int currentFrame,
+        uint32_t imageIndex, bool clear = true);
     void endRenderPass(int currentFrame);
     void endCommandBuffer();
 private:
@@ -91,9 +93,7 @@ private:
     std::vector<VkCommandBuffer> m_commandBuffers2;
     std::vector<VkCommandBuffer> m_computeCommandBuffers;
 
-    // std::vector<std::unique_ptr<Buffer>> m_vubos;
     std::vector<std::unique_ptr<Buffer>> m_fubos;
-    // std::vector<std::unique_ptr<Buffer>> m_cubos;
     std::vector<std::unique_ptr<Buffer>> m_vssbos;
     std::vector<std::unique_ptr<Buffer>> m_fssbos;
     std::vector<std::unique_ptr<Buffer>> m_cssbos;

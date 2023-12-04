@@ -17,11 +17,7 @@
 
 #include <chrono>
 
-#define PRINT_FPS false
 #define DRAW_LIGHT false
-
-
-bool enableValidationLayers = true;
 
 using namespace std::chrono;
 
@@ -29,7 +25,6 @@ namespace vke
 {
 
 Application::Application()
-    : m_viewRowColumns(1, 0)
 {
     init();
 }
@@ -45,93 +40,32 @@ void Application::init()
     m_device = std::make_shared<Device>(m_window);
     m_renderer = std::make_shared<Renderer>(m_device, m_window, "../res/shaders/vert.spv",
         "../res/shaders/frag.spv", "../res/shaders/comp.spv");
+    
     m_scene = std::make_shared<Scene>();
+
 
     glm::vec3 lightPos = { 0.f, 10.f, 0.f };
     m_scene->setLightPos(lightPos);
 
-    glm::vec2 swapExtent((float)m_renderer->getSwapChain()->getExtent().width,
-        (float)m_renderer->getSwapChain()->getExtent().height);
-
-    //std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
-    //    m_vertices, m_indices);
-    //negus->afterImportInit(m_device, m_renderer);
-    //
-    //std::shared_ptr<Model> pepe = vke::utils::importModel("../res/models/pepePlane/pepePlane.obj",
-    //    m_vertices, m_indices);
-    //pepe->afterImportInit(m_device, m_renderer);
-    //
-    //std::shared_ptr<Model> sphereG = vke::utils::importModel("../res/models/basicSphere/basicSphere.obj",
-    //    m_vertices, m_indices);
-    //sphereG->afterImportInit(m_device, m_renderer);
-    //
-
-    std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
-        m_vertices, m_indices);
-    porsche->afterImportInit(m_device, m_renderer);
-    
-    std::shared_ptr<Model> sponza = vke::utils::importModel("../res/models/dabrovic_sponza/sponza.obj",
-        m_vertices, m_indices);
-    sponza->afterImportInit(m_device, m_renderer);
-
-#if DRAW_LIGHT
-    m_light = vke::utils::importModel("../res/models/basicCube/cube.obj",
-        m_vertices, m_indices);
-    m_light->afterImportInit(m_device, m_renderer);
-    glm::mat4 lightMatrix = m_light->getModelMatrix();
-    lightMatrix = glm::translate(lightMatrix, lightPos);
-    lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
-    m_light->setModelMatrix(lightMatrix);
-#endif
-
-
-    m_models.push_back(sponza);
-    m_models.push_back(porsche);
-    //m_models.push_back(pepe);
-    //m_models.push_back(negus);
-    //m_models.push_back(m_light);
-    //m_models.push_back(sphereG);
-
-    // size_t modelSize = m_models.size();
-    // for (size_t i = 0; i < modelSize; i++)
-    // {
-    //     for (auto& mesh : m_models[i]->getMeshes())
-    //     {
-    //         glm::vec3 center = mesh->getBbCenter();
-    //         float radius = mesh->getBbRadius();
-    // 
-    //         std::shared_ptr<Model> sphere = vke::utils::importModel("../res/models/basicSphere/basicSphere.obj",
-    //             m_vertices, m_indices);
-    //         sphere->afterImportInit(m_device, m_renderer);
-    //         glm::mat4 newMat = glm::translate(glm::mat4{1.f}, center);
-    //         newMat = glm::scale(newMat, glm::vec3(radius));
-    //         sphere->setModelMatrix(newMat);
-    // 
-    //         m_models.push_back(sphere);
-    //     }
-    // }
+    createModels();
 
     m_scene->setModels(m_device, m_renderer->getSceneComputeDescriptorSetLayout(),
         m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
 
-    // std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(WIDTH, HEIGHT), glm::vec2(0.f, 0.f),
-    //     m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
-
-    addViewColumn(0, 0);
-
+    addViewRow();
+    
     m_renderer->initDescriptorResources();
-
     initImgui();
 }
 
 void Application::draw()
 {
-
-#if PRINT_FPS
-    int frames = 0;
-    auto start = high_resolution_clock::now();
-#endif
     bool resizeViews = false;
+
+    double lastTime = glfwGetTime();
+    int frames = 0;
+
+    int lastFps = 0;
 
     while (!glfwWindowShouldClose(m_window->getWindow()))
     {
@@ -141,26 +75,29 @@ void Application::draw()
 
         uint32_t imageIndex = m_renderer->renderPass(m_scene, m_views);
 
-        m_renderer->beginRenderPass(m_views[0], m_renderer->getCurrentFrame(), imageIndex, false);
-        renderImgui();
+        m_renderer->beginRenderPass(glm::vec2(0.f, 0.f), m_window->getResolution(), m_renderer->getCurrentFrame(), imageIndex, false);
+        renderImgui(lastFps);
         m_renderer->endRenderPass(m_renderer->getCurrentFrame());
 
         m_renderer->endCommandBuffer();
         m_renderer->submitFrame();
         m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
 
+        if (resizeViews)
+        {
+            resizeAllViews();
+            resizeViews = false;
+        }
 
-
-#if PRINT_FPS
+        double currentTime = glfwGetTime();
         frames++;
-        auto stop = high_resolution_clock::now();
-        auto duration = duration_cast<milliseconds>(stop - start);
-        int elapsedMs = duration.count();
-        float elapsedS = static_cast<float>(elapsedMs) / 1000.f;
-        float fps = static_cast<float>(frames) / elapsedS;
-        std::cout << fps << std::endl;
-#endif
-        
+        if (currentTime - lastTime >= 1.f)
+        {
+            lastFps = frames;
+            frames = 0;
+
+            lastTime = glfwGetTime();
+        }
     }
 
     vkDeviceWaitIdle(m_device->getVkDevice());
@@ -230,13 +167,16 @@ void Application::initImgui()
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
-void Application::renderImgui()
+void Application::renderImgui(int lastFps)
 {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
     ImGui::Begin("Config");
+
+    std::string fpsStr = std::to_string(lastFps) + "fps";
+    ImGui::Text(fpsStr.c_str());
 
     if (ImGui::CollapsingHeader("Light"))
     {
@@ -259,13 +199,15 @@ void Application::renderImgui()
         ImGui::Indent();
         if (ImGui::Button("-"))
         {
-            std::cout << "Delete View row" << std::endl;
+            removeViewRow();
         }
         ImGui::SameLine();
         if (ImGui::Button("+"))
         {
-            std::cout << "Add View row" << std::endl;
+            addViewRow();
         }
+
+        std::vector<ViewColInfo> viewColInfos;
 
         int viewId = 0;
         for (int i = 0; i < m_viewRowColumns.size(); i++)
@@ -279,15 +221,24 @@ void Application::renderImgui()
 
                 if (ImGui::Button("-"))
                 {
-                    std::cout << "Delete row view " << i <<std::endl;
+                    ViewColInfo info;
+                    info.rowId = i;
+                    info.viewId = viewId;
+                    info.remove = true;
+
+                    viewColInfos.push_back(info);
                 }
 
                 ImGui::SameLine();
 
                 if (ImGui::Button("+"))
-                {
-                    std::cout << "Add row view " << i <<std::endl;
-                    addViewColumn(i, viewId);
+                {                    
+                    ViewColInfo info;
+                    info.rowId = i;
+                    info.viewId = viewId;
+                    info.remove = false;
+
+                    viewColInfos.push_back(info);
                 }
 
                 for (int j = 0; j < m_viewRowColumns[i]; j++)
@@ -295,9 +246,9 @@ void Application::renderImgui()
                     std::string colText = "#" + std::to_string(j);
                     if (ImGui::CollapsingHeader(colText.c_str()))
                     {
-                        auto& view = m_views[viewId];
+                        auto& view = m_views[viewId + j];
 
-                        ImGui::PushID(j);
+                        ImGui::PushID(view.get());
                         ImGui::Indent();
 
                         bool frustumCulling = view->getFrustumCull();
@@ -331,6 +282,29 @@ void Application::renderImgui()
             viewId += m_viewRowColumns[i];
         }
 
+        if (viewColInfos.size() > 1)
+        {
+            std::sort(viewColInfos.begin(), viewColInfos.end(), [](const ViewColInfo& a, const ViewColInfo& b)
+            {
+                return a.viewId < b.viewId;
+            });
+        }
+
+        int addViewId = 0;
+        for (auto& info : viewColInfos)
+        {
+            if (info.remove)
+            {
+                removeViewColumn(info.rowId, info.viewId + addViewId);
+                addViewId -= 1;
+            }
+            else
+            {
+                addViewColumn(info.rowId, info.viewId + addViewId);
+                addViewId += 1;
+            }
+        }
+
         ImGui::Unindent();
     }
 
@@ -347,6 +321,9 @@ void Application::cleanup()
 
 void Application::addViewColumn(int rowId, int rowViewStartId)
 {
+    if (m_viewRowColumns.size() == 0)
+        m_viewRowColumns.push_back(0);
+    
     VkExtent2D windowExtent = m_window->getExtent();
 
     int rowViewsCount = m_viewRowColumns[rowId];
@@ -357,16 +334,9 @@ void Application::addViewColumn(int rowId, int rowViewStartId)
     int newViewWidthOffset = 0;
     int newViewHeightOffset = rowId * newViewHeight;
 
-    std::cout << std::endl;
-    std::cout << rowViewStartId << std::endl;
-    std::cout << newViewWidthOffset << std::endl;
-    std::cout << newViewWidth << std::endl;
-    std::cout << newViewHeight << std::endl;
-
     for (int i = 0; i < rowViewsCount; i++)
     {
         newViewWidthOffset = newViewWidth * i;
-        std::cout << newViewWidthOffset << std::endl;
 
         m_views[rowViewStartId + i]->setResolution(glm::vec2(newViewWidth, newViewHeight));
         m_views[rowViewStartId + i]->setViewportStart(glm::vec2(newViewWidthOffset, newViewHeightOffset));
@@ -378,9 +348,189 @@ void Application::addViewColumn(int rowId, int rowViewStartId)
     std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(newViewWidth, newViewHeight), glm::vec2(newViewWidthOffset, newViewHeightOffset),
         m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
     
-    m_views.insert(m_views.begin() + rowViewsCount, view);
-
+    
+    m_views.insert(m_views.begin() + rowViewStartId + rowViewsCount, view);
     m_viewRowColumns[rowId] += 1;
+}
+
+void Application::removeViewColumn(int rowId, int rowViewStartId)
+{
+    if (m_viewRowColumns.size() == 0)
+        return;
+    
+    if (m_viewRowColumns[rowId] == 1)
+        return;
+    
+    VkExtent2D windowExtent = m_window->getExtent();
+
+    int rowViewsCount = m_viewRowColumns[rowId];
+
+    int newViewWidth = static_cast<float>(windowExtent.width) / static_cast<float>(rowViewsCount - 1);
+    int newViewHeight = static_cast<float>(windowExtent.height) / static_cast<float>(m_viewRowColumns.size());
+
+    int newViewWidthOffset = 0;
+    int newViewHeightOffset = rowId * newViewHeight;
+
+    for (int i = 0; i < rowViewsCount - 1; i++)
+    {
+        newViewWidthOffset = newViewWidth * i;
+
+        m_views[rowViewStartId + i]->setResolution(glm::vec2(newViewWidth, newViewHeight));
+        m_views[rowViewStartId + i]->setViewportStart(glm::vec2(newViewWidthOffset, newViewHeightOffset));
+        
+    }
+
+    m_views.erase(m_views.begin() + rowViewStartId + rowViewsCount - 1);
+    m_viewRowColumns[rowId] -= 1;
+}
+
+void Application::addViewRow()
+{
+    VkExtent2D windowExtent = m_window->getExtent();
+
+    int rowsCount = m_viewRowColumns.size();
+
+    int newViewHeight = static_cast<float>(windowExtent.height) / static_cast<float>(rowsCount + 1);
+    int newViewHeightOffset = 0;
+    
+    int viewId = 0;
+    for (int i = 0; i < m_viewRowColumns.size(); i++)
+    {
+        newViewHeightOffset = newViewHeight * i;
+        
+        for (int j = 0; j < m_viewRowColumns[i]; j++)
+        {
+            auto& view = m_views[viewId];
+
+            glm::vec2 viewOffset =  view->getViewportStart();
+            viewOffset.y = newViewHeightOffset;
+
+            glm::vec2 viewResolution = view->getResolution();
+            viewResolution.y = newViewHeight;
+
+            view->setViewportStart(viewOffset);
+            view->setResolution(viewResolution);
+
+            viewId += 1;
+        }
+    }
+
+    newViewHeightOffset = newViewHeight * rowsCount;
+
+    std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(windowExtent.width, newViewHeight),
+        glm::vec2(0.f, newViewHeightOffset), m_device, m_renderer->getViewDescriptorSetLayout(),
+        m_renderer->getViewDescriptorPool());
+    
+    m_viewRowColumns.push_back(1);
+    m_views.push_back(view);
+}
+
+void Application::removeViewRow()
+{
+    if (m_viewRowColumns.size() == 1)
+        return;
+
+    VkExtent2D windowExtent = m_window->getExtent();
+
+    int rowsCount = m_viewRowColumns.size();
+    int lastRowViewsCount = m_viewRowColumns.back();
+
+    for (int i = 0; i < lastRowViewsCount; i++)
+    {
+        m_views.erase(m_views.end() - 1);
+    }
+
+    m_viewRowColumns.erase(m_viewRowColumns.end() - 1);
+
+    int newViewHeight = static_cast<float>(windowExtent.height) / static_cast<float>(rowsCount - 1);
+    int newViewHeightOffset = 0;
+
+    int viewId = 0;
+    for (int i = 0; i < m_viewRowColumns.size(); i++)
+    {
+        newViewHeightOffset = newViewHeight * i;
+        
+        for (int j = 0; j < m_viewRowColumns[i]; j++)
+        {
+            auto& view = m_views[viewId];
+
+            glm::vec2 viewOffset =  view->getViewportStart();
+            viewOffset.y = newViewHeightOffset;
+
+            glm::vec2 viewResolution = view->getResolution();
+            viewResolution.y = newViewHeight;
+
+            view->setViewportStart(viewOffset);
+            view->setResolution(viewResolution);
+
+            viewId += 1;
+        }
+    }
+}
+
+void Application::resizeAllViews()
+{
+    glm::vec2 windowExtent = m_window->getResolution();
+
+    int rowsCount = m_viewRowColumns.size();
+
+    int newViewHeight = static_cast<float>(windowExtent.y) / static_cast<float>(rowsCount);
+    int newViewHeightOffset = 0;
+
+    int newViewWidth = 0;
+    int newViewWidthOffset = 0;
+
+    int viewId = 0;
+    for (int i = 0; i < rowsCount; i++)
+    {
+        newViewHeightOffset = newViewHeight * i;
+
+        int rowViewsCount = m_viewRowColumns[i];
+        newViewWidth = static_cast<float>(windowExtent.x) / static_cast<float>(rowViewsCount);
+
+        for (int j = 0; j < rowViewsCount; j++)
+        {
+            newViewWidthOffset = newViewWidth * j;
+
+            m_views[viewId]->setResolution(glm::vec2(newViewWidth, newViewHeight));
+            m_views[viewId]->setViewportStart(glm::vec2(newViewWidthOffset, newViewHeightOffset));
+        
+            viewId += 1;
+        }
+    }
+}
+
+void Application::createModels()
+{
+    //std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
+    //    m_vertices, m_indices);
+    //negus->afterImportInit(m_device, m_renderer);
+    //
+    //std::shared_ptr<Model> pepe = vke::utils::importModel("../res/models/pepePlane/pepePlane.obj",
+    //    m_vertices, m_indices);
+    //pepe->afterImportInit(m_device, m_renderer);
+
+    std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
+        m_vertices, m_indices);
+    porsche->afterImportInit(m_device, m_renderer);
+    
+    std::shared_ptr<Model> sponza = vke::utils::importModel("../res/models/dabrovic_sponza/sponza.obj",
+        m_vertices, m_indices);
+    sponza->afterImportInit(m_device, m_renderer);
+
+#if DRAW_LIGHT
+    m_light = vke::utils::importModel("../res/models/basicCube/cube.obj",
+        m_vertices, m_indices);
+    m_light->afterImportInit(m_device, m_renderer);
+    glm::mat4 lightMatrix = m_light->getModelMatrix();
+    lightMatrix = glm::translate(lightMatrix, lightPos);
+    lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
+    m_light->setModelMatrix(lightMatrix);
+#endif
+
+
+    m_models.push_back(sponza);
+    m_models.push_back(porsche);
 }
 
 }

@@ -4,9 +4,6 @@
 struct MeshShaderDataFragment {
     vec4 diffuseColor;
     vec4 multiple;
-    //float opacity;
-    //float textureId;
-    //float bumpId;
 };
 
 struct FsInput
@@ -18,21 +15,21 @@ struct FsInput
     mat3 tbn;
 }; 
 
-layout(std430, binding = 3) readonly buffer ssbo {
-    MeshShaderDataFragment objects[];
-} fssbo;
-
-layout(binding = 2) uniform UniformDataFragment {
+layout(binding=2) uniform UniformDataFragment {
     vec3 lightPos;
 } ubo;
 
-layout(set = 1, binding = 0) uniform sampler2D texSampler[];
-layout(set = 1, binding = 1) uniform sampler2D bumpSampler[];
+layout(std430, binding=3) readonly buffer ssbo {
+    MeshShaderDataFragment objects[];
+} fssbo;
 
-layout(location = 0) flat in int instanceId;
-layout(location = 1) in FsInput fsIn;
+layout(set=1, binding=0) uniform sampler2D texSampler[];
+layout(set=1, binding=1) uniform sampler2D bumpSampler[];
 
-layout(location = 0) out vec4 finalColor;
+layout(location=0) flat in int instanceId;
+layout(location=1) in FsInput fsIn;
+
+layout(location=0) out vec4 finalColor;
 
 vec3 bumpToNormal(int bumpId)
 {
@@ -99,5 +96,4 @@ void main()
     }
 
     finalColor.rgb = (ambient + diffuse) * finalColor.rgb;
-    // finalColor = vec4(fsIn.fragColor, 1.f);
 }

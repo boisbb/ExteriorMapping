@@ -19,9 +19,7 @@ namespace vke
 
 Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
         std::string fragmentShaderFile, std::string computeShaderFile)
-    : m_device(device), m_window(window), m_currentFrame(0),
-    //m_vubos(MAX_FRAMES_IN_FLIGHT),
-    m_fubos(MAX_FRAMES_IN_FLIGHT), // m_cubos(MAX_FRAMES_IN_FLIGHT),
+    : m_device(device), m_window(window), m_currentFrame(0), m_fubos(MAX_FRAMES_IN_FLIGHT),
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0)
@@ -46,7 +44,6 @@ void Renderer::initDescriptorResources()
             m_descriptorPool);
 
         std::vector<VkDescriptorBufferInfo> bufferInfos{
-            // m_vubos[i]->getInfo(),
             m_vssbos[i]->getInfo(),
             m_fubos[i]->getInfo(),
             m_fssbos[i]->getInfo()
@@ -106,7 +103,6 @@ void Renderer::initDescriptorResources()
             m_computePool);
 
         std::vector<VkDescriptorBufferInfo> bufferInfos = {
-            // m_cubos[i]->getInfo(),
             m_cssbos[i]->getInfo()
         };
 
@@ -179,7 +175,7 @@ uint32_t Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::ve
         view->getCamera()->reconstructMatrices();
         view->updateDescriptorData(m_currentFrame);
 
-        beginRenderPass(view, m_currentFrame, imageIndex);
+        beginRenderPass(view->getViewportStart(), view->getResolution(), m_currentFrame, imageIndex);
         recordCommandBuffer(m_commandBuffers[m_currentFrame], scene, view, imageIndex);
         endRenderPass(m_currentFrame);
     }
@@ -203,8 +199,9 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         VkExtent2D ext = window->getExtent();
-        // camera->setCameraResolution(glm::vec2(ext.width, ext.height));
         m_swapChain->recreate(ext);
+
+        std::cout << "out of date" << std::endl;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
     {
@@ -280,7 +277,6 @@ void Renderer::presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window->resized())
     {
         VkExtent2D ext = window->getExtent();
-        // camera->setCameraResolution(glm::vec2(ext.width, ext.height));
         m_swapChain->recreate(ext);
 
         m_window->setResized(false);
@@ -417,12 +413,12 @@ void Renderer::beginCommandBuffer()
     }
 }
 
-void Renderer::beginRenderPass(std::shared_ptr<View> view, int currentFrame, uint32_t imageIndex, bool clear)
+void Renderer::beginRenderPass(glm::vec2 viewportStart, glm::vec2 viewResolution, int currentFrame,
+    uint32_t imageIndex, bool clear)
 {
-    VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
+    VkExtent2D swapChainExtent = m_swapChain->getExtent();
 
-    glm::vec2 viewportStart = view->getViewportStart();
-    glm::vec2 viewResolution = view->getResolution();
+    VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -431,6 +427,12 @@ void Renderer::beginRenderPass(std::shared_ptr<View> view, int currentFrame, uin
         renderPassInfo.renderPass = m_swapChain->getRenderPass();
     else 
         renderPassInfo.renderPass = m_swapChain->getRenderPassDontCare();
+
+    if (viewportStart.x + viewResolution.x > swapChainExtent.width)
+        viewResolution.x = swapChainExtent.width - viewportStart.x;
+    
+    if (viewportStart.y + viewResolution.y > swapChainExtent.height)
+        viewResolution.y = swapChainExtent.height - viewportStart.y;
 
     renderPassInfo.framebuffer = m_swapChain->getFramebuffer(imageIndex);
     renderPassInfo.renderArea.offset = {(int)viewportStart.x, (int)viewportStart.y};
@@ -527,10 +529,6 @@ void Renderer::createDescriptors()
     // General mesh data
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        // m_vubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataVertex),
-        //     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        // m_vubos[i]->map();
-
         m_fubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataFragment),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_fubos[i]->map();
@@ -544,8 +542,6 @@ void Renderer::createDescriptors()
         m_fssbos[i]->map();
     }
 
-    // VkDescriptorSetLayoutBinding vuboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    //     1, VK_SHADER_STAGE_VERTEX_BIT);
     VkDescriptorSetLayoutBinding vssboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_VERTEX_BIT);
     VkDescriptorSetLayoutBinding fuboLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -655,17 +651,11 @@ void Renderer::createDescriptors()
     // Compute general
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        // m_cubos[i] = std::make_unique<Buffer>(m_device, sizeof(UniformDataCompute),
-        //     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        // m_cubos[i]->map();
-
         m_cssbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataCompute) * MAX_SBOS,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cssbos[i]->map();
     }
 
-    // VkDescriptorSetLayoutBinding cuboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    //     1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding cssboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
 
@@ -676,13 +666,10 @@ void Renderer::createDescriptors()
 
     m_computeSetLayout = std::make_shared<DescriptorSetLayout>(m_device, computeGeneralLayoutBindings);
 
-    // VkDescriptorPoolSize cuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize cssboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
     
     std::vector<VkDescriptorPoolSize> computeGeneralSizes = {
-    //     cuboPoolSize,
         cssboPoolSize
     };
 
@@ -793,23 +780,10 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene)
         if (m_sceneFramesUpdated == MAX_FRAMES_IN_FLIGHT)
             scene->setSceneChanged(false);
     }
-    // glm::rotate(glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 }
 
 void Renderer::updateComputeDescriptorData(const std::shared_ptr<Scene> &scene)
 {
-    // UniformDataCompute cubo{};
-    // cubo.totalMeshes = scene->getDrawCount();
-    // cubo.frustumCull = m_frustumCull;
-// 
-    // std::vector<glm::vec4> frustumPlanes = camera->getFrustumPlanes();
-    // for (int i = 0; i < frustumPlanes.size(); i++)
-    // {
-    //     cubo.frustumPlanes[i] = frustumPlanes[i];
-    // }
-// 
-    // m_cubos[m_currentFrame]->copyMapped(&cubo, sizeof(UniformDataCompute));
-
     if (scene->sceneChanged())
     {
         std::vector<MeshShaderDataCompute> cssboData;
