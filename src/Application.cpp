@@ -53,6 +53,7 @@ void Application::init()
         m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
 
     addViewRow();
+    addViewRow();
     
     m_renderer->initDescriptorResources();
     initImgui();
@@ -67,19 +68,22 @@ void Application::draw()
 
     int lastFps = 0;
 
+    glm::vec2 windowResolution = m_window->getResolution();
+
     while (!glfwWindowShouldClose(m_window->getWindow()))
     {
+        windowResolution = m_window->getResolution();
+
         consumeInput();
 
         m_renderer->computePass(m_scene, m_views);
-
-        uint32_t imageIndex = m_renderer->renderPass(m_scene, m_views);
-
-        m_renderer->beginRenderPass(glm::vec2(0.f, 0.f), m_window->getResolution(), m_renderer->getCurrentFrame(), imageIndex, false);
+        
+        uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
+        m_renderer->beginRenderPass(windowResolution, imageIndex);
+        m_renderer->renderPass(m_scene, m_views);
         renderImgui(lastFps);
-        m_renderer->endRenderPass(m_renderer->getCurrentFrame());
+        m_renderer->endRenderPass();
 
-        m_renderer->endCommandBuffer();
         m_renderer->submitFrame();
         m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
 

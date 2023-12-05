@@ -162,25 +162,51 @@ void Renderer::computePass(const std::shared_ptr<Scene> &scene, const std::vecto
         throw std::runtime_error("failed to submit compute command buffer");
 }
 
-uint32_t Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>> views)
+void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>> views)
 {
     bool resizeViews = false;
 
-    uint32_t imageIndex = prepareFrame(scene, nullptr, m_window, resizeViews);
+    // uint32_t imageIndex = prepareFrame(scene, nullptr, m_window, resizeViews);
+
+    // beginRenderPass(glm::vec2(WIDTH, HEIGHT), m_currentFrame, imageIndex);
+
     updateDescriptorData(scene);
-    beginCommandBuffer();
 
     for (auto& view : views)
     {
         view->getCamera()->reconstructMatrices();
         view->updateDescriptorData(m_currentFrame);
 
-        beginRenderPass(view->getViewportStart(), view->getResolution(), m_currentFrame, imageIndex);
-        recordCommandBuffer(m_commandBuffers[m_currentFrame], scene, view, imageIndex);
-        endRenderPass(m_currentFrame);
+        glm::vec2 viewportStart = view->getViewportStart();
+        glm::vec2 viewResolution = view->getResolution();
+
+        setViewport(viewportStart, viewResolution);
+        setScissor(viewportStart, viewResolution);
+
+        recordCommandBuffer(m_commandBuffers[m_currentFrame], scene, view);
     }
 
-    return imageIndex;
+    // endRenderPass(m_currentFrame);
+}
+
+void Renderer::setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution)
+{
+    VkViewport viewport{};
+    viewport.x = viewportStart.x;
+    viewport.y = viewportStart.y;
+    viewport.width = viewportResolution.x;
+    viewport.height = viewportResolution.y;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(m_commandBuffers[m_currentFrame], 0, 1, &viewport);
+}
+
+void Renderer::setScissor(const glm::vec2& viewportStart, const glm::vec2& viewportResolution)
+{
+    VkRect2D scissor{};
+    scissor.offset = { 0,0 };
+    scissor.extent = m_swapChain->getExtent();
+    vkCmdSetScissor(m_commandBuffers[m_currentFrame], 0, 1, &scissor);
 }
 
 uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
@@ -413,9 +439,10 @@ void Renderer::beginCommandBuffer()
     }
 }
 
-void Renderer::beginRenderPass(glm::vec2 viewportStart, glm::vec2 viewResolution, int currentFrame,
-    uint32_t imageIndex, bool clear)
+void Renderer::beginRenderPass(glm::vec2 windowResolution, uint32_t imageIndex, bool clear)
 {
+    beginCommandBuffer();
+
     VkExtent2D swapChainExtent = m_swapChain->getExtent();
 
     VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
@@ -428,15 +455,15 @@ void Renderer::beginRenderPass(glm::vec2 viewportStart, glm::vec2 viewResolution
     else 
         renderPassInfo.renderPass = m_swapChain->getRenderPassDontCare();
 
-    if (viewportStart.x + viewResolution.x > swapChainExtent.width)
-        viewResolution.x = swapChainExtent.width - viewportStart.x;
+    if (windowResolution.x > swapChainExtent.width)
+        windowResolution.x = swapChainExtent.width;
     
-    if (viewportStart.y + viewResolution.y > swapChainExtent.height)
-        viewResolution.y = swapChainExtent.height - viewportStart.y;
+    if (windowResolution.y > swapChainExtent.height)
+        windowResolution.y = swapChainExtent.height;
 
     renderPassInfo.framebuffer = m_swapChain->getFramebuffer(imageIndex);
-    renderPassInfo.renderArea.offset = {(int)viewportStart.x, (int)viewportStart.y};
-    renderPassInfo.renderArea.extent = {(unsigned int)viewResolution.x, (unsigned int)viewResolution.y};
+    renderPassInfo.renderArea.offset = {0, 0};
+    renderPassInfo.renderArea.extent = {(unsigned int)windowResolution.x, (unsigned int)windowResolution.y};
 
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = { {0.f, 0.f, 0.f, 1.f} };
@@ -446,27 +473,15 @@ void Renderer::beginRenderPass(glm::vec2 viewportStart, glm::vec2 viewResolution
     renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    VkViewport viewport{};
-    viewport.x = viewportStart.x;
-    viewport.y = viewportStart.y;
-    viewport.width = viewResolution.x;
-    viewport.height = viewResolution.y;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor{};
-    scissor.offset = {0,0};
-    scissor.extent = m_swapChain->getExtent();
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 }
 
-void Renderer::endRenderPass(int currentFrame)
+void Renderer::endRenderPass()
 {
-    VkCommandBuffer commandBuffer = m_commandBuffers[currentFrame];
+    VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
 
     vkCmdEndRenderPass(commandBuffer);
+
+    endCommandBuffer();
 }
 
 void Renderer::endCommandBuffer()
@@ -591,9 +606,9 @@ void Renderer::createDescriptors()
     m_viewSetLayout = std::make_shared<DescriptorSetLayout>(m_device, viewLayoutBindings);
 
     VkDescriptorPoolSize viewPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
     VkDescriptorPoolSize cuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
     
     std::vector<VkDescriptorPoolSize> viewSizes = {
         viewPoolSize,
@@ -716,7 +731,7 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
 }
 
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
-    const std::shared_ptr<View>& view, uint32_t imageIndex)
+    const std::shared_ptr<View>& view)
 {
     m_pipeline->bindGraphics(commandBuffer);
 

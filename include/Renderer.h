@@ -28,14 +28,16 @@ public:
     ~Renderer();
 
     void computePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
-    uint32_t renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>> views);
+    void renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>> views);
+    void setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
+    void setScissor(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
 
     void initDescriptorResources();
 
     uint32_t prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
         std::shared_ptr<Window> window, bool& resizeViews);
     void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
-        const std::shared_ptr<View>& view, uint32_t imageIndex);
+        const std::shared_ptr<View>& view);
     void recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
         const std::shared_ptr<View>& view);
     void submitFrame();
@@ -64,9 +66,8 @@ public:
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
     void beginCommandBuffer();
-    void beginRenderPass(glm::vec2 viewportStart, glm::vec2 viewResolution, int currentFrame,
-        uint32_t imageIndex, bool clear = true);
-    void endRenderPass(int currentFrame);
+    void beginRenderPass(glm::vec2 windowResolution, uint32_t imageIndex, bool clear = true);
+    void endRenderPass();
     void endCommandBuffer();
 private:
     void createCommandBuffers();
