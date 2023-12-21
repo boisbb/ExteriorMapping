@@ -1,6 +1,7 @@
 #include "SwapChain.h"
 #include "Device.h"
 #include "Image.h"
+#include "Sampler.h"
 #include "utils/Structs.h"
 #include "utils/Constants.h"
 
@@ -19,6 +20,10 @@ SwapChain::SwapChain(std::shared_ptr<Device> device, VkExtent2D windowExtent)
     createRenderPass();
     createFramebuffers();
     createSyncObjects();
+
+    createOffscreenImages();
+    createOffscreenRenderPass();
+    createOffscreenFramebuffer();
 }
 
 SwapChain::~SwapChain()
@@ -250,6 +255,115 @@ void SwapChain::createSyncObjects()
             || vkCreateFence(m_device->getVkDevice(), &fenceInfo, nullptr, &m_computeInFlightFences[i]) != VK_SUCCESS)
             throw std::runtime_error("failed to create compute semaphores");
     }
+}
+
+void SwapChain::createOffscreenImages()
+{
+    VkFormat depthFormat = findDepthFormat();
+
+    m_offscreenImage = std::make_shared<Image>(m_device, glm::vec2(WIDTH, HEIGHT), 4, VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    m_offscreenDepthImage = std::make_shared<Image>(m_device, glm::vec2(WIDTH, HEIGHT), 1, depthFormat,
+        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    m_offscreenImageView = m_device->createImageView(m_offscreenImage->getVkImage(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    VkImageAspectFlags depthAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
+    if (depthFormat >= VK_FORMAT_D16_UNORM_S8_UINT)
+        depthAspectFlags |= VK_IMAGE_ASPECT_STENCIL_BIT;
+    m_offscreenDepthImageView = m_device->createImageView(m_offscreenDepthImage->getVkImage(), depthFormat, depthAspectFlags);
+
+    m_offscreenSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR);
+
+}
+
+void SwapChain::createOffscreenRenderPass()
+{
+    VkAttachmentDescription colorAttachment{};
+    colorAttachment.format = m_offscreenImage->getVkFormat();
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkAttachmentReference colorAttachmentRef{};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentDescription depthAttachment{};
+    depthAttachment.format = m_offscreenDepthImage->getVkFormat();
+    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference depthAttachmentRef{};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+    subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+    std::array<VkSubpassDependency, 2> colorDependencies;
+
+    colorDependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    colorDependencies[0].dstSubpass = 0;
+    colorDependencies[0].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    colorDependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    colorDependencies[0].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    colorDependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    colorDependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    colorDependencies[1].srcSubpass = 0;
+    colorDependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    colorDependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    colorDependencies[1].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    colorDependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    colorDependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    colorDependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+
+    VkRenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
+    renderPassInfo.pAttachments = attachments.data();
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = static_cast<uint32_t>(colorDependencies.size());
+    renderPassInfo.pDependencies = colorDependencies.data();
+
+    if (vkCreateRenderPass(m_device->getVkDevice(), &renderPassInfo, nullptr, &m_offscreenRenderPass) != VK_SUCCESS)
+        throw std::runtime_error("failed to create offscreen renderpass");
+}
+
+void SwapChain::createOffscreenFramebuffer()
+{
+    VkImageView attachements[2];
+    attachements[0] = m_offscreenImageView;
+    attachements[1] = m_offscreenDepthImageView;
+
+    VkFramebufferCreateInfo framebufferInfo{};
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.renderPass = m_offscreenRenderPass;
+    framebufferInfo.attachmentCount = 2;
+    framebufferInfo.pAttachments = attachements;
+    framebufferInfo.width = static_cast<uint32_t>(WIDTH);
+    framebufferInfo.height = static_cast<uint32_t>(HEIGHT);
+    framebufferInfo.layers = 1;
+
+    if (vkCreateFramebuffer(m_device->getVkDevice(), &framebufferInfo, nullptr, &m_offscreenFramebuffer) != VK_SUCCESS)
+        throw std::runtime_error("failed to create offscreen framebuffer");
 }
 
 VkFence SwapChain::getFenceId(int id)

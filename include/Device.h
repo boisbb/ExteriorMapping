@@ -60,7 +60,7 @@ public:
     void copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims);
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldL, VkImageLayout newL);
 
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectMask);
 
     void beginSingleCommands(VkCommandBuffer& commandBuffer);
     void endSingleCommands(VkCommandBuffer& commandBuffer);

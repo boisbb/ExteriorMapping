@@ -8,6 +8,7 @@ namespace vke
 {
 
 class Image;
+class Sampler;
 
 class SwapChain
 {
@@ -45,6 +46,10 @@ private:
     void createFramebuffers();
     void createSyncObjects();
 
+    void createOffscreenImages();
+    void createOffscreenRenderPass();
+    void createOffscreenFramebuffer();
+
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
@@ -65,6 +70,14 @@ private:
     VkSwapchainKHR m_swapChain;
     VkRenderPass m_renderPass;
     VkRenderPass m_renderPassDontCare;
+
+    VkRenderPass m_offscreenRenderPass;
+    VkFramebuffer m_offscreenFramebuffer;
+    std::shared_ptr<Image> m_offscreenImage;
+    std::shared_ptr<Image> m_offscreenDepthImage;
+    VkImageView m_offscreenImageView;
+    VkImageView m_offscreenDepthImageView;
+    std::shared_ptr<Sampler> m_offscreenSampler;
 
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;

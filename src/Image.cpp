@@ -70,4 +70,9 @@ VkImageLayout Image::getVkImageLayout() const
     return m_layout;
 }
 
+VkFormat Image::getVkFormat() const
+{
+    return m_format;
+}
+
 }

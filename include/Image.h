@@ -23,6 +23,7 @@ public:
 
     VkImage getVkImage() const;
     VkImageLayout getVkImageLayout() const;
+    VkFormat getVkFormat() const;
 
 private:
     glm::vec2 m_dims;
