@@ -34,6 +34,8 @@ set ( INCLUDE
     include/Texture.h
     include/Sampler.h
     include/glm_include_unified.h
+    include/pipelines/GraphicsPipeline.h
+    include/pipelines/ComputePipeline.h
     include/descriptors/SetLayout.h
     include/descriptors/Pool.h
     include/descriptors/Set.h
@@ -65,6 +67,8 @@ set( SOURCE
     src/Image.cpp
     src/Texture.cpp
     src/Sampler.cpp
+    src/pipelines/GraphicsPipeline.cpp
+    src/pipelines/ComputePipeline.cpp
     src/descriptors/SetLayout.cpp
     src/descriptors/Pool.cpp
     src/descriptors/Set.cpp

@@ -18,17 +18,20 @@ class Camera;
 class View;
 class DescriptorSetLayout;
 class DescriptorPool;
-class Pipeline;
+class GraphicsPipeline;
+class ComputePipeline;
 
 class Renderer
 {
 public:    
     Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
-        std::string fragmentShaderFile, std::string computeShaderFile);
+        std::string fragmentShaderFile, std::string computeShaderFile, std::string quadVertexShaderFile,
+        std::string quadFragmentShaderFile);
     ~Renderer();
 
     void computePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
     void renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>> views);
+    void quadRenderPass(glm::vec2 windowResolution);
     void setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
     void setScissor(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
 
@@ -61,12 +64,16 @@ public:
     std::shared_ptr<DescriptorPool> getSceneComputeDescriptorPool() const;
     std::shared_ptr<DescriptorSetLayout> getViewDescriptorSetLayout() const;
     std::shared_ptr<DescriptorPool> getViewDescriptorPool() const;
+    VkRenderPass getOffscreenRenderPass() const;
+    VkRenderPass getQuadRenderPass() const;
+    VkFramebuffer getOffscreenFramebuffer() const;
+    VkFramebuffer getQuadFramebuffer(int imageIndex);
 
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
     void beginCommandBuffer();
-    void beginRenderPass(glm::vec2 windowResolution, uint32_t imageIndex, bool clear = true);
+    void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, glm::vec2 windowResolution, bool clear = true);
     void endRenderPass();
     void endCommandBuffer();
 private:
@@ -74,7 +81,8 @@ private:
     void createComputeCommandBuffers();
     void createDescriptors();
     void createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
-        std::string computeShaderFile);
+        std::string computeShaderFile, std::string quadVertexShaderFile,
+        std::string quadFragmentShaderFile);
 
     void updateDescriptorData(const std::shared_ptr<Scene>& scene);
     void updateComputeDescriptorData(const std::shared_ptr<Scene>& scene);
@@ -82,7 +90,9 @@ private:
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
     std::shared_ptr<SwapChain> m_swapChain;
-    std::shared_ptr<Pipeline> m_pipeline;
+    std::shared_ptr<GraphicsPipeline> m_graphicsPipeline;
+    std::shared_ptr<ComputePipeline> m_computePipeline;
+    std::shared_ptr<GraphicsPipeline> m_quadPipeline;
 
     std::unordered_map<std::string, int> m_textureMap;
     std::vector<std::shared_ptr<Texture>> m_textures;

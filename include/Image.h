@@ -15,7 +15,7 @@ class Image
 {
 public:
     Image(std::shared_ptr<Device> device, glm::vec2 dims, int channels, VkFormat format, VkImageTiling tiling,
-        VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
+        VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED);
     ~Image();
 
     void transitionImageLayout(VkImageLayout oldL, VkImageLayout newL);

@@ -16,17 +16,20 @@ public:
     SwapChain(std::shared_ptr<Device> device, VkExtent2D windowExtent);
     ~SwapChain();
 
-    VkRenderPass getRenderPass();
-    VkRenderPass getRenderPassDontCare();
+    VkRenderPass getRenderPass() const;
+    VkRenderPass getRenderPassDontCare() const;
+    VkRenderPass getOffscreenRenderPass() const;
     VkFence getFenceId(int id);
     VkFence getComputeFenceId(int id);
-    VkSwapchainKHR getSwapChain();
+    VkSwapchainKHR getSwapChain() const;
     VkSemaphore getImageAvailableSemaphore(int id);
     VkSemaphore getRenderFinishedSemaphore(int id);
     VkSemaphore getComputeFinishedSemaphore(int id);
     VkFramebuffer getFramebuffer(int id);
+    VkFramebuffer getOffscreenFramebuffer() const;
     VkExtent2D getExtent();
     uint32_t getImageCount() const;
+    VkDescriptorImageInfo getOffscreenImageInfo() const;
 
     void recreate(VkExtent2D windowExtent);
 

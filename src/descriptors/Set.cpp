@@ -43,6 +43,7 @@ void DescriptorSet::addImages(std::vector<uint32_t> binding, std::vector<VkDescr
 {
     for (int i = 0; i < binding.size(); i++)
     {
+
         VkDescriptorType dType = m_descriptorSetLayout->getBinding(binding[i]).descriptorType;
         
         VkWriteDescriptorSet descriptorWrite{};

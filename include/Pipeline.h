@@ -10,33 +10,21 @@ namespace vke
 class Pipeline
 {
 public:
-    Pipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std::string vertFile,
-        std::string fragFile, std::string compFile, std::vector<VkDescriptorSetLayout> graphicsSetLayouts,
-        std::vector<VkDescriptorSetLayout> computeSetLayouts);
+    Pipeline(std::shared_ptr<Device> device);
     ~Pipeline();
 
-    VkPipeline getGraphicsPipeline() const;
-    VkPipelineLayout getGraphicsPipelineLayout() const;
-    VkPipeline getComputePipeline() const;
-    VkPipelineLayout getComputePipelineLayout() const;
+    VkPipeline getPipeline() const;
+    VkPipelineLayout getPipelineLayout() const;
 
-    void bindGraphics(VkCommandBuffer commandBuffer);
-    void bindCompute(VkCommandBuffer commandBuffer);
+    virtual void bind(VkCommandBuffer commandBuffer) const = 0;
 
-private:
-    void createGraphicsPipeline(VkRenderPass renderPass, std::string vertFile, std::string fragFile,
-        std::vector<VkDescriptorSetLayout> graphicsSetLayouts);
-    void createComputePipeline(std::string compFile,
-        std::vector<VkDescriptorSetLayout> computeSetLayouts);
+protected:
     VkShaderModule createShaderModule(const std::vector<char>& code);
 
     std::shared_ptr<Device> m_device;
 
-    VkPipeline m_graphicsPipeline;
-    VkPipelineLayout m_graphicsPipelineLayout;
-
-    VkPipeline m_computePipeline;
-    VkPipelineLayout m_computePipelineLayout;
+    VkPipeline m_pipeline;
+    VkPipelineLayout m_pipelineLayout;
 };
 
 }

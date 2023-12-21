@@ -4,6 +4,8 @@
 #include "Camera.h"
 #include "View.h"
 #include "Pipeline.h"
+#include "pipelines/GraphicsPipeline.h"
+#include "pipelines/ComputePipeline.h"
 #include "descriptors/SetLayout.h"
 #include "descriptors/Pool.h"
 #include "descriptors/Set.h"
@@ -18,7 +20,8 @@ namespace vke
 {
 
 Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
-        std::string fragmentShaderFile, std::string computeShaderFile)
+        std::string fragmentShaderFile, std::string computeShaderFile, std::string quadVertexShaderFile,
+        std::string quadFragmentShaderFile)
     : m_device(device), m_window(window), m_currentFrame(0), m_fubos(MAX_FRAMES_IN_FLIGHT),
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
@@ -28,7 +31,7 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     createCommandBuffers();
     createComputeCommandBuffers();
     createDescriptors();
-    createPipeline(vertexShaderFile, fragmentShaderFile, computeShaderFile);
+    createPipeline(vertexShaderFile, fragmentShaderFile, computeShaderFile, quadVertexShaderFile, quadFragmentShaderFile);
 }
 
 Renderer::~Renderer()
@@ -37,7 +40,7 @@ Renderer::~Renderer()
 
 void Renderer::initDescriptorResources()
 {
-    // Buffers
+    // General mesh data
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         m_generalDescriptorSets[i] = std::make_shared<DescriptorSet>(m_device, m_descriptorSetLayout,
@@ -55,9 +58,19 @@ void Renderer::initDescriptorResources()
         };
 
         m_generalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
+
+        std::vector<VkDescriptorImageInfo> imageInfos{
+            m_swapChain->getOffscreenImageInfo()
+        };
+
+        std::vector<uint32_t> imageBinding{
+            4
+        };
+
+        m_generalDescriptorSets[i]->addImages(imageBinding, imageInfos, 0);
     }
 
-    // Images
+    // Materials
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         uint32_t maxBinding = static_cast<uint32_t>(MAX_BINDLESS_RESOURCES - 1);
@@ -187,6 +200,19 @@ void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector
     }
 
     // endRenderPass(m_currentFrame);
+}
+
+void Renderer::quadRenderPass(glm::vec2 windowResolution)
+{
+    setViewport(glm::vec2(0, 0), windowResolution);
+    setScissor(glm::vec2(0, 0), windowResolution);
+
+    m_quadPipeline->bind(m_commandBuffers[m_currentFrame]);
+
+    VkDescriptorSet descriptorSet = m_generalDescriptorSets[m_currentFrame]->getDescriptorSet();
+    vkCmdBindDescriptorSets(m_commandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_quadPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+
+    vkCmdDraw(m_commandBuffers[m_currentFrame], 3, 1, 0, 0);
 }
 
 void Renderer::setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution)
@@ -408,6 +434,26 @@ std::shared_ptr<DescriptorPool> Renderer::getViewDescriptorPool() const
     return m_viewPool;
 }
 
+VkRenderPass Renderer::getOffscreenRenderPass() const
+{
+    return m_graphicsPipeline->getRenderPass();
+}
+
+VkRenderPass Renderer::getQuadRenderPass() const
+{
+return m_quadPipeline->getRenderPass();
+}
+
+VkFramebuffer Renderer::getOffscreenFramebuffer() const
+{
+    return m_swapChain->getOffscreenFramebuffer();
+}
+
+VkFramebuffer Renderer::getQuadFramebuffer(int imageIndex)
+{
+    return m_swapChain->getFramebuffer(imageIndex);
+}
+
 int Renderer::addTexture(std::shared_ptr<Texture> texture, std::string filename)
 {
     m_textures.push_back(texture);
@@ -439,10 +485,8 @@ void Renderer::beginCommandBuffer()
     }
 }
 
-void Renderer::beginRenderPass(glm::vec2 windowResolution, uint32_t imageIndex, bool clear)
+void Renderer::beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, glm::vec2 windowResolution, bool clear)
 {
-    beginCommandBuffer();
-
     VkExtent2D swapChainExtent = m_swapChain->getExtent();
 
     VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
@@ -450,10 +494,7 @@ void Renderer::beginRenderPass(glm::vec2 windowResolution, uint32_t imageIndex, 
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 
-    if (clear)
-        renderPassInfo.renderPass = m_swapChain->getRenderPass();
-    else 
-        renderPassInfo.renderPass = m_swapChain->getRenderPassDontCare();
+    renderPassInfo.renderPass = renderPass;
 
     if (windowResolution.x > swapChainExtent.width)
         windowResolution.x = swapChainExtent.width;
@@ -461,7 +502,7 @@ void Renderer::beginRenderPass(glm::vec2 windowResolution, uint32_t imageIndex, 
     if (windowResolution.y > swapChainExtent.height)
         windowResolution.y = swapChainExtent.height;
 
-    renderPassInfo.framebuffer = m_swapChain->getFramebuffer(imageIndex);
+    renderPassInfo.framebuffer = framebuffer;
     renderPassInfo.renderArea.offset = {0, 0};
     renderPassInfo.renderArea.extent = {(unsigned int)windowResolution.x, (unsigned int)windowResolution.y};
 
@@ -480,8 +521,6 @@ void Renderer::endRenderPass()
     VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
 
     vkCmdEndRenderPass(commandBuffer);
-
-    endCommandBuffer();
 }
 
 void Renderer::endCommandBuffer()
@@ -563,34 +602,35 @@ void Renderer::createDescriptors()
         1, VK_SHADER_STAGE_FRAGMENT_BIT);
     VkDescriptorSetLayoutBinding fssboLayoutBinding = createDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_FRAGMENT_BIT);
+    VkDescriptorSetLayoutBinding finalImageLayoutBinding = createDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        1, VK_SHADER_STAGE_FRAGMENT_BIT);
 
     std::vector<VkDescriptorSetLayoutBinding> layoutBindings = {
-    //    vuboLayoutBinding,
         vssboLayoutBinding,
         fuboLayoutBinding,
-        fssboLayoutBinding
+        fssboLayoutBinding,
+        finalImageLayoutBinding
     };
 
     m_descriptorSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutBindings);
 
-    // VkDescriptorPoolSize vuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize vssboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
     VkDescriptorPoolSize fuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize fssboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
+    VkDescriptorPoolSize finalImagePoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
 
     std::vector<VkDescriptorPoolSize> poolSizes = {
-    //    vuboPoolSize,
         vssboPoolSize,
         fuboPoolSize,
-        fssboPoolSize
+        fssboPoolSize,
+        finalImagePoolSize
     };
     m_descriptorPool = std::make_shared<DescriptorPool>(m_device,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, poolSizes);
-
 
     //! View Data
     VkDescriptorSetLayoutBinding viewLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -709,12 +749,13 @@ void Renderer::createDescriptors()
     };
     m_computeScenePool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 
         static_cast<uint32_t>(MAX_VIEWS), 0, computeSceneSizes);
+
 }
 
 void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
-    std::string computeShaderFile)
+    std::string computeShaderFile, std::string quadVertexShaderFile, std::string quadFragmentShaderFile)
 {
-    std::vector<VkDescriptorSetLayout> graphicsSetLayouts = {
+    std::vector<VkDescriptorSetLayout> offscreenGraphicsSetLayouts = {
         m_descriptorSetLayout->getLayout(),
         m_materialSetLayout->getLayout(),
         m_viewSetLayout->getLayout()
@@ -726,23 +767,32 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
         m_viewSetLayout->getLayout()
     };
 
-    m_pipeline = std::make_shared<Pipeline>(m_device, m_swapChain->getRenderPass(), vertexShaderFile,
-        fragmentShaderFile, computeShaderFile, graphicsSetLayouts, computeSetLayouts);
+    std::vector<VkDescriptorSetLayout> quadSetLayout = {
+        m_descriptorSetLayout->getLayout()
+    };
+
+    m_graphicsPipeline = std::make_shared<GraphicsPipeline>(m_device, m_swapChain->getOffscreenRenderPass(), vertexShaderFile,
+        fragmentShaderFile, offscreenGraphicsSetLayouts);
+
+    m_quadPipeline = std::make_shared<GraphicsPipeline>(m_device, m_swapChain->getRenderPass(), quadVertexShaderFile,
+        quadFragmentShaderFile, quadSetLayout, false, false);
+    
+    m_computePipeline = std::make_shared<ComputePipeline>(m_device, computeShaderFile, computeSetLayouts);
 }
 
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
     const std::shared_ptr<View>& view)
 {
-    m_pipeline->bindGraphics(commandBuffer);
+    m_graphicsPipeline->bind(commandBuffer);
 
     VkDescriptorSet descriptorSet = m_generalDescriptorSets[m_currentFrame]->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getGraphicsPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
 
     VkDescriptorSet textureSet = m_materialDescriptorSets[m_currentFrame]->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getGraphicsPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline->getPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
 
     VkDescriptorSet viewSet = view->getViewDescriptorSet(m_currentFrame)->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->getGraphicsPipelineLayout(), 2, 1, &viewSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphicsPipeline->getPipelineLayout(), 2, 1, &viewSet, 0, nullptr);
 
     scene->draw(view, commandBuffer, m_currentFrame);
 }
@@ -751,14 +801,14 @@ void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const s
     const std::shared_ptr<View>& view)
 {
     VkDescriptorSet computeSet = m_computeDescriptorSets[m_currentFrame]->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline->getComputePipelineLayout(), 0, 1, &computeSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline->getPipelineLayout(), 0, 1, &computeSet, 0, nullptr);
 
     VkDescriptorSet viewSet = view->getViewDescriptorSet(m_currentFrame)->getDescriptorSet();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_pipeline->getComputePipelineLayout(), 2, 1, &viewSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_computePipeline->getPipelineLayout(), 2, 1, &viewSet, 0, nullptr);
 
-    m_pipeline->bindCompute(commandBuffer);
+    m_computePipeline->bind(commandBuffer);
 
-    scene->dispatch(view, commandBuffer, m_pipeline->getComputePipelineLayout(), m_currentFrame);
+    scene->dispatch(view, commandBuffer, m_computePipeline->getPipelineLayout(), m_currentFrame);
 }
 
 void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene)

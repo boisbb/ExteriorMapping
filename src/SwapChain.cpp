@@ -30,14 +30,19 @@ SwapChain::~SwapChain()
 {
 }
 
-VkRenderPass SwapChain::getRenderPass()
+VkRenderPass SwapChain::getRenderPass() const
 {
     return m_renderPass;
 }
 
-VkRenderPass SwapChain::getRenderPassDontCare()
+VkRenderPass SwapChain::getRenderPassDontCare() const
 {
     return m_renderPassDontCare;
+}
+
+VkRenderPass SwapChain::getOffscreenRenderPass() const
+{
+    return m_offscreenRenderPass;
 }
 
 void SwapChain::createSwapChain()
@@ -262,11 +267,16 @@ void SwapChain::createOffscreenImages()
     VkFormat depthFormat = findDepthFormat();
 
     m_offscreenImage = std::make_shared<Image>(m_device, glm::vec2(WIDTH, HEIGHT), 4, VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
+    m_offscreenImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    m_offscreenImage->transitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
     m_offscreenDepthImage = std::make_shared<Image>(m_device, glm::vec2(WIDTH, HEIGHT), 1, depthFormat,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    m_offscreenImageView = m_device->createImageView(m_offscreenImage->getVkImage(), VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_offscreenImageView = m_offscreenImage->createImageView();
 
     VkImageAspectFlags depthAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
     if (depthFormat >= VK_FORMAT_D16_UNORM_S8_UINT)
@@ -376,7 +386,7 @@ VkFence SwapChain::getComputeFenceId(int id)
     return m_computeInFlightFences[id];
 }
 
-VkSwapchainKHR SwapChain::getSwapChain()
+VkSwapchainKHR SwapChain::getSwapChain() const
 {
     return m_swapChain;
 }
@@ -401,6 +411,11 @@ VkFramebuffer SwapChain::getFramebuffer(int id)
     return m_swapChainFramebuffers[id];
 }
 
+VkFramebuffer SwapChain::getOffscreenFramebuffer() const
+{
+    return m_offscreenFramebuffer;
+}
+
 VkExtent2D SwapChain::getExtent()
 {
     return m_swapChainExtent;
@@ -409,6 +424,16 @@ VkExtent2D SwapChain::getExtent()
 uint32_t SwapChain::getImageCount() const
 {
     return m_imageCount;
+}
+
+VkDescriptorImageInfo SwapChain::getOffscreenImageInfo() const
+{
+    VkDescriptorImageInfo info{};
+    info.sampler = m_offscreenSampler->getVkSampler();
+    info.imageView = m_offscreenImageView;
+    info.imageLayout = m_offscreenImage->getVkImageLayout();
+
+    return info;
 }
 
 void SwapChain::recreate(VkExtent2D windowExtent)

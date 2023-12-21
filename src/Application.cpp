@@ -39,7 +39,8 @@ void Application::init()
     m_window = std::make_shared<Window>(WIDTH, HEIGHT);
     m_device = std::make_shared<Device>(m_window);
     m_renderer = std::make_shared<Renderer>(m_device, m_window, "../res/shaders/vert.spv",
-        "../res/shaders/frag.spv", "../res/shaders/comp.spv");
+        "../res/shaders/frag.spv", "../res/shaders/comp.spv", "../res/shaders/quad_vert.spv",
+        "../res/shaders/quad_frag.spv");
     
     m_scene = std::make_shared<Scene>();
 
@@ -79,10 +80,18 @@ void Application::draw()
         m_renderer->computePass(m_scene, m_views);
         
         uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
-        m_renderer->beginRenderPass(windowResolution, imageIndex);
+        m_renderer->beginCommandBuffer();
+        //m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getQuadFramebuffer(imageIndex), windowResolution);
+        m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getOffscreenFramebuffer(), windowResolution);
         m_renderer->renderPass(m_scene, m_views);
+        m_renderer->endRenderPass();
+
+        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer(imageIndex), windowResolution);
+        m_renderer->quadRenderPass(windowResolution);
         renderImgui(lastFps);
         m_renderer->endRenderPass();
+
+        m_renderer->endCommandBuffer();
 
         m_renderer->submitFrame();
         m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
