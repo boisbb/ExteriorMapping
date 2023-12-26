@@ -21,7 +21,7 @@ layout(std430, set=1, binding=0) buffer draws {
     DrawCall drawCalls[];
 } drawssbo;
 
-layout(set=2, binding=1) uniform UniformDataCompute {
+layout(set=2, binding=1) uniform ViewDataCompute {
     vec4 frustumPlanes[6];
     uint totalMeshes;
     bool frustumCull;

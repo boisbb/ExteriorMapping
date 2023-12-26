@@ -28,14 +28,18 @@ public:
     std::shared_ptr<Camera> getCamera() const;
     std::shared_ptr<DescriptorSet> getViewDescriptorSet(int currentFrame);
     bool getFrustumCull() const;
+    bool getDepthOnly() const;
 
     void setResolution(const glm::vec2& resolution);
     void setViewportStart(const glm::vec2& viewPortStart);
     void setCamera(std::shared_ptr<Camera> camera);
     void setFrustumCull(bool frustumCull);
+    void setDepthOnly(bool depthOnly);
 
     void updateDescriptorData(int currentFrame);
     void updateComputeDescriptorData(int currentFrame, const std::shared_ptr<Scene>& scene);
+    void updateDescriptorDataRenderDebugCube(int currentFrame, const std::shared_ptr<Scene>& scene,
+        int viewId);
 
 private:
     void createDescriptorResources(std::shared_ptr<Device> device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
@@ -48,10 +52,12 @@ private:
 
     std::vector<std::unique_ptr<Buffer>> m_vubos;
     std::vector<std::unique_ptr<Buffer>> m_cubos;
+    std::vector<std::unique_ptr<Buffer>> m_fubos;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_viewDescriptorSets;
 
     bool m_frustumCull;
+    bool m_depthOnly;
 };
 
 }

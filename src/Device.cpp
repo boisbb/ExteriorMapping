@@ -304,7 +304,7 @@ void Device::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize siz
     endSingleCommands(commandBuffer);
 }
 
-void Device::copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims)
+void Device::copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims, VkImageAspectFlags aspectMask)
 {
     VkCommandBuffer commandBuffer;
 
@@ -315,7 +315,7 @@ void Device::copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims)
     region.bufferRowLength = 0;
     region.bufferImageHeight = 0;
 
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.aspectMask = aspectMask;
     region.imageSubresource.mipLevel = 0;
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount = 1;
@@ -333,7 +333,7 @@ void Device::copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims)
     endSingleCommands(commandBuffer);
 }
 
-void Device::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldL, VkImageLayout newL)
+void Device::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldL, VkImageLayout newL, VkImageAspectFlags aspectMask)
 {
     VkCommandBuffer commandBuffer;
 
@@ -346,7 +346,7 @@ void Device::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.aspectMask = aspectMask;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;

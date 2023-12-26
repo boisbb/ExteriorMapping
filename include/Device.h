@@ -57,8 +57,10 @@ public:
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-    void copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims);
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldL, VkImageLayout newL);
+    void copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims,
+        VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldL, VkImageLayout newL,
+        VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectMask);
 

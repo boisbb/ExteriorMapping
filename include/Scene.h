@@ -45,6 +45,8 @@ public:
     void createViewResources(std::shared_ptr<View> view, const std::shared_ptr<Device>& device,
         std::shared_ptr<DescriptorSetLayout> descriptorSetLayout, std::shared_ptr<DescriptorPool> descriptorPool);
 
+    void addDebugViewCubesToDrawBuffer(const std::vector<std::shared_ptr<View>>& views);
+
     // TODO: Just for testing now.
     void setLightPos(const glm::vec3& lightPos);
     glm::vec3 getLightPos() const;

@@ -84,7 +84,7 @@ private:
         std::string computeShaderFile, std::string quadVertexShaderFile,
         std::string quadFragmentShaderFile);
 
-    void updateDescriptorData(const std::shared_ptr<Scene>& scene);
+    void updateDescriptorData(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
     void updateComputeDescriptorData(const std::shared_ptr<Scene>& scene);
 
     std::shared_ptr<Device> m_device;

@@ -60,7 +60,7 @@ void Renderer::initDescriptorResources()
         m_generalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
 
         std::vector<VkDescriptorImageInfo> imageInfos{
-            m_swapChain->getOffscreenImageInfo()
+            m_swapChain->getOffscreenImageInfo(),
         };
 
         std::vector<uint32_t> imageBinding{
@@ -183,7 +183,7 @@ void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector
 
     // beginRenderPass(glm::vec2(WIDTH, HEIGHT), m_currentFrame, imageIndex);
 
-    updateDescriptorData(scene);
+    updateDescriptorData(scene, views);
 
     for (auto& view : views)
     {
@@ -637,10 +637,13 @@ void Renderer::createDescriptors()
         1, VK_SHADER_STAGE_VERTEX_BIT);
     VkDescriptorSetLayoutBinding cuboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding fvuboLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        1, VK_SHADER_STAGE_FRAGMENT_BIT);
 
     std::vector<VkDescriptorSetLayoutBinding> viewLayoutBindings = {
         viewLayoutBinding,
-        cuboLayoutBinding
+        cuboLayoutBinding,
+        fvuboLayoutBinding
     };
 
     m_viewSetLayout = std::make_shared<DescriptorSetLayout>(m_device, viewLayoutBindings);
@@ -649,10 +652,13 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
     VkDescriptorPoolSize cuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
+    VkDescriptorPoolSize fvuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
     
     std::vector<VkDescriptorPoolSize> viewSizes = {
         viewPoolSize,
-        cuboPoolSize
+        cuboPoolSize,
+        fvuboPoolSize
     };
 
     m_viewPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS), 
@@ -811,7 +817,7 @@ void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const s
     scene->dispatch(view, commandBuffer, m_computePipeline->getPipelineLayout(), m_currentFrame);
 }
 
-void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene)
+void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views)
 {
     if (scene->lightChanged())
     {
@@ -835,6 +841,17 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene)
         for (auto& model : models)
         {
             model->updateDescriptorData(vssboData, fssboData);
+        }
+
+        if (false)
+        {
+            int viewId = 0;
+            for (auto& view : views)
+            {
+                view->updateDescriptorDataRenderDebugCube(m_currentFrame, scene, viewId);
+
+                viewId++;
+            }
         }
 
         m_vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());

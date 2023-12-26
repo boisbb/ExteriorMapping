@@ -30,6 +30,7 @@ public:
     VkExtent2D getExtent();
     uint32_t getImageCount() const;
     VkDescriptorImageInfo getOffscreenImageInfo() const;
+    VkDescriptorImageInfo getOffscreenDepthImageInfo() const;
 
     void recreate(VkExtent2D windowExtent);
 
@@ -81,6 +82,7 @@ private:
     VkImageView m_offscreenImageView;
     VkImageView m_offscreenDepthImageView;
     std::shared_ptr<Sampler> m_offscreenSampler;
+    std::shared_ptr<Sampler> m_offscreenDepthSampler;
 
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;

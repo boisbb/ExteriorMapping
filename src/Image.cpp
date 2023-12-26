@@ -49,15 +49,15 @@ Image::~Image()
 {
 }
 
-void Image::transitionImageLayout(VkImageLayout oldL, VkImageLayout newL)
+void Image::transitionImageLayout(VkImageLayout oldL, VkImageLayout newL, VkImageAspectFlags aspectMask)
 {
-    m_device->transitionImageLayout(m_image, m_format, oldL, newL);
+    m_device->transitionImageLayout(m_image, m_format, oldL, newL, aspectMask);
     m_layout = newL;
 }
 
-VkImageView Image::createImageView()
+VkImageView Image::createImageView(VkImageAspectFlags aspectMask)
 {
-    return m_device->createImageView(m_image, m_format, VK_IMAGE_ASPECT_COLOR_BIT);
+    return m_device->createImageView(m_image, m_format, aspectMask);
 }
 
 VkImage Image::getVkImage() const

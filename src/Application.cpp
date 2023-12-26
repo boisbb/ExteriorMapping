@@ -81,7 +81,6 @@ void Application::draw()
         
         uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
         m_renderer->beginCommandBuffer();
-        //m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getQuadFramebuffer(imageIndex), windowResolution);
         m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getOffscreenFramebuffer(), windowResolution);
         m_renderer->renderPass(m_scene, m_views);
         m_renderer->endRenderPass();
@@ -263,6 +262,13 @@ void Application::renderImgui(int lastFps)
 
                         ImGui::PushID(view.get());
                         ImGui::Indent();
+
+                        bool depthOnly = view->getDepthOnly();
+
+                        if (ImGui::Checkbox("Render only depth", &depthOnly))
+                        {
+                            view->setDepthOnly(depthOnly);
+                        }
 
                         bool frustumCulling = view->getFrustumCull();
 
@@ -531,9 +537,13 @@ void Application::createModels()
         m_vertices, m_indices);
     sponza->afterImportInit(m_device, m_renderer);
 
-#if DRAW_LIGHT
-    m_light = vke::utils::importModel("../res/models/basicCube/cube.obj",
+    m_cameraCubeId = m_models.size();
+
+    std::shared_ptr<Model> cameraCube = vke::utils::importModel("../res/models/basicCube/cube.obj",
         m_vertices, m_indices);
+    cameraCube->afterImportInit(m_device, m_renderer);
+
+#if DRAW_LIGHT
     m_light->afterImportInit(m_device, m_renderer);
     glm::mat4 lightMatrix = m_light->getModelMatrix();
     lightMatrix = glm::translate(lightMatrix, lightPos);
@@ -541,9 +551,9 @@ void Application::createModels()
     m_light->setModelMatrix(lightMatrix);
 #endif
 
-
     m_models.push_back(sponza);
     m_models.push_back(porsche);
+    m_models.push_back(cameraCube);
 }
 
 }

@@ -17,7 +17,7 @@ layout(std430, binding=1) readonly buffer ssbo {
     MeshShaderDataVertex objects[];
 } vssbo;
 
-layout(set=2, binding=0) uniform UniformDataVertex {
+layout(set=2, binding=0) uniform ViewDataVertex {
     mat4 view;
     mat4 proj;
 } ubo;

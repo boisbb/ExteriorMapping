@@ -116,7 +116,7 @@ void Scene::createViewResources(std::shared_ptr<View> view, const std::shared_pt
 
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        drawBufferArray[i] = std::make_shared<Buffer>(device, sizeof(VkDrawIndexedIndirectCommand) * MAX_SBOS,
+        drawBufferArray[i] = std::make_shared<Buffer>(device, sizeof(VkDrawIndexedIndirectCommand) * (m_indirectDrawBuffer->getSize() + MAX_VIEWS),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         drawBufferArray[i]->map();
@@ -139,6 +139,11 @@ void Scene::createViewResources(std::shared_ptr<View> view, const std::shared_pt
 
     m_computeDescriptorsMap[view] = descriptorArray;
     m_indirectBuffersMap[view] = drawBufferArray;
+}
+
+void Scene::addDebugViewCubesToDrawBuffer(const std::vector<std::shared_ptr<View>> &views)
+{
+    
 }
 
 void Scene::setLightPos(const glm::vec3& lightPos)

@@ -28,7 +28,7 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
-struct UniformDataVertex {
+struct ViewDataVertex {
     glm::mat4 view;
     glm::mat4 proj;
 };
@@ -38,7 +38,11 @@ struct UniformDataFragment {
     float __padding;
 };
 
-struct UniformDataCompute {
+struct ViewDataFragment {
+    bool depthOnly;
+};
+
+struct ViewDataCompute {
     glm::vec4 frustumPlanes[6];
     unsigned int totalMeshes;
     bool frustumCull;

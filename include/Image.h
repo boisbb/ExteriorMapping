@@ -18,8 +18,8 @@ public:
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED);
     ~Image();
 
-    void transitionImageLayout(VkImageLayout oldL, VkImageLayout newL);
-    VkImageView createImageView();
+    void transitionImageLayout(VkImageLayout oldL, VkImageLayout newL, VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
+    VkImageView createImageView(VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
 
     VkImage getVkImage() const;
     VkImageLayout getVkImageLayout() const;

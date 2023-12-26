@@ -19,12 +19,17 @@ layout(binding=2) uniform UniformDataFragment {
     vec3 lightPos;
 } ubo;
 
+
 layout(std430, binding=3) readonly buffer ssbo {
     MeshShaderDataFragment objects[];
 } fssbo;
 
 layout(set=1, binding=0) uniform sampler2D texSampler[];
 layout(set=1, binding=1) uniform sampler2D bumpSampler[];
+
+layout(set=2, binding=2) uniform ViewDataFragment {
+    bool depthOnly;
+} vbo;
 
 layout(location=0) flat in int instanceId;
 layout(location=1) in FsInput fsIn;
@@ -55,6 +60,16 @@ vec3 bumpToNormal(int bumpId)
 
 void main() 
 {
+    if (vbo.depthOnly)
+    {
+        float n = 0.1f;
+        float f = 100.f;
+        float z = gl_FragCoord.z;
+        float clipDepth = (2.0 * n) / (f + n - z * (f - n));
+        finalColor = vec4(vec3(clipDepth), 1.0);
+        return;
+    }
+
     vec3 lightPosition = ubo.lightPos;
 
     vec3 normNormal = vec3(1.0f);

@@ -86,6 +86,8 @@ private:
     std::shared_ptr<Model> m_light;
     std::vector<std::shared_ptr<Model>> m_models;
     std::vector<std::shared_ptr<View>> m_views;
+
+    int m_cameraCubeId;
     
     std::vector<Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
