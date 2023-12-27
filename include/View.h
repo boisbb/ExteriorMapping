@@ -15,6 +15,7 @@ namespace vke
 
 class Buffer;
 class Scene;
+class Model;
 
 class View
 {
@@ -38,8 +39,12 @@ public:
 
     void updateDescriptorData(int currentFrame);
     void updateComputeDescriptorData(int currentFrame, const std::shared_ptr<Scene>& scene);
-    void updateDescriptorDataRenderDebugCube(int currentFrame, const std::shared_ptr<Scene>& scene,
-        int viewId);
+    void updateDescriptorDataRenderDebugCube(std::vector<MeshShaderDataVertex>& vertexShaderData,
+        std::vector<MeshShaderDataFragment>& fragmentShaderData);
+
+    // Debug
+    void setDebugCameraGeometry(std::shared_ptr<Model> model);
+    std::shared_ptr<Model> getDebugCameraModel() const;
 
 private:
     void createDescriptorResources(std::shared_ptr<Device> device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
@@ -58,6 +63,9 @@ private:
 
     bool m_frustumCull;
     bool m_depthOnly;
+
+    // Debug
+    std::shared_ptr<Model> m_debugModel;
 };
 
 }

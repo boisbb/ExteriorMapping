@@ -51,7 +51,7 @@ VkDrawIndexedIndirectCommand Mesh::createIndirectDrawCommand(const uint32_t& dra
     command.firstIndex = m_info.firstIndex;
     command.firstInstance = instanceId;
     command.indexCount = m_info.indexCount;
-    command.instanceCount = 0;
+    command.instanceCount = 1;
     command.vertexOffset = m_info.vertexOffset;
 
     m_drawId = drawId;

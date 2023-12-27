@@ -16,7 +16,10 @@ namespace vke
 Scene::Scene()
     : m_drawCount(0),
     m_sceneChanged(true),
-    m_lightChanged(true)
+    m_lightChanged(true),
+    m_renderDebugCameraGeometry(false),
+    m_reinitializeDebugCameraGeometry(true),
+    m_renderDebugViewsDrawCount(0)
 {
 }
 
@@ -84,7 +87,7 @@ void Scene::dispatch(std::shared_ptr<View> view, VkCommandBuffer commandBuffer, 
     VkDescriptorSet computeSet = m_computeDescriptorsMap[view][currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &computeSet, 0, nullptr);
 
-    vkCmdDispatch(commandBuffer, 1, 1, 1);
+    vkCmdDispatch(commandBuffer, 256, 1, 1);
 }
 
 void Scene::draw(std::shared_ptr<View> view, VkCommandBuffer commandBuffer,
@@ -99,7 +102,20 @@ void Scene::draw(std::shared_ptr<View> view, VkCommandBuffer commandBuffer,
 
     VkBuffer indirectDrawBuffer = m_indirectBuffersMap[view][currentFrame]->getVkBuffer();
 
-    vkCmdDrawIndexedIndirect(commandBuffer, indirectDrawBuffer, 0, m_drawCount,
+    VkDrawIndexedIndirectCommand* commands = (VkDrawIndexedIndirectCommand*)m_indirectBuffersMap[view][currentFrame]->getMapped();
+
+    auto command1 = commands[0];
+    auto command2 = commands[1];
+
+    // std::cout << command1.instanceCount<<std::endl;
+    // std::cout << command2.instanceCount<<std::endl;
+
+    int totalDraws = m_drawCount;
+    totalDraws += (m_renderDebugCameraGeometry) ? m_renderDebugViewsDrawCount : 0;
+
+    // std::cout << m_renderDebugViewsDrawCount << std::endl << m_drawCount << std::endl;
+
+    vkCmdDrawIndexedIndirect(commandBuffer, indirectDrawBuffer, 0, totalDraws,
         sizeof(VkDrawIndexedIndirectCommand));
 }
 
@@ -141,11 +157,6 @@ void Scene::createViewResources(std::shared_ptr<View> view, const std::shared_pt
     m_indirectBuffersMap[view] = drawBufferArray;
 }
 
-void Scene::addDebugViewCubesToDrawBuffer(const std::vector<std::shared_ptr<View>> &views)
-{
-    
-}
-
 void Scene::setLightPos(const glm::vec3& lightPos)
 {
     m_lightPos = lightPos;
@@ -163,6 +174,101 @@ void Scene::checkModelsVisible(std::shared_ptr<Camera> camera, int currentFrame)
     {
         // model->checkMeshesVisible(camera, (VkDrawIndexedIndirectCommand*)m_indirectDrawBuffers[currentFrame]->getMapped());
     }
+}
+
+void Scene::hideModel(std::shared_ptr<Model> model)
+{
+    int drawStartOpaque = m_modelDrawRef[model][0];
+    int drawStartTransparent = m_modelDrawRef[model][1];
+
+    VkDrawIndexedIndirectCommand* commands = (VkDrawIndexedIndirectCommand*)m_indirectDrawBuffer->getMapped();
+
+    for (int i = drawStartOpaque; i < drawStartOpaque + model->getMeshesCount(); i++)
+    {
+        commands[i].instanceCount = 0;
+        commands[i].indexCount = 0;
+    }
+
+    for (int i = drawStartTransparent; i < drawStartTransparent + model->getTransparentMeshesCount(); i++)
+    {
+        commands[i].instanceCount = 0;
+        commands[i].indexCount = 0;
+    }
+
+    for (auto& kv : m_indirectBuffersMap)
+    {
+        for (int j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+        {
+            std::shared_ptr<Buffer>& buffer = kv.second[j];
+
+            buffer->copyMapped(m_indirectDrawBuffer->getMapped(), m_indirectDrawBuffer->getSize());
+
+            VkDrawIndexedIndirectCommand* commands2 = (VkDrawIndexedIndirectCommand*)m_indirectBuffersMap[kv.first][j]->getMapped();
+
+            std::vector<VkDrawIndexedIndirectCommand> t(commands2, commands2 + 1);
+        }
+    }
+}
+
+void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)
+{
+    m_renderDebugCameraGeometry = true;
+    if(!m_reinitializeDebugCameraGeometry)
+        return;
+
+    m_reinitializeDebugCameraGeometry = false;
+
+    int startId = m_drawCount;
+    int numOfViews = m_indirectBuffersMap.size();
+
+    VkDrawIndexedIndirectCommand* commands = (VkDrawIndexedIndirectCommand*)m_indirectDrawBuffer->getMapped();
+
+    std::vector<VkDrawIndexedIndirectCommand> vectorCommands(commands, commands + m_drawCount);
+
+    uint32_t instanceId = startId;
+    for (uint32_t i = 0; i < views.size(); i++)
+    {
+        views[i]->getDebugCameraModel()->createIndirectDrawCommands(vectorCommands, instanceId);
+    }
+
+    m_renderDebugViewsDrawCount = vectorCommands.size() - m_drawCount;
+
+    m_indirectDrawBuffer->copyMapped((void*)vectorCommands.data(), sizeof(VkDrawIndexedIndirectCommand) * vectorCommands.size());
+
+    for (auto& kv : m_indirectBuffersMap)
+    {
+        for (int j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+        {
+            kv.second[j]->copyMapped(m_indirectDrawBuffer->getMapped(), m_indirectDrawBuffer->getSize());
+        }
+    }
+
+    for (int i = 0; i < views.size(); i++)
+    {
+        for (int j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
+        {
+            VkDrawIndexedIndirectCommand* commands = (VkDrawIndexedIndirectCommand*)m_indirectBuffersMap[views[i]][j]->getMapped();
+
+            int numOfMeshes = views[i]->getDebugCameraModel()->getMeshesCount();
+
+            commands[startId + numOfMeshes * i].instanceCount = 0;
+        }
+    }
+}
+
+void Scene::setRenderDebugGeometryFlag(bool renderDebugCameraGeometryFlag)
+{
+    m_renderDebugCameraGeometry = renderDebugCameraGeometryFlag;
+}
+
+bool Scene::getRenderDebugGeometryFlag() const
+{
+    return m_renderDebugCameraGeometry;
+}
+
+void Scene::setReinitializeDebugCameraGeometryFlag(bool reinitializeDebugCameraGeometry)
+{
+    m_reinitializeDebugCameraGeometry = reinitializeDebugCameraGeometry;
 }
 
 void Scene::createVertexBuffer(const std::shared_ptr<Device>& device,
@@ -206,10 +312,20 @@ void Scene::createIndirectDrawBuffer(const std::shared_ptr<Device>& device)
     uint32_t instanceId = 0;
 
     for (auto& model : m_models)
+    {
+        m_modelDrawRef[model] = {
+            static_cast<int>(commands.size()),
+            -1
+        };
+
         model->createIndirectDrawCommands(commands, instanceId);
+    }
 
     for (auto& model : m_models)
+    {
+        m_modelDrawRef[model][1] = static_cast<int>(commands.size());
         model->createIndirectDrawCommandsTransparent(commands, instanceId);
+    }
 
     m_drawCount = instanceId;
 
@@ -221,11 +337,11 @@ void Scene::createIndirectDrawBuffer(const std::shared_ptr<Device>& device)
     stagingBuffer.copyMapped((void*)commands.data(), (size_t)bufferSize);
     stagingBuffer.unmap();
 
-    m_indirectDrawBuffer = std::make_shared<Buffer>(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+    m_indirectDrawBuffer = std::make_shared<Buffer>(device, bufferSize + MAX_VIEWS, VK_BUFFER_USAGE_TRANSFER_DST_BIT |
         VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     m_indirectDrawBuffer->map();
 
-    device->copyBuffer(stagingBuffer.getVkBuffer(), m_indirectDrawBuffer->getVkBuffer(), m_indirectDrawBuffer->getSize());
+    device->copyBuffer(stagingBuffer.getVkBuffer(), m_indirectDrawBuffer->getVkBuffer(), stagingBuffer.getSize());
 }
 
 }

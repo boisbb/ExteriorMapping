@@ -52,6 +52,12 @@ void main()
 
     if (gId < ubo.totalMeshes)
     {
+        if (drawssbo.drawCalls[gId].indexCount == 0)
+        {
+            drawssbo.drawCalls[gId].instanceCount = 0;
+            return;
+        }
+
         if (ubo.frustumCull)
         {
             bool isCulled = isFrustumCulled(cssbo.objects[gId].boundingSphere);

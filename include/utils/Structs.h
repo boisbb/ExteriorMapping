@@ -54,6 +54,8 @@ struct MeshShaderDataVertex {
 
 struct MeshShaderDataFragment {
     glm::vec4 diffuseColor;
+    // x - opacity, y - colorTex id
+    // z - bumpTexId
     glm::vec4 multiple;
     //float opacity;
     //int textureId;

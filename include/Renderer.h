@@ -73,7 +73,8 @@ public:
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
     void beginCommandBuffer();
-    void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, glm::vec2 windowResolution, bool clear = true);
+    void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, glm::vec2 windowResolution,
+        glm::uvec2 renderArea, bool clear = true);
     void endRenderPass();
     void endCommandBuffer();
 private:

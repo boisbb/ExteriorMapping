@@ -25,6 +25,7 @@ namespace vke
 {
 
 Application::Application()
+    : m_showCameraGeometry(false)
 {
     init();
 }
@@ -52,6 +53,8 @@ void Application::init()
 
     m_scene->setModels(m_device, m_renderer->getSceneComputeDescriptorSetLayout(),
         m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
+    
+    m_scene->hideModel(m_cameraCube);
 
     addViewRow();
     addViewRow();
@@ -81,11 +84,11 @@ void Application::draw()
         
         uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
         m_renderer->beginCommandBuffer();
-        m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getOffscreenFramebuffer(), windowResolution);
+        m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getOffscreenFramebuffer(), windowResolution, glm::vec2(WIDTH, HEIGHT));
         m_renderer->renderPass(m_scene, m_views);
         m_renderer->endRenderPass();
 
-        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer(imageIndex), windowResolution);
+        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer(imageIndex), windowResolution, windowResolution);
         m_renderer->quadRenderPass(windowResolution);
         renderImgui(lastFps);
         m_renderer->endRenderPass();
@@ -97,7 +100,7 @@ void Application::draw()
 
         if (resizeViews)
         {
-            resizeAllViews();
+            // resizeAllViews();
             resizeViews = false;
         }
 
@@ -209,6 +212,20 @@ void Application::renderImgui(int lastFps)
     if (ImGui::CollapsingHeader("Views"))
     {
         ImGui::Indent();
+
+        if (ImGui::Checkbox("Show camera geometry", &m_showCameraGeometry))
+        {
+            if (m_showCameraGeometry)
+            {
+                m_scene->addDebugCameraGeometry(m_views);
+
+            }
+            else
+            {
+                m_scene->setRenderDebugGeometryFlag(false);
+            }
+        }
+
         if (ImGui::Button("-"))
         {
             removeViewRow();
@@ -366,7 +383,13 @@ void Application::addViewColumn(int rowId, int rowViewStartId)
 
     std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(newViewWidth, newViewHeight), glm::vec2(newViewWidthOffset, newViewHeightOffset),
         m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
-    
+    view->setDebugCameraGeometry(m_cameraCube);
+
+    // m_scene->setReinitializeDebugCameraGeometryFlag(true);
+    // if (m_scene->getRenderDebugGeometryFlag())
+    // {
+    //     m_scene->addDebugCameraGeometry(m_cameraCube, m_views);
+    // }
     
     m_views.insert(m_views.begin() + rowViewStartId + rowViewsCount, view);
     m_viewRowColumns[rowId] += 1;
@@ -439,6 +462,13 @@ void Application::addViewRow()
     std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(windowExtent.width, newViewHeight),
         glm::vec2(0.f, newViewHeightOffset), m_device, m_renderer->getViewDescriptorSetLayout(),
         m_renderer->getViewDescriptorPool());
+    view->setDebugCameraGeometry(m_cameraCube);
+
+    // m_scene->setReinitializeDebugCameraGeometryFlag(true);
+    // if (m_scene->getRenderDebugGeometryFlag())
+    // {
+    //     m_scene->addDebugCameraGeometry(m_cameraCube, m_views);
+    // }
     
     m_viewRowColumns.push_back(1);
     m_views.push_back(view);
@@ -532,16 +562,14 @@ void Application::createModels()
     std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
         m_vertices, m_indices);
     porsche->afterImportInit(m_device, m_renderer);
-    
+     
     std::shared_ptr<Model> sponza = vke::utils::importModel("../res/models/dabrovic_sponza/sponza.obj",
         m_vertices, m_indices);
     sponza->afterImportInit(m_device, m_renderer);
 
-    m_cameraCubeId = m_models.size();
-
-    std::shared_ptr<Model> cameraCube = vke::utils::importModel("../res/models/basicCube/cube.obj",
+    m_cameraCube = vke::utils::importModel("../res/models/coloredCube/coloredCube.obj",
         m_vertices, m_indices);
-    cameraCube->afterImportInit(m_device, m_renderer);
+    m_cameraCube->afterImportInit(m_device, m_renderer);
 
 #if DRAW_LIGHT
     m_light->afterImportInit(m_device, m_renderer);
@@ -553,7 +581,7 @@ void Application::createModels()
 
     m_models.push_back(sponza);
     m_models.push_back(porsche);
-    m_models.push_back(cameraCube);
+    m_models.push_back(m_cameraCube);
 }
 
 }

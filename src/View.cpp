@@ -1,6 +1,9 @@
 #include "View.h"
 #include "Buffer.h"
 #include "Scene.h"
+#include "Model.h"
+#include "Mesh.h"
+#include "Material.h"
 #include "utils/Constants.h"
 
 namespace vke
@@ -105,9 +108,46 @@ void View::updateComputeDescriptorData(int currentFrame, const std::shared_ptr<S
     m_cubos[currentFrame]->copyMapped(&cubo, sizeof(ViewDataCompute));
 }
 
-void View::updateDescriptorDataRenderDebugCube(int currentFrame, const std::shared_ptr<Scene> &scene, int viewId)
+void View::updateDescriptorDataRenderDebugCube(std::vector<MeshShaderDataVertex>& vertexShaderData,
+    std::vector<MeshShaderDataFragment>& fragmentShaderData)
 {
-    
+    std::vector<std::shared_ptr<Mesh>> meshes = m_debugModel->getMeshes(); 
+
+    for (int i = 0; i < meshes.size(); i++)
+    {
+        std::shared_ptr<Material> material = meshes[i]->getMaterial();
+
+        glm::mat4 matrix = glm::inverse(m_camera->getView());
+        // glm::mat4 matrix = glm::translate(glm::mat4(1.f), m_camera->getEye());
+        matrix = glm::scale(matrix, glm::vec3(0.3f, 0.3f, 0.3f));
+
+        vertexShaderData.push_back(MeshShaderDataVertex());
+        vertexShaderData.back().model = matrix;
+
+        fragmentShaderData.push_back(MeshShaderDataFragment());
+        if (material->hasTexture())
+            fragmentShaderData.back().multiple.y = material->getTextureId();
+        else
+            fragmentShaderData.back().multiple.y = RET_ID_NOT_FOUND;
+
+        if (material->hasBumpTexture())
+            fragmentShaderData.back().multiple.z = material->getBumpTextureId();
+        else
+            fragmentShaderData.back().multiple.z = RET_ID_NOT_FOUND;
+
+        fragmentShaderData.back().diffuseColor = glm::vec4(material->getDiffuseColor(), 1.f);
+        fragmentShaderData.back().multiple.x = material->getOpacity();
+    }
+}
+
+void View::setDebugCameraGeometry(std::shared_ptr<Model> model)
+{
+    m_debugModel = model;
+}
+
+std::shared_ptr<Model> View::getDebugCameraModel() const
+{
+    return m_debugModel;
 }
 
 void View::createDescriptorResources(std::shared_ptr<Device> device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,

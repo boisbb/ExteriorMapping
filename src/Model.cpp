@@ -25,6 +25,16 @@ std::vector<std::shared_ptr<Mesh>> Model::getMeshes() const
     return m_meshes;
 }
 
+size_t Model::getMeshesCount() const
+{
+    return m_meshes.size();
+}
+
+size_t Model::getTransparentMeshesCount() const
+{
+    return m_transparentMeshes.size();
+}
+
 void Model::addMesh(std::shared_ptr<Mesh> mesh)
 {
     if (mesh->getMaterial()->isTransparent())
@@ -48,6 +58,7 @@ void Model::createIndirectDrawCommandsTransparent(std::vector<VkDrawIndexedIndir
     uint32_t &instanceId)
 {
     uint32_t drawId = commands.size();
+
     for (auto& mesh : m_transparentMeshes)
     {
 
@@ -73,23 +84,35 @@ void Model::createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>
 }
 
 void Model::updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-    std::vector<MeshShaderDataFragment>& fragmentShaderData)
+    std::vector<MeshShaderDataFragment>& fragmentShaderData, bool transparentMeshes)
 {
-    for (auto& mesh : m_meshes)
-        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
+    if (!transparentMeshes)
+    {
+        for (auto& mesh : m_meshes)
+            mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
+    }
+    else
+    {
+        for (auto& mesh : m_transparentMeshes)
+            mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
+    }
 
-    for (auto& mesh : m_transparentMeshes)
-        mesh->updateDescriptorData(vertexShaderData, fragmentShaderData, m_modelMatrix);
 
 }
 
-void Model::updateComputeDescriptorData(std::vector<MeshShaderDataCompute> &computeShaderData)
+void Model::updateComputeDescriptorData(std::vector<MeshShaderDataCompute> &computeShaderData,
+    bool transparentMeshes)
 {
-    for (auto& mesh : m_meshes)
-        mesh->updateComputeDescriptorData(computeShaderData);
-
-    for (auto& mesh : m_transparentMeshes)
-        mesh->updateComputeDescriptorData(computeShaderData);
+    if (!transparentMeshes)
+    {
+        for (auto& mesh : m_meshes)
+            mesh->updateComputeDescriptorData(computeShaderData);
+    }
+    else
+    {
+        for (auto& mesh : m_transparentMeshes)
+            mesh->updateComputeDescriptorData(computeShaderData);
+    }
 }
 
 void Model::setModelMatrix(const glm::mat4& matrix)

@@ -87,12 +87,14 @@ private:
     std::vector<std::shared_ptr<Model>> m_models;
     std::vector<std::shared_ptr<View>> m_views;
 
-    int m_cameraCubeId;
+    std::shared_ptr<Model> m_cameraCube;
     
     std::vector<Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
 
     std::vector<uint32_t> m_viewRowColumns;
+
+    bool m_showCameraGeometry;
 };
 
 }

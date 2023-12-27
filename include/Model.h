@@ -26,6 +26,8 @@ public:
     ~Model();
 
     std::vector<std::shared_ptr<Mesh>> getMeshes() const;
+    size_t getMeshesCount() const;
+    size_t getTransparentMeshesCount() const;
 
     void addMesh(std::shared_ptr<Mesh> mesh);
 
@@ -37,8 +39,8 @@ public:
     void createIndirectDrawCommands(std::vector<VkDrawIndexedIndirectCommand>& commands,
         uint32_t& instanceId);
     void updateDescriptorData(std::vector<MeshShaderDataVertex>& vertexShaderData,
-        std::vector<MeshShaderDataFragment>& fragmentShaderData);
-    void updateComputeDescriptorData(std::vector<MeshShaderDataCompute>& computeShaderData);
+        std::vector<MeshShaderDataFragment>& fragmentShaderData, bool transparentMeshes = false);
+    void updateComputeDescriptorData(std::vector<MeshShaderDataCompute>& computeShaderData, bool transparentMeshes = false);
 
     void setModelMatrix(const glm::mat4& matrix);
     glm::mat4 getModelMatrix() const;

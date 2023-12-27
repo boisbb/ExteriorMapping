@@ -448,6 +448,7 @@ void SwapChain::recreate(VkExtent2D windowExtent)
     createImageViews();
     createDepthResources();
     createFramebuffers();
+
 }
 
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats)

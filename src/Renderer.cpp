@@ -153,6 +153,12 @@ void Renderer::computePass(const std::shared_ptr<Scene> &scene, const std::vecto
         if (!scene->viewResourcesExist(view))
         {
             scene->createViewResources(view, m_device, m_computeSceneSetLayout, m_computeScenePool);
+
+            scene->setReinitializeDebugCameraGeometryFlag(true);
+            if (scene->getRenderDebugGeometryFlag())
+            {
+                scene->addDebugCameraGeometry(views);
+            }
         }
 
         recordComputeCommandBuffer(m_computeCommandBuffers[m_currentFrame], scene, view);
@@ -485,7 +491,8 @@ void Renderer::beginCommandBuffer()
     }
 }
 
-void Renderer::beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, glm::vec2 windowResolution, bool clear)
+void Renderer::beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, glm::vec2 windowResolution,
+    glm::uvec2 renderArea, bool clear)
 {
     VkExtent2D swapChainExtent = m_swapChain->getExtent();
 
@@ -504,7 +511,7 @@ void Renderer::beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffe
 
     renderPassInfo.framebuffer = framebuffer;
     renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = {(unsigned int)windowResolution.x, (unsigned int)windowResolution.y};
+    renderPassInfo.renderArea.extent = {renderArea.x, renderArea.y};
 
     std::array<VkClearValue, 2> clearValues{};
     clearValues[0].color = { {0.f, 0.f, 0.f, 1.f} };
@@ -831,7 +838,7 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
             scene->setLightChanged(false);
     }
 
-    if (scene->sceneChanged())
+    if (scene->sceneChanged() || scene->getRenderDebugGeometryFlag())
     {
         std::vector<MeshShaderDataVertex> vssboData;
         std::vector<MeshShaderDataFragment> fssboData;
@@ -839,18 +846,17 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
         std::vector<std::shared_ptr<Model>>& models = scene->getModels();
 
         for (auto& model : models)
-        {
             model->updateDescriptorData(vssboData, fssboData);
-        }
 
-        if (false)
+        for (auto& model : models)
+            model->updateDescriptorData(vssboData, fssboData, true);
+
+        if (scene->getRenderDebugGeometryFlag())
         {
-            int viewId = 0;
+            // std::cout << "update descriptor data for views" << std::endl;
             for (auto& view : views)
             {
-                view->updateDescriptorDataRenderDebugCube(m_currentFrame, scene, viewId);
-
-                viewId++;
+                view->updateDescriptorDataRenderDebugCube(vssboData, fssboData);
             }
         }
 
@@ -873,9 +879,10 @@ void Renderer::updateComputeDescriptorData(const std::shared_ptr<Scene> &scene)
         std::vector<std::shared_ptr<Model>>& models = scene->getModels();
 
         for (auto& model : models)
-        {
             model->updateComputeDescriptorData(cssboData);
-        }
+
+        for (auto& model : models)
+            model->updateComputeDescriptorData(cssboData, true);
 
         m_cssbos[m_currentFrame]->copyMapped(cssboData.data(), sizeof(MeshShaderDataCompute) * cssboData.size());
     }
