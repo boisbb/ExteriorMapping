@@ -84,6 +84,11 @@ void Camera::setCameraResolution(const glm::vec2& resolution)
     m_resolution = resolution;
 }
 
+void Camera::setCameraEye(glm::vec3 eye)
+{
+    m_eye = eye;
+}
+
 void Camera::reconstructMatrices()
 {
     m_view = glm::mat4(1.f);

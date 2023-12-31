@@ -44,6 +44,7 @@
 #include "Scene.h"
 #include "Camera.h"
 #include "View.h"
+#include "utils/Config.h"
 
 namespace vke
 {
@@ -71,12 +72,14 @@ private:
     void renderImgui(int lastFps);
     void cleanup();
 
+    void addConfigViews();
     void addViewColumn(int rowId, int rowViewStartId);
     void removeViewColumn(int rowId, int rowViewStartId);
     void addViewRow();
     void removeViewRow();
     void resizeAllViews();
 
+    void createScene();
     void createModels();
 
     std::shared_ptr<Window> m_window;
@@ -95,6 +98,8 @@ private:
     std::vector<uint32_t> m_viewRowColumns;
 
     bool m_showCameraGeometry;
+
+    utils::Config m_config;
 };
 
 }

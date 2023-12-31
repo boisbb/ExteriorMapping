@@ -69,6 +69,11 @@ void View::setCamera(std::shared_ptr<Camera> camera)
     m_camera = camera;
 }
 
+void View::setCameraEye(glm::vec3 eye)
+{
+    m_camera->setCameraEye(eye);
+}
+
 void View::setFrustumCull(bool frustumCull)
 {
     m_frustumCull = frustumCull;

@@ -11,9 +11,6 @@ set(FETCHCONTENT_BASE_DIR
     ${PROJECT_SOURCE_DIR}/external/downloaded 
     CACHE PATH "Missing description." FORCE)
 
-# set(CMAKE_BUILD_TYPE Debug)
-
-
 set( CMAKE_CXX_STANDARD 17 )
 
 set ( INCLUDE
@@ -40,6 +37,7 @@ set ( INCLUDE
     include/descriptors/Pool.h
     include/descriptors/Set.h
     include/utils/Callbacks.h
+    include/utils/Config.h
     include/utils/DebugHelpers.h
     include/utils/Structs.h
     include/utils/Constants.h
@@ -72,6 +70,7 @@ set( SOURCE
     src/descriptors/SetLayout.cpp
     src/descriptors/Pool.cpp
     src/descriptors/Set.cpp
+    src/utils/Config.cpp
     src/utils/FileHandling.cpp
     src/utils/Import.cpp
     src/utils/Math.cpp

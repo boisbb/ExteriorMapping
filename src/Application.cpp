@@ -37,27 +37,17 @@ void Application::run()
 
 void Application::init()
 {
+    utils::parseConfig("../res/config.json", m_config);
+
     m_window = std::make_shared<Window>(WIDTH, HEIGHT);
     m_device = std::make_shared<Device>(m_window);
     m_renderer = std::make_shared<Renderer>(m_device, m_window, "../res/shaders/vert.spv",
         "../res/shaders/frag.spv", "../res/shaders/comp.spv", "../res/shaders/quad_vert.spv",
         "../res/shaders/quad_frag.spv");
-    
-    m_scene = std::make_shared<Scene>();
 
+    createScene();
 
-    glm::vec3 lightPos = { 0.f, 10.f, 0.f };
-    m_scene->setLightPos(lightPos);
-
-    createModels();
-
-    m_scene->setModels(m_device, m_renderer->getSceneComputeDescriptorSetLayout(),
-        m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
-    
-    m_scene->hideModel(m_cameraCube);
-
-    addViewRow();
-    addViewRow();
+    addConfigViews();
     
     m_renderer->initDescriptorResources();
     initImgui();
@@ -355,6 +345,28 @@ void Application::cleanup()
     
 }
 
+void Application::addConfigViews()
+{
+    uint32_t row = 0;
+    for (int i = 0; i < m_config.views.size(); i++)
+    {
+        utils::Config::View configView = m_config.views[i];
+        
+        row = configView.row;
+
+        if (m_viewRowColumns.size() == row)
+        {
+            addViewRow();
+                    }
+        else
+        {
+            addViewColumn(row, m_views.size() - 1);
+        }
+
+        m_views.back()->setCameraEye(configView.cameraPos);
+    }
+}
+
 void Application::addViewColumn(int rowId, int rowViewStartId)
 {
     if (m_viewRowColumns.size() == 0)
@@ -463,12 +475,6 @@ void Application::addViewRow()
         glm::vec2(0.f, newViewHeightOffset), m_device, m_renderer->getViewDescriptorSetLayout(),
         m_renderer->getViewDescriptorPool());
     view->setDebugCameraGeometry(m_cameraCube);
-
-    // m_scene->setReinitializeDebugCameraGeometryFlag(true);
-    // if (m_scene->getRenderDebugGeometryFlag())
-    // {
-    //     m_scene->addDebugCameraGeometry(m_cameraCube, m_views);
-    // }
     
     m_viewRowColumns.push_back(1);
     m_views.push_back(view);
@@ -549,27 +555,35 @@ void Application::resizeAllViews()
     }
 }
 
+void Application::createScene()
+{
+    m_scene = std::make_shared<Scene>();
+
+    m_scene->setLightPos(m_config.lightPos);
+
+    createModels();
+
+    m_scene->setModels(m_device, m_renderer->getSceneComputeDescriptorSetLayout(),
+        m_renderer->getSceneComputeDescriptorPool(), m_models, m_vertices, m_indices);
+
+    m_scene->hideModel(m_cameraCube);
+}
+
 void Application::createModels()
 {
-    //std::shared_ptr<Model> negus = vke::utils::importModel("../res/models/negusPlane/negusPlane.obj",
-    //    m_vertices, m_indices);
-    //negus->afterImportInit(m_device, m_renderer);
-    //
-    //std::shared_ptr<Model> pepe = vke::utils::importModel("../res/models/pepePlane/pepePlane.obj",
-    //    m_vertices, m_indices);
-    //pepe->afterImportInit(m_device, m_renderer);
+    for (auto& modelPath : m_config.models)
+    {
+        std::shared_ptr<Model> model = vke::utils::importModel(modelPath, m_vertices,
+            m_indices);
+        model->afterImportInit(m_device, m_renderer);
 
-    std::shared_ptr<Model> porsche = vke::utils::importModel("../res/models/porsche/porsche.obj",
-        m_vertices, m_indices);
-    porsche->afterImportInit(m_device, m_renderer);
-     
-    std::shared_ptr<Model> sponza = vke::utils::importModel("../res/models/dabrovic_sponza/sponza.obj",
-        m_vertices, m_indices);
-    sponza->afterImportInit(m_device, m_renderer);
+        m_models.push_back(model);
+    }
 
-    m_cameraCube = vke::utils::importModel("../res/models/coloredCube/coloredCube.obj",
+    m_cameraCube = vke::utils::importModel(m_config.viewGeometry,
         m_vertices, m_indices);
     m_cameraCube->afterImportInit(m_device, m_renderer);
+    m_models.push_back(m_cameraCube);
 
 #if DRAW_LIGHT
     m_light->afterImportInit(m_device, m_renderer);
@@ -578,10 +592,6 @@ void Application::createModels()
     lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
     m_light->setModelMatrix(lightMatrix);
 #endif
-
-    m_models.push_back(sponza);
-    m_models.push_back(porsche);
-    m_models.push_back(m_cameraCube);
 }
 
 }

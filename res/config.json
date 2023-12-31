@@ -1,0 +1,36 @@
+{
+    "viewData": {
+        "geometry": "../res/models/basicCube/cube.obj",
+        "views": [
+            [
+                {
+                    "cameraPos": {
+                        "x": 2,
+                        "y": 10,
+                        "z": 2
+                    }
+                }
+            ],
+            [
+                {
+                    "cameraPos": {
+                        "x": 2,
+                        "y": 10,
+                        "z": 2
+                    }
+                }
+            ]
+        ]
+    },
+    "sceneData": {
+        "models": [
+            "../res/models/dabrovic_sponza/sponza.obj",
+            "../res/models/porsche/porsche.obj"
+        ],
+        "lightPos": {
+            "x": 0,
+            "y": 10,
+            "z": 0
+        }
+    }
+}

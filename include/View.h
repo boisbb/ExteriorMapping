@@ -34,6 +34,7 @@ public:
     void setResolution(const glm::vec2& resolution);
     void setViewportStart(const glm::vec2& viewPortStart);
     void setCamera(std::shared_ptr<Camera> camera);
+    void setCameraEye(glm::vec3 eye);
     void setFrustumCull(bool frustumCull);
     void setDepthOnly(bool depthOnly);
 
