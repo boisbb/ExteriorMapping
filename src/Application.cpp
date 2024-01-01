@@ -219,6 +219,8 @@ void Application::renderImgui(int lastFps)
         if (ImGui::Button("-"))
         {
             removeViewRow();
+            m_scene->setReinitializeDebugCameraGeometryFlag(true);
+            m_scene->addDebugCameraGeometry(m_views);
         }
         ImGui::SameLine();
         if (ImGui::Button("+"))
@@ -317,17 +319,28 @@ void Application::renderImgui(int lastFps)
         }
 
         int addViewId = 0;
+        bool remove = false;
         for (auto& info : viewColInfos)
         {
             if (info.remove)
             {
                 removeViewColumn(info.rowId, info.viewId + addViewId);
                 addViewId -= 1;
+                remove = true;
             }
             else
             {
                 addViewColumn(info.rowId, info.viewId + addViewId);
                 addViewId += 1;
+            }
+        }
+
+        if (m_scene->getRenderDebugGeometryFlag())
+        {
+            if (remove)
+            {
+                m_scene->setReinitializeDebugCameraGeometryFlag(true);
+                m_scene->addDebugCameraGeometry(m_views);
             }
         }
 
@@ -434,6 +447,9 @@ void Application::removeViewColumn(int rowId, int rowViewStartId)
         
     }
 
+    std::shared_ptr<View> toRemoveView = m_views[rowViewStartId + rowViewsCount - 1];
+    m_scene->removeView(toRemoveView);
+
     m_views.erase(m_views.begin() + rowViewStartId + rowViewsCount - 1);
     m_viewRowColumns[rowId] -= 1;
 }
@@ -492,6 +508,9 @@ void Application::removeViewRow()
 
     for (int i = 0; i < lastRowViewsCount; i++)
     {
+        std::shared_ptr<View> toRemoveView = m_views[m_views.size() - 1];
+        m_scene->removeView(toRemoveView);
+
         m_views.erase(m_views.end() - 1);
     }
 

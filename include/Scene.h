@@ -51,6 +51,7 @@ public:
 
     void checkModelsVisible(std::shared_ptr<Camera> camera, int currentFrame);
     void hideModel(std::shared_ptr<Model> model);
+    void removeView(std::shared_ptr<View> view);
 
     // Debug
     void addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views);

@@ -210,6 +210,12 @@ void Scene::hideModel(std::shared_ptr<Model> model)
     }
 }
 
+void Scene::removeView(std::shared_ptr<View> view)
+{
+    m_indirectBuffersMap.erase(view);
+    m_computeDescriptorsMap.erase(view);
+}
+
 void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)
 {
     m_renderDebugCameraGeometry = true;
