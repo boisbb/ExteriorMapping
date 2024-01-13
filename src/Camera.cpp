@@ -5,8 +5,6 @@
 namespace vke
 {
 
-
-
 Camera::Camera(glm::vec2 resolution, glm::vec3 eye, glm::vec3 center, glm::vec3 up,
     float nearPlane, float farPlane, float fov)
     : m_resolution(resolution),
@@ -31,9 +29,19 @@ glm::mat4 Camera::getView() const
     return m_view;
 }
 
+glm::mat4 Camera::getViewInverse() const
+{
+    return m_viewInverse;
+}
+
 glm::mat4 Camera::getProjection() const
 {
     return m_projection;
+}
+
+glm::mat4 Camera::getProjectionInverse() const
+{
+    return m_projectionInverse;
 }
 
 void Camera::getCameraInfo(glm::vec3& eye, glm::vec3& up, glm::vec3& viewDir, float& speed)
@@ -70,6 +78,16 @@ glm::vec2 Camera::getNearFar() const
     return glm::vec2(m_near, m_far);
 }
 
+glm::vec2 Camera::getResolution() const
+{
+    return m_resolution;
+}
+
+glm::vec3 Camera::getViewDir() const
+{
+    return m_viewDirection;
+}
+
 void Camera::setCameraInfo(const glm::vec3& eye,
     const glm::vec3& up, const glm::vec3& viewDir, const float& speed)
 {
@@ -89,6 +107,11 @@ void Camera::setCameraEye(glm::vec3 eye)
     m_eye = eye;
 }
 
+void Camera::setViewDir(glm::vec3 &viewDir)
+{
+    m_viewDirection = viewDir;
+}
+
 void Camera::reconstructMatrices()
 {
     m_view = glm::mat4(1.f);
@@ -97,21 +120,14 @@ void Camera::reconstructMatrices()
     m_view = glm::lookAt(m_eye, m_eye + m_viewDirection, m_up);
     m_projection = glm::perspective(glm::radians(m_fov), m_resolution.x / m_resolution.y, m_near, m_far);
 
-    float fov = glm::radians(m_fov);
-    float aspect = m_resolution.x / m_resolution.y;
-
-    float f = 1.f / tanf(fov / 2.f);
-    glm::mat4 projection = glm::mat4(
-        f / aspect, 0.f, 0.f, 0.f,
-        0.f, f, 0.f, 0.f,
-        0.f, 0.f, 0.f, 1.f,
-        0.f, 0.f, m_near, 0.f
-    );
-
     // Vulkan only.
-    m_projection[1][1] *= -1.f;
+
+    m_viewInverse = glm::inverse(m_view);
 
     buildFrustum();
+    
+    m_projection[1][1] *= -1.f;
+    m_projectionInverse = glm::inverse(m_projection);
 }
 
 void Camera::buildFrustum()

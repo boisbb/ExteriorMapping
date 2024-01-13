@@ -82,6 +82,10 @@ private:
     void createScene();
     void createModels();
 
+    // Test
+    void mainCameraTestRays();
+    //
+
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Renderer> m_renderer;

@@ -66,6 +66,11 @@ void Application::draw()
 
     while (!glfwWindowShouldClose(m_window->getWindow()))
     {
+
+        // TEST - this will be ran in comute shader
+
+        //
+
         windowResolution = m_window->getResolution();
 
         consumeInput();
@@ -87,6 +92,8 @@ void Application::draw()
 
         m_renderer->submitFrame();
         m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
+
+        mainCameraTestRays();
 
         if (resizeViews)
         {
@@ -370,13 +377,15 @@ void Application::addConfigViews()
         if (m_viewRowColumns.size() == row)
         {
             addViewRow();
-                    }
+        }
         else
         {
             addViewColumn(row, m_views.size() - 1);
         }
 
         m_views.back()->setCameraEye(configView.cameraPos);
+        glm::vec3 viewDir = glm::normalize(glm::vec3(0,0,0) - configView.cameraPos);
+        m_views.back()->getCamera()->setViewDir(viewDir);
     }
 }
 
@@ -611,6 +620,189 @@ void Application::createModels()
     lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
     m_light->setModelMatrix(lightMatrix);
 #endif
+}
+
+struct IntersectInfo
+{
+    glm::vec3 coords;
+    float t;
+    bool in;
+    int planeId;
+    std::vector<float> inOut;
+};
+
+void Application::mainCameraTestRays()
+{
+    std::shared_ptr<Camera> mainCamera = m_views[0]->getCamera();
+    glm::vec2 mainCameraRes = mainCamera->getResolution();
+
+    std::cout << mainCameraRes.x << " " << mainCameraRes.y << std::endl;
+
+    std::map<int, std::map<std::pair<int, int>, std::vector<IntersectInfo>>> intersectsMap;
+    
+    for (int y = 0; y < mainCameraRes.y; y++)
+    {
+        if (y != static_cast<int>(mainCameraRes.y / 2.f))
+            continue;
+
+        for (int x = 0; x < mainCameraRes.x; x++)
+        {
+            if (x != static_cast<int>(mainCameraRes.x / 2.f))
+                continue;
+
+            glm::vec2 pixelCenter(x, y);
+            glm::vec2 uv = pixelCenter / mainCameraRes;
+
+            glm::vec2 d = uv * 2.f - 1.f;
+
+            glm::vec4 org4f = mainCamera->getViewInverse() * glm::vec4(0.f, 0.f, 0.f, 1.f);
+            glm::vec4 target = mainCamera->getProjectionInverse() * glm::vec4(d.x, d.y, 1.f, 1.f);
+            // org4f = mainCamera->getViewInverse() * glm::vec4(org4f.x, org4f.y, org4f.z, 1.f);
+            glm::vec4 dir4f = mainCamera->getViewInverse() * glm::vec4(glm::normalize(glm::vec3(target.x, target.y, target.z)), 0.f);
+
+            glm::vec3 org(org4f.x, org4f.y, org4f.z);
+            glm::vec3 dir(dir4f.x, dir4f.y, dir4f.z);
+
+            auto vd = mainCamera->getViewDir();
+
+            std::cout << vd.x << " " << vd.y << " " << vd.z << std::endl;
+            std::cout << uv.x << " " << uv.y << std::endl;
+            std::cout << d.x << " " << d.y << std::endl;
+            std::cout << org.x << " " << org.y << " " << org.z << std::endl;
+            std::cout << dir.x << " " << dir.y << " " << dir.z << std::endl;
+
+            for (int i = 1; i < m_views.size(); i++)
+            {
+                std::shared_ptr<Camera> testCamera = m_views[i]->getCamera();
+                std::vector<glm::vec4> frustumPlanes = testCamera->getFrustumPlanes();
+
+                auto vdd = testCamera->getViewDir();
+
+                std::cout << vdd.x << " " << vdd.y << " " << vdd.z << std::endl  << std::endl;
+
+                std::vector<IntersectInfo> intersects;
+
+                for (int j = 0; j < frustumPlanes.size(); j++)
+                {
+                    glm::vec4 currentPlane = frustumPlanes[j];
+
+                    glm::vec3 frustumNormal(
+                        currentPlane.x,
+                        currentPlane.y,
+                        currentPlane.z
+                    );
+
+                    float frustumDistance = currentPlane.w;
+
+                    std::vector<float> inOut;
+
+                    if (std::abs(glm::dot(frustumNormal, dir)) > 1e-6)
+                    {
+                        // https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/ray-triangle-intersection-geometric-solution.html
+                        float t = -(glm::dot(frustumNormal, org) + frustumDistance) / glm::dot(frustumNormal, dir);
+                        glm::vec3 intersect = org + t * dir;
+
+                        bool isInside = true;
+
+                        if (t < 0)
+                            isInside = false;
+                        else
+                        {
+                            for (int k = 0; k < frustumPlanes.size(); k++)
+                            {
+                                if (k == j)
+                                    continue;
+                                
+                                glm::vec4 checkPlane = frustumPlanes[k];
+
+                                glm::vec3 checkNormal(
+                                    checkPlane.x,
+                                    checkPlane.y,
+                                    checkPlane.z
+                                );
+
+                                float checkDistance = checkPlane.w;
+
+                                float test = glm::dot(checkNormal, intersect) + checkDistance;
+
+                                inOut.push_back(test);
+
+                                if (test < 0.f)
+                                {
+                                    isInside = false;
+                                }
+                            }
+                        }
+                        
+
+                        if (isInside)
+                        {
+                            IntersectInfo intersectInfo = {
+                                intersect, 
+                                t,
+                                isInside,
+                                j,
+                                inOut
+                            };
+
+                            intersects.push_back(intersectInfo);
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "plane and ray are parallel" << std::endl;
+                    }
+                }
+
+                if (intersects.size() > 0)
+                {
+                    //intersectsMap[i] = std::map<std::pair<int,int>, std::vector<IntersectInfo>>();
+                    intersectsMap[i][std::pair<int, int>(x, y)] = intersects;
+                }
+            }
+        }
+    }
+    
+    for (auto& kvV : intersectsMap)
+    {
+        std::cout << "View: " << kvV.first << std::endl;
+        for (auto& kvP : kvV.second)
+        {
+            for (int y = 0; y < mainCameraRes.y; y++)
+            {
+                if (y != static_cast<int>(mainCameraRes.y / 2.f))
+                    continue;
+                for (int x = 0; x < mainCameraRes.x; x++)
+                {
+                    if (x != static_cast<int>(mainCameraRes.x / 2.f))
+                        continue;
+
+                    std::cout << "    pixels x: " << x << " y: " << y << std::endl;
+                    std::cout << "        no. intersects: " << kvP.second.size() << std::endl;
+                    
+                    int cnt = 0;
+                    for (auto& intersect : kvP.second)
+                    {
+                        std::cout << "        planeId: " << intersect.planeId << std::endl;
+
+                        // std::cout << "        coords: " << 
+                        //     intersect.coords.x << " " << 
+                        //     intersect.coords.y << " " <<
+                        //     intersect.coords.z << std::endl;
+                        // std::cout << "        t: " << intersect.t << std::endl;
+                        // std::cout << "        in: " << intersect.in << std::endl;
+                        // std::cout << "        inOut:" << std::endl;
+                        // for (float& inout : intersect.inOut)
+                        // {
+                        //     std::cout << "             " << inout << std::endl;
+                        // }
+                    }
+                }
+            }
+        }
+
+        std::cout << std::endl;
+    }
 }
 
 }

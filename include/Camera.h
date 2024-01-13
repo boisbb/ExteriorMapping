@@ -19,7 +19,9 @@ public:
     ~Camera();
 
     glm::mat4 getView() const;
+    glm::mat4 getViewInverse() const;
     glm::mat4 getProjection() const;
+    glm::mat4 getProjectionInverse() const;
     void getCameraInfo(glm::vec3& eye, glm::vec3& up,
         glm::vec3& viewDir, float& speed);
     void getCameraRotateInfo(glm::vec2& resolution, float& sensitivity);
@@ -27,11 +29,14 @@ public:
     glm::vec4 getFrustum() const;
     std::vector<glm::vec4> getFrustumPlanes() const;
     glm::vec2 getNearFar() const;
+    glm::vec2 getResolution() const;
+    glm::vec3 getViewDir() const;
 
     void setCameraInfo(const glm::vec3& eye,
         const glm::vec3& up, const glm::vec3& viewDir, const float& speed);
     void setCameraResolution(const glm::vec2& resolution);
     void setCameraEye(glm::vec3 eye);
+    void setViewDir(glm::vec3& viewDir);
 
     void reconstructMatrices();
 private:
@@ -47,7 +52,9 @@ private:
     std::vector<glm::vec4> m_frustumPlanes;
 
     glm::mat4 m_view;
+    glm::mat4 m_viewInverse;
     glm::mat4 m_projection;
+    glm::mat4 m_projectionInverse;
 
     float m_near;
     float m_far;
