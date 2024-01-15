@@ -43,7 +43,7 @@ void Application::init()
     m_device = std::make_shared<Device>(m_window);
     m_renderer = std::make_shared<Renderer>(m_device, m_window, "../res/shaders/vert.spv",
         "../res/shaders/frag.spv", "../res/shaders/comp.spv", "../res/shaders/quad_vert.spv",
-        "../res/shaders/quad_frag.spv");
+        "../res/shaders/quad_frag.spv", "../res/shaders/raysEval.spv");
 
     createScene();
 
@@ -93,7 +93,7 @@ void Application::draw()
         m_renderer->submitFrame();
         m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
 
-        mainCameraTestRays();
+        // mainCameraTestRays();
 
         if (resizeViews)
         {
@@ -642,13 +642,8 @@ void Application::mainCameraTestRays()
     
     for (int y = 0; y < mainCameraRes.y; y++)
     {
-        if (y != static_cast<int>(mainCameraRes.y / 2.f))
-            continue;
-
         for (int x = 0; x < mainCameraRes.x; x++)
         {
-            if (x != static_cast<int>(mainCameraRes.x / 2.f))
-                continue;
 
             glm::vec2 pixelCenter(x, y);
             glm::vec2 uv = pixelCenter / mainCameraRes;
@@ -657,7 +652,6 @@ void Application::mainCameraTestRays()
 
             glm::vec4 org4f = mainCamera->getViewInverse() * glm::vec4(0.f, 0.f, 0.f, 1.f);
             glm::vec4 target = mainCamera->getProjectionInverse() * glm::vec4(d.x, d.y, 1.f, 1.f);
-            // org4f = mainCamera->getViewInverse() * glm::vec4(org4f.x, org4f.y, org4f.z, 1.f);
             glm::vec4 dir4f = mainCamera->getViewInverse() * glm::vec4(glm::normalize(glm::vec3(target.x, target.y, target.z)), 0.f);
 
             glm::vec3 org(org4f.x, org4f.y, org4f.z);
@@ -665,20 +659,10 @@ void Application::mainCameraTestRays()
 
             auto vd = mainCamera->getViewDir();
 
-            std::cout << vd.x << " " << vd.y << " " << vd.z << std::endl;
-            std::cout << uv.x << " " << uv.y << std::endl;
-            std::cout << d.x << " " << d.y << std::endl;
-            std::cout << org.x << " " << org.y << " " << org.z << std::endl;
-            std::cout << dir.x << " " << dir.y << " " << dir.z << std::endl;
-
             for (int i = 1; i < m_views.size(); i++)
             {
                 std::shared_ptr<Camera> testCamera = m_views[i]->getCamera();
                 std::vector<glm::vec4> frustumPlanes = testCamera->getFrustumPlanes();
-
-                auto vdd = testCamera->getViewDir();
-
-                std::cout << vdd.x << " " << vdd.y << " " << vdd.z << std::endl  << std::endl;
 
                 std::vector<IntersectInfo> intersects;
 
@@ -723,11 +707,7 @@ void Application::mainCameraTestRays()
 
                                 float checkDistance = checkPlane.w;
 
-                                float test = glm::dot(checkNormal, intersect) + checkDistance;
-
-                                inOut.push_back(test);
-
-                                if (test < 0.f)
+                                if (glm::dot(checkNormal, intersect) + checkDistance < 0.f)
                                 {
                                     isInside = false;
                                 }
@@ -748,15 +728,10 @@ void Application::mainCameraTestRays()
                             intersects.push_back(intersectInfo);
                         }
                     }
-                    else
-                    {
-                        std::cout << "plane and ray are parallel" << std::endl;
-                    }
                 }
 
                 if (intersects.size() > 0)
                 {
-                    //intersectsMap[i] = std::map<std::pair<int,int>, std::vector<IntersectInfo>>();
                     intersectsMap[i][std::pair<int, int>(x, y)] = intersects;
                 }
             }
@@ -766,39 +741,23 @@ void Application::mainCameraTestRays()
     for (auto& kvV : intersectsMap)
     {
         std::cout << "View: " << kvV.first << std::endl;
-        for (auto& kvP : kvV.second)
+
+        std::array<int, 6> planesForView{0,0,0,0,0,0};
+        for (int y = 0; y < mainCameraRes.y; y++)
         {
-            for (int y = 0; y < mainCameraRes.y; y++)
-            {
-                if (y != static_cast<int>(mainCameraRes.y / 2.f))
-                    continue;
-                for (int x = 0; x < mainCameraRes.x; x++)
+            for (int x = 0; x < mainCameraRes.x; x++)
+            {                    
+                int cnt = 0;
+                for (auto& intersect : kvV.second[std::pair<int,int>(x, y)])
                 {
-                    if (x != static_cast<int>(mainCameraRes.x / 2.f))
-                        continue;
-
-                    std::cout << "    pixels x: " << x << " y: " << y << std::endl;
-                    std::cout << "        no. intersects: " << kvP.second.size() << std::endl;
-                    
-                    int cnt = 0;
-                    for (auto& intersect : kvP.second)
-                    {
-                        std::cout << "        planeId: " << intersect.planeId << std::endl;
-
-                        // std::cout << "        coords: " << 
-                        //     intersect.coords.x << " " << 
-                        //     intersect.coords.y << " " <<
-                        //     intersect.coords.z << std::endl;
-                        // std::cout << "        t: " << intersect.t << std::endl;
-                        // std::cout << "        in: " << intersect.in << std::endl;
-                        // std::cout << "        inOut:" << std::endl;
-                        // for (float& inout : intersect.inOut)
-                        // {
-                        //     std::cout << "             " << inout << std::endl;
-                        // }
-                    }
+                    planesForView[intersect.planeId]++;
                 }
             }
+        }
+
+        for (int i = 0; i < 6; i++)
+        {
+            std::cout << "    plane: " << i << " intersects: " << planesForView[i] << std::endl;
         }
 
         std::cout << std::endl;

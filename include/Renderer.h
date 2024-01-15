@@ -26,7 +26,7 @@ class Renderer
 public:    
     Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
         std::string fragmentShaderFile, std::string computeShaderFile, std::string quadVertexShaderFile,
-        std::string quadFragmentShaderFile);
+        std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile);
     ~Renderer();
 
     void computePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
@@ -83,7 +83,7 @@ private:
     void createDescriptors();
     void createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
         std::string computeShaderFile, std::string quadVertexShaderFile,
-        std::string quadFragmentShaderFile);
+        std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile);
 
     void updateDescriptorData(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
     void updateComputeDescriptorData(const std::shared_ptr<Scene>& scene);
@@ -93,6 +93,7 @@ private:
     std::shared_ptr<SwapChain> m_swapChain;
     std::shared_ptr<GraphicsPipeline> m_graphicsPipeline;
     std::shared_ptr<ComputePipeline> m_computePipeline;
+    std::shared_ptr<ComputePipeline> m_computeRaysEvalPipeline;
     std::shared_ptr<GraphicsPipeline> m_quadPipeline;
 
     std::unordered_map<std::string, int> m_textureMap;

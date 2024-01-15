@@ -21,7 +21,7 @@ namespace vke
 
 Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
         std::string fragmentShaderFile, std::string computeShaderFile, std::string quadVertexShaderFile,
-        std::string quadFragmentShaderFile)
+        std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile)
     : m_device(device), m_window(window), m_currentFrame(0), m_fubos(MAX_FRAMES_IN_FLIGHT),
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
@@ -31,7 +31,8 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     createCommandBuffers();
     createComputeCommandBuffers();
     createDescriptors();
-    createPipeline(vertexShaderFile, fragmentShaderFile, computeShaderFile, quadVertexShaderFile, quadFragmentShaderFile);
+    createPipeline(vertexShaderFile, fragmentShaderFile, computeShaderFile, quadVertexShaderFile, quadFragmentShaderFile, 
+        computeRaysEvalShaderFile);
 }
 
 Renderer::~Renderer()
@@ -766,7 +767,8 @@ void Renderer::createDescriptors()
 }
 
 void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
-    std::string computeShaderFile, std::string quadVertexShaderFile, std::string quadFragmentShaderFile)
+    std::string computeShaderFile, std::string quadVertexShaderFile, std::string quadFragmentShaderFile,
+    std::string computeRaysEvalShaderFile)
 {
     std::vector<VkDescriptorSetLayout> offscreenGraphicsSetLayouts = {
         m_descriptorSetLayout->getLayout(),
@@ -784,6 +786,10 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
         m_descriptorSetLayout->getLayout()
     };
 
+    std::vector<VkDescriptorSetLayout> computeRaysEvalSetLayout = {
+
+    };
+
     m_graphicsPipeline = std::make_shared<GraphicsPipeline>(m_device, m_swapChain->getOffscreenRenderPass(), vertexShaderFile,
         fragmentShaderFile, offscreenGraphicsSetLayouts);
 
@@ -791,6 +797,8 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
         quadFragmentShaderFile, quadSetLayout, false, false);
     
     m_computePipeline = std::make_shared<ComputePipeline>(m_device, computeShaderFile, computeSetLayouts);
+
+    m_computeRaysEvalPipeline = std::make_shared <ComputePipeline>(m_device, computeRaysEvalShaderFile, computeRaysEvalSetLayout);
 }
 
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,

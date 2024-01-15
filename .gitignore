@@ -3,3 +3,4 @@ build/*
 notes/*
 res/models/*
 external/downloaded/*
+res/shaders/glslc.exe
