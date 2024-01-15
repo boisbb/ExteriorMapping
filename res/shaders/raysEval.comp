@@ -1,5 +1,32 @@
 #version 450
 
+struct ViewDataEvalCompute
+{
+    vec4 frustumPlanes[6];
+};
+
+struct RayFrustumHitsDataCompute
+{
+    vec2 t;
+    vec2 id;
+    int planeId;
+};
+
+layout(set=0, binding=0) uniform MainViewDataCompute {
+    mat4 invView;
+    mat4 invProj;
+} ubo;
+
+layout(set=0, binding=1) readonly buffer ssbo {
+    ViewDataEvalCompute objects[];
+} cssbo;
+
+layout(set=0, binding=2) buffer hSsbo {
+    RayFrustumHitsDataCompute objects[];
+} hitssbo;
+
+layout (local_size_x=10, local_size_y=1, local_size_z=1) in;
+
 void main()
 {
 }

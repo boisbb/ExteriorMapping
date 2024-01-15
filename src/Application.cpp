@@ -66,16 +66,15 @@ void Application::draw()
 
     while (!glfwWindowShouldClose(m_window->getWindow()))
     {
-
-        // TEST - this will be ran in comute shader
-
-        //
-
         windowResolution = m_window->getResolution();
 
         consumeInput();
 
-        m_renderer->computePass(m_scene, m_views);
+        m_renderer->beginComputePass();
+        m_renderer->cullComputePass(m_scene, m_views);
+        m_renderer->rayEvalComputePass(m_views);
+        m_renderer->endComputePass();
+        m_renderer->submitCompute();
         
         uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
         m_renderer->beginCommandBuffer();
@@ -92,6 +91,9 @@ void Application::draw()
 
         m_renderer->submitFrame();
         m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
+
+        // Ray Eval compute pass
+
 
         // mainCameraTestRays();
 

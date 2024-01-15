@@ -29,7 +29,8 @@ public:
         std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile);
     ~Renderer();
 
-    void computePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
+    void cullComputePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
+    void rayEvalComputePass(const std::vector<std::shared_ptr<View>>& views);
     void renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>> views);
     void quadRenderPass(glm::vec2 windowResolution);
     void setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
@@ -44,6 +45,7 @@ public:
     void recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
         const std::shared_ptr<View>& view);
     void submitFrame();
+    void submitCompute();
     void presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> window, std::shared_ptr<View> view,
         bool& resizeViews);
 
@@ -72,6 +74,9 @@ public:
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
 
+    void beginComputePass();
+    void endComputePass();
+
     void beginCommandBuffer();
     void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, glm::vec2 windowResolution,
         glm::uvec2 renderArea, bool clear = true);
@@ -86,11 +91,13 @@ private:
         std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile);
 
     void updateDescriptorData(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
-    void updateComputeDescriptorData(const std::shared_ptr<Scene>& scene);
+    void updateCullComputeDescriptorData(const std::shared_ptr<Scene>& scene);
+    void updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& views);
 
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
     std::shared_ptr<SwapChain> m_swapChain;
+
     std::shared_ptr<GraphicsPipeline> m_graphicsPipeline;
     std::shared_ptr<ComputePipeline> m_computePipeline;
     std::shared_ptr<ComputePipeline> m_computeRaysEvalPipeline;
@@ -103,29 +110,34 @@ private:
     std::vector<std::shared_ptr<Texture>> m_bumpTextures;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
-    std::vector<VkCommandBuffer> m_commandBuffers2;
     std::vector<VkCommandBuffer> m_computeCommandBuffers;
 
     std::vector<std::unique_ptr<Buffer>> m_fubos;
     std::vector<std::unique_ptr<Buffer>> m_vssbos;
     std::vector<std::unique_ptr<Buffer>> m_fssbos;
     std::vector<std::unique_ptr<Buffer>> m_cssbos;
+    std::vector<std::unique_ptr<Buffer>> m_creubo;
+    std::vector<std::unique_ptr<Buffer>> m_cressbo;
+    std::vector<std::unique_ptr<Buffer>> m_creHitsssbo;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_materialDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_computeDescriptorSets;
+    std::vector<std::shared_ptr<DescriptorSet>> m_computeRayEvalDescriptorSets;
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_viewSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_materialSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_computeSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_computeSceneSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_computeRayEvalSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
     std::shared_ptr<DescriptorPool> m_viewPool;
     std::shared_ptr<DescriptorPool> m_materialPool;
     std::shared_ptr<DescriptorPool> m_computePool;
     std::shared_ptr<DescriptorPool> m_computeScenePool;
+    std::shared_ptr<DescriptorPool> m_computeRayEvalPool;
 
     std::vector<int> bufferBindings;
 

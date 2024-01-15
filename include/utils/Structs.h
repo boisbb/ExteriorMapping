@@ -28,6 +28,7 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+// Regular shader data
 struct ViewDataVertex {
     glm::mat4 view;
     glm::mat4 proj;
@@ -40,12 +41,6 @@ struct UniformDataFragment {
 
 struct ViewDataFragment {
     bool depthOnly;
-};
-
-struct ViewDataCompute {
-    glm::vec4 frustumPlanes[6];
-    unsigned int totalMeshes;
-    bool frustumCull;
 };
 
 struct MeshShaderDataVertex {
@@ -63,8 +58,33 @@ struct MeshShaderDataFragment {
     //float __padding[2];
 };
 
+// Cull shader data
+struct ViewDataCompute {
+    glm::vec4 frustumPlanes[6];
+    unsigned int totalMeshes;
+    bool frustumCull;
+};
+
 struct MeshShaderDataCompute {
     glm::vec4 boundingSphere;
+};
+
+
+// Ray Eval shader data
+struct MainViewDataCompute {
+    glm::mat4 invView;
+    glm::mat4 invProj;
+};
+
+struct ViewEvalDataCompute {
+    glm::vec4 frustumPlanes[6];
+};
+
+struct RayFrustumHitsDataCompute {
+    glm::vec2 t;
+    glm::vec2 id;
+    int planeId;
+    float __padding;
 };
 
 struct Vertex {

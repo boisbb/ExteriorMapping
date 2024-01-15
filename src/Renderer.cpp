@@ -24,8 +24,10 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
         std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile)
     : m_device(device), m_window(window), m_currentFrame(0), m_fubos(MAX_FRAMES_IN_FLIGHT),
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
+    m_creubo(MAX_FRAMES_IN_FLIGHT), m_cressbo(MAX_FRAMES_IN_FLIGHT), m_creHitsssbo(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
-    m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0)
+    m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_computeRayEvalDescriptorSets(MAX_FRAMES_IN_FLIGHT),
+    m_sceneFramesUpdated(0), m_lightsFramesUpdated(0)
 {
     m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
     createCommandBuffers();
@@ -127,24 +129,32 @@ void Renderer::initDescriptorResources()
 
         m_computeDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
     }
+
+    // Compute Ray Eval
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_computeRayEvalDescriptorSets[i] = std::make_shared<DescriptorSet>(m_device, m_computeRayEvalSetLayout,
+            m_computeRayEvalPool);
+        
+        std::vector<VkDescriptorBufferInfo> bufferInfos = {
+            m_creubo[i]->getInfo(),
+            m_cressbo[i]->getInfo(),
+            m_creHitsssbo[i]->getInfo()
+        };
+
+        std::vector<uint32_t> bufferBinding = {
+            0,
+            1,
+            2
+        };
+
+        m_computeRayEvalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
+    }
 }
 
-void Renderer::computePass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>>& views)
+void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>>& views)
 {
-    // Compute part
-    VkFence currentComputeFence = m_swapChain->getComputeFenceId(m_currentFrame);
-    vkWaitForFences(m_device->getVkDevice(), 1, &currentComputeFence, VK_TRUE, UINT64_MAX);
-
-    vkResetFences(m_device->getVkDevice(), 1, &currentComputeFence);
-
-    updateComputeDescriptorData(scene);
-    vkResetCommandBuffer(m_computeCommandBuffers[m_currentFrame], 0);
-
-     VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-    if (vkBeginCommandBuffer(m_computeCommandBuffers[m_currentFrame], &beginInfo) != VK_SUCCESS)
-        throw std::runtime_error("failed to begin compute command buffer");
+    updateCullComputeDescriptorData(scene);
 
     for (auto& view : views)
     {
@@ -164,22 +174,19 @@ void Renderer::computePass(const std::shared_ptr<Scene> &scene, const std::vecto
 
         recordComputeCommandBuffer(m_computeCommandBuffers[m_currentFrame], scene, view);
     }
+}
 
-    if (vkEndCommandBuffer(m_computeCommandBuffers[m_currentFrame]) != VK_SUCCESS)
-        throw std::runtime_error("failed to end compute command buffer");
+void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>> &views)
+{
+    updateRayEvalComputeDescriptorData(views);
 
-    VkSemaphore currentComputeFinishedSemaphore = m_swapChain->getComputeFinishedSemaphore(m_currentFrame);
+    VkDescriptorSet rayEvalSet = m_computeRayEvalDescriptorSets[m_currentFrame]->getDescriptorSet();
+    vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_computeRaysEvalPipeline->getPipelineLayout(),
+        0, 1, &rayEvalSet, 0, nullptr);
+    
+    m_computeRaysEvalPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
 
-    VkSubmitInfo computeSubmitInfo{};
-    computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    computeSubmitInfo.commandBufferCount = 1;
-    computeSubmitInfo.pCommandBuffers = &m_computeCommandBuffers[m_currentFrame];
-    computeSubmitInfo.signalSemaphoreCount = 1;
-    computeSubmitInfo.pSignalSemaphores = &currentComputeFinishedSemaphore;
-
-    VkResult res = vkQueueSubmit(m_device->getComputeQueue(), 1, &computeSubmitInfo, currentComputeFence);
-    if (res != VK_SUCCESS)
-        throw std::runtime_error("failed to submit compute command buffer");
+    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], 10, 1, 1);
 }
 
 void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>> views)
@@ -310,6 +317,24 @@ void Renderer::submitFrame()
     {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
+}
+
+void Renderer::submitCompute()
+{
+    VkFence currentComputeFence = m_swapChain->getComputeFenceId(m_currentFrame);
+
+    VkSemaphore currentComputeFinishedSemaphore = m_swapChain->getComputeFinishedSemaphore(m_currentFrame);
+
+    VkSubmitInfo computeSubmitInfo{};
+    computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    computeSubmitInfo.commandBufferCount = 1;
+    computeSubmitInfo.pCommandBuffers = &m_computeCommandBuffers[m_currentFrame];
+    computeSubmitInfo.signalSemaphoreCount = 1;
+    computeSubmitInfo.pSignalSemaphores = &currentComputeFinishedSemaphore;
+
+    VkResult res = vkQueueSubmit(m_device->getComputeQueue(), 1, &computeSubmitInfo, currentComputeFence);
+    if (res != VK_SUCCESS)
+        throw std::runtime_error("failed to submit compute command buffer");
 }
 
 void Renderer::presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> window, std::shared_ptr<View> view,
@@ -477,6 +502,29 @@ int Renderer::addBumpTexture(std::shared_ptr<Texture> texture, std::string filen
     return m_bumpTextures.size() - 1;
 }
 
+void Renderer::beginComputePass()
+{
+    // Compute part
+    VkFence currentComputeFence = m_swapChain->getComputeFenceId(m_currentFrame);
+    vkWaitForFences(m_device->getVkDevice(), 1, &currentComputeFence, VK_TRUE, UINT64_MAX);
+
+    vkResetFences(m_device->getVkDevice(), 1, &currentComputeFence);
+
+    vkResetCommandBuffer(m_computeCommandBuffers[m_currentFrame], 0);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (vkBeginCommandBuffer(m_computeCommandBuffers[m_currentFrame], &beginInfo) != VK_SUCCESS)
+        throw std::runtime_error("failed to begin compute command buffer");
+}
+
+void Renderer::endComputePass()
+{
+    if (vkEndCommandBuffer(m_computeCommandBuffers[m_currentFrame]) != VK_SUCCESS)
+        throw std::runtime_error("failed to end compute command buffer");
+}
+
 void Renderer::beginCommandBuffer()
 {
     VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
@@ -552,19 +600,6 @@ void Renderer::createCommandBuffers()
     allocInfo.commandBufferCount = (uint32_t)m_commandBuffers.size();
 
     if (vkAllocateCommandBuffers(m_device->getVkDevice(), &allocInfo, m_commandBuffers.data()) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate command buffers!");
-    }
-
-    m_commandBuffers2.resize(MAX_FRAMES_IN_FLIGHT);
-
-    //VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = m_device->getCommandPool();
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)m_commandBuffers2.size();
-
-    if (vkAllocateCommandBuffers(m_device->getVkDevice(), &allocInfo, m_commandBuffers2.data()) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to allocate command buffers!");
     }
@@ -717,14 +752,27 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_BINDLESS_RESOURCES), VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
         materialPoolSizes);
 
-    // Compute general
+    // Compute buffers
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         m_cssbos[i] = std::make_unique<Buffer>(m_device, sizeof(MeshShaderDataCompute) * MAX_SBOS,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cssbos[i]->map();
+
+        m_creubo[i] = std::make_unique<Buffer>(m_device, sizeof(MainViewDataCompute), 
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_creubo[i]->map();
+
+        m_cressbo[i] = std::make_unique<Buffer>(m_device, sizeof(ViewEvalDataCompute) * MAX_VIEWS, 
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_cressbo[i]->map();
+
+        m_creHitsssbo[i] = std::make_unique<Buffer>(m_device, sizeof(RayFrustumHitsDataCompute) * MAX_RESOLUTION_LINEAR, 
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_creHitsssbo[i]->map();
     }
 
+    // Compute general
     VkDescriptorSetLayoutBinding cssboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
 
@@ -764,6 +812,37 @@ void Renderer::createDescriptors()
     m_computeScenePool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 
         static_cast<uint32_t>(MAX_VIEWS), 0, computeSceneSizes);
 
+    // Compute raygen
+    VkDescriptorSetLayoutBinding uboRayGenLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding ssboRayGenLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding hitSsboRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    
+    std::vector<VkDescriptorSetLayoutBinding> computeRayGenLayoutBindings = {
+        uboRayGenLayoutBinding,
+        ssboRayGenLayoutBinding,
+        hitSsboRayGenLayoutBinding
+    };
+
+    m_computeRayEvalSetLayout = std::make_shared<DescriptorSetLayout>(m_device, computeRayGenLayoutBindings);
+    
+    VkDescriptorPoolSize uboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    VkDescriptorPoolSize ssboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
+    VkDescriptorPoolSize hitSsboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
+
+    std::vector<VkDescriptorPoolSize> computeRayGenSizes = {
+        uboRayGenPoolSize,
+        ssboRayGenPoolSize,
+        hitSsboRayGenPoolSize
+    };
+
+    m_computeRayEvalPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
+        computeRayGenSizes);
 }
 
 void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
@@ -787,7 +866,7 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
     };
 
     std::vector<VkDescriptorSetLayout> computeRaysEvalSetLayout = {
-
+        m_computeRayEvalSetLayout->getLayout()
     };
 
     m_graphicsPipeline = std::make_shared<GraphicsPipeline>(m_device, m_swapChain->getOffscreenRenderPass(), vertexShaderFile,
@@ -878,7 +957,7 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
     }
 }
 
-void Renderer::updateComputeDescriptorData(const std::shared_ptr<Scene> &scene)
+void Renderer::updateCullComputeDescriptorData(const std::shared_ptr<Scene> &scene)
 {
     if (scene->sceneChanged())
     {
@@ -895,4 +974,19 @@ void Renderer::updateComputeDescriptorData(const std::shared_ptr<Scene> &scene)
         m_cssbos[m_currentFrame]->copyMapped(cssboData.data(), sizeof(MeshShaderDataCompute) * cssboData.size());
     }
 }
+
+void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>> &views)
+{
+    // Main view for now is the first one.
+    std::shared_ptr<Camera> mainCamera = views[0]->getCamera();
+
+    MainViewDataCompute creuData{};
+    creuData.invProj = mainCamera->getProjectionInverse();
+    creuData.invView = mainCamera->getViewInverse();
+
+
+    m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(MainViewDataCompute));
+}
+
+
 }
