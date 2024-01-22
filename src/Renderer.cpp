@@ -138,14 +138,14 @@ void Renderer::initDescriptorResources()
         
         std::vector<VkDescriptorBufferInfo> bufferInfos = {
             m_creubo[i]->getInfo(),
-            m_cressbo[i]->getInfo(),
-            m_creHitsssbo[i]->getInfo()
+            m_cressbo[i]->getInfo()
+            // m_creHitsssbo[i]->getInfo()
         };
 
         std::vector<uint32_t> bufferBinding = {
             0,
-            1,
-            2
+            1
+            // 2
         };
 
         m_computeRayEvalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
@@ -186,7 +186,7 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>> &view
     
     m_computeRaysEvalPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
 
-    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], 10, 1, 1);
+    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::round((double)WIDTH / 16.f), std::round((double)HEIGHT / 16.f), 1);
 }
 
 void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>> views)
@@ -817,13 +817,13 @@ void Renderer::createDescriptors()
         1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding ssboRayGenLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
-    VkDescriptorSetLayoutBinding hitSsboRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    // VkDescriptorSetLayoutBinding hitSsboRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    //     1, VK_SHADER_STAGE_COMPUTE_BIT);
     
     std::vector<VkDescriptorSetLayoutBinding> computeRayGenLayoutBindings = {
         uboRayGenLayoutBinding,
-        ssboRayGenLayoutBinding,
-        hitSsboRayGenLayoutBinding
+        ssboRayGenLayoutBinding
+        // hitSsboRayGenLayoutBinding
     };
 
     m_computeRayEvalSetLayout = std::make_shared<DescriptorSetLayout>(m_device, computeRayGenLayoutBindings);
@@ -832,13 +832,13 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize ssboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
-    VkDescriptorPoolSize hitSsboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
+    // VkDescriptorPoolSize hitSsboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
 
     std::vector<VkDescriptorPoolSize> computeRayGenSizes = {
         uboRayGenPoolSize,
-        ssboRayGenPoolSize,
-        hitSsboRayGenPoolSize
+        ssboRayGenPoolSize
+        // hitSsboRayGenPoolSize
     };
 
     m_computeRayEvalPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
@@ -938,6 +938,7 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
         for (auto& model : models)
             model->updateDescriptorData(vssboData, fssboData, true);
 
+        std::cout << vssboData.size() << std::endl;
         if (scene->getRenderDebugGeometryFlag())
         {
             // std::cout << "update descriptor data for views" << std::endl;
@@ -946,6 +947,7 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
                 view->updateDescriptorDataRenderDebugCube(vssboData, fssboData);
             }
         }
+        std::cout << vssboData.size() << std::endl;
 
         m_vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());
         m_fssbos[m_currentFrame]->copyMapped(fssboData.data(), sizeof(MeshShaderDataFragment) * fssboData.size());
@@ -983,10 +985,21 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
     MainViewDataCompute creuData{};
     creuData.invProj = mainCamera->getProjectionInverse();
     creuData.invView = mainCamera->getViewInverse();
-
+    creuData.res = glm::vec2(WIDTH, HEIGHT);
+    creuData.viewCnt = views.size();
 
     m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(MainViewDataCompute));
-}
+
+    std::vector<ViewEvalDataCompute> cressbo(views.size() - 1);
+
+    for (int i = 1; i < views.size(); i++)
+    {
+        std::vector<glm::vec4> planes = views[i]->getCamera()->getFrustumPlanes();
+        memcpy(cressbo[i - 1].frustumPlanes, planes.data(), sizeof(glm::vec4) * 6);
+    }
+
+    m_cressbo[m_currentFrame]->copyMapped(&cressbo, sizeof(MainViewDataCompute) * views.size());
+};
 
 
 }

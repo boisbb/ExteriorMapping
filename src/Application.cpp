@@ -48,6 +48,7 @@ void Application::init()
     createScene();
 
     addConfigViews();
+    // addViewRow();
     
     m_renderer->initDescriptorResources();
     initImgui();
@@ -370,6 +371,9 @@ void Application::cleanup()
 void Application::addConfigViews()
 {
     uint32_t row = 0;
+    std::cout << m_config.views.size() << std::endl;
+
+    int currentRowStartId = 0;
     for (int i = 0; i < m_config.views.size(); i++)
     {
         utils::Config::View configView = m_config.views[i];
@@ -378,15 +382,16 @@ void Application::addConfigViews()
 
         if (m_viewRowColumns.size() == row)
         {
+            currentRowStartId = m_views.size();
             addViewRow();
         }
         else
         {
-            addViewColumn(row, m_views.size() - 1);
+            addViewColumn(row, currentRowStartId);
         }
 
         m_views.back()->setCameraEye(configView.cameraPos);
-        glm::vec3 viewDir = glm::normalize(glm::vec3(0,0,0) - configView.cameraPos);
+        glm::vec3 viewDir = glm::normalize(glm::vec3(-1,0,0));
         m_views.back()->getCamera()->setViewDir(viewDir);
     }
 }
@@ -647,7 +652,7 @@ void Application::mainCameraTestRays()
         for (int x = 0; x < mainCameraRes.x; x++)
         {
 
-            glm::vec2 pixelCenter(x, y);
+            glm::vec2 pixelCenter(x + 0.5f, y + 0.5f);
             glm::vec2 uv = pixelCenter / mainCameraRes;
 
             glm::vec2 d = uv * 2.f - 1.f;
@@ -659,7 +664,7 @@ void Application::mainCameraTestRays()
             glm::vec3 org(org4f.x, org4f.y, org4f.z);
             glm::vec3 dir(dir4f.x, dir4f.y, dir4f.z);
 
-            auto vd = mainCamera->getViewDir();
+            //auto vd = mainCamera->getViewDir();
 
             for (int i = 1; i < m_views.size(); i++)
             {

@@ -5,28 +5,106 @@ struct ViewDataEvalCompute
     vec4 frustumPlanes[6];
 };
 
-struct RayFrustumHitsDataCompute
-{
-    vec2 t;
-    vec2 id;
-    int planeId;
-};
+// struct RayFrustumHitsDataCompute
+// {
+//     vec2 t;
+//     vec2 id;
+//     int planeId;
+// };
 
 layout(set=0, binding=0) uniform MainViewDataCompute {
     mat4 invView;
     mat4 invProj;
+    vec2 res;
+    int viewCnt;
 } ubo;
 
-layout(set=0, binding=1) readonly buffer ssbo {
+layout(std430, set=0, binding=1) readonly buffer ssbo {
     ViewDataEvalCompute objects[];
 } cssbo;
 
-layout(set=0, binding=2) buffer hSsbo {
-    RayFrustumHitsDataCompute objects[];
-} hitssbo;
+// layout(set=0, binding=2) buffer hSsbo {
+//     RayFrustumHitsDataCompute objects[];
+// } hitssbo;
 
-layout (local_size_x=10, local_size_y=1, local_size_z=1) in;
+layout (local_size_x=16, local_size_y=16, local_size_z=1) in;
 
 void main()
 {
+    vec2 pixId = gl_GlobalInvocationID.xy;
+
+    vec2 t_s[256];
+
+    if (pixId.x <= ubo.res.x && pixId.y <= ubo.res.y)
+    {
+        vec2 pixCenter = pixId + 0.5;
+        vec2 uv = pixCenter / ubo.res;
+
+        vec2 d = uv * 2.0 - 1.0;
+
+        vec4 org4f = ubo.invView * vec4(0.0, 0.0, 0.0, 1.0);
+        vec4 target = ubo.invProj * vec4(d.x, d.y, 1.f, 1.f);
+        vec4 dir4f = ubo.invView * vec4(normalize(target.xyz), 0.f);
+
+        vec3 org = org4f.xyz;
+        vec3 dir = dir4f.xyz;
+
+        for (int i = 0; i < ubo.viewCnt; i++)
+        {
+            ViewDataEvalCompute currentView = cssbo.objects[i];
+
+            float intersects[2];
+            int foundIntersects = 0;
+
+            for (int j = 0; j < 6; j++)
+            {
+                vec4 currentPlane = currentView.frustumPlanes[j];
+
+                vec3 frustumNormal = currentPlane.xyz;
+                float frustumDistance = currentPlane.w;
+
+                if (abs(dot(frustumNormal, dir)) > 1e-6)
+                {
+                    float t = -(dot(frustumNormal, org) + frustumDistance) / dot(frustumNormal, dir);
+                    vec3 intersect = org + t * dir;
+
+                    bool valid = true;
+
+                    if (t < 0)
+                    {
+                        valid = false;
+                    }
+                    else
+                    {
+                        for (int k = 0; k < 6; k++)
+                        {
+                            if (k != j)
+                            {
+                                vec4 checkPlane = currentView.frustumPlanes[k];
+
+                                vec3 checkNormal = checkPlane.xyz;
+                                float checkDistance = checkPlane.w;
+
+                                if (dot(checkNormal, intersect) + checkDistance < 0.f)
+                                {
+                                    valid = false;
+                                }
+                            }
+                        }
+                    }
+
+                    if (valid == true && foundIntersects < 2)
+                    {
+                        intersects[foundIntersects] = t;
+                        foundIntersects++;
+                    }
+                }
+            }
+
+            if (foundIntersects == 2)
+            {
+                // correct intersections found, do more work
+            }
+        }
+    }
 }

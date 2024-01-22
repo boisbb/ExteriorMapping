@@ -102,18 +102,8 @@ void Scene::draw(std::shared_ptr<View> view, VkCommandBuffer commandBuffer,
 
     VkBuffer indirectDrawBuffer = m_indirectBuffersMap[view][currentFrame]->getVkBuffer();
 
-    VkDrawIndexedIndirectCommand* commands = (VkDrawIndexedIndirectCommand*)m_indirectBuffersMap[view][currentFrame]->getMapped();
-
-    auto command1 = commands[0];
-    auto command2 = commands[1];
-
-    // std::cout << command1.instanceCount<<std::endl;
-    // std::cout << command2.instanceCount<<std::endl;
-
     int totalDraws = m_drawCount;
     totalDraws += (m_renderDebugCameraGeometry) ? m_renderDebugViewsDrawCount : 0;
-
-    // std::cout << m_renderDebugViewsDrawCount << std::endl << m_drawCount << std::endl;
 
     vkCmdDrawIndexedIndirect(commandBuffer, indirectDrawBuffer, 0, totalDraws,
         sizeof(VkDrawIndexedIndirectCommand));
@@ -225,19 +215,23 @@ void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)
     m_reinitializeDebugCameraGeometry = false;
 
     int startId = m_drawCount;
-    int numOfViews = m_indirectBuffersMap.size();
 
     VkDrawIndexedIndirectCommand* commands = (VkDrawIndexedIndirectCommand*)m_indirectDrawBuffer->getMapped();
 
     std::vector<VkDrawIndexedIndirectCommand> vectorCommands(commands, commands + m_drawCount);
 
     uint32_t instanceId = startId;
+
+    std::cout << views.size() << std::endl;
+
     for (uint32_t i = 0; i < views.size(); i++)
     {
         views[i]->getDebugCameraModel()->createIndirectDrawCommands(vectorCommands, instanceId);
     }
 
     m_renderDebugViewsDrawCount = vectorCommands.size() - m_drawCount;
+
+    std::cout << m_renderDebugViewsDrawCount << std::endl;
 
     m_indirectDrawBuffer->copyMapped((void*)vectorCommands.data(), sizeof(VkDrawIndexedIndirectCommand) * vectorCommands.size());
 
@@ -257,7 +251,7 @@ void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)
 
             int numOfMeshes = views[i]->getDebugCameraModel()->getMeshesCount();
 
-            commands[startId + numOfMeshes * i].instanceCount = 0;
+            commands[startId + numOfMeshes * i].instanceCount = 1;
         }
     }
 }

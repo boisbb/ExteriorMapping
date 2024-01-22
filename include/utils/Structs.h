@@ -74,6 +74,8 @@ struct MeshShaderDataCompute {
 struct MainViewDataCompute {
     glm::mat4 invView;
     glm::mat4 invProj;
+    glm::vec2 res;
+    int viewCnt;
 };
 
 struct ViewEvalDataCompute {
