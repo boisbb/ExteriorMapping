@@ -938,7 +938,6 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
         for (auto& model : models)
             model->updateDescriptorData(vssboData, fssboData, true);
 
-        std::cout << vssboData.size() << std::endl;
         if (scene->getRenderDebugGeometryFlag())
         {
             // std::cout << "update descriptor data for views" << std::endl;
@@ -947,7 +946,6 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
                 view->updateDescriptorDataRenderDebugCube(vssboData, fssboData);
             }
         }
-        std::cout << vssboData.size() << std::endl;
 
         m_vssbos[m_currentFrame]->copyMapped(vssboData.data(), sizeof(MeshShaderDataVertex) * vssboData.size());
         m_fssbos[m_currentFrame]->copyMapped(fssboData.data(), sizeof(MeshShaderDataFragment) * fssboData.size());

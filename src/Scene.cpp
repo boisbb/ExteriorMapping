@@ -222,8 +222,6 @@ void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)
 
     uint32_t instanceId = startId;
 
-    std::cout << views.size() << std::endl;
-
     for (uint32_t i = 0; i < views.size(); i++)
     {
         views[i]->getDebugCameraModel()->createIndirectDrawCommands(vectorCommands, instanceId);
@@ -231,15 +229,13 @@ void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)
 
     m_renderDebugViewsDrawCount = vectorCommands.size() - m_drawCount;
 
-    std::cout << m_renderDebugViewsDrawCount << std::endl;
-
     m_indirectDrawBuffer->copyMapped((void*)vectorCommands.data(), sizeof(VkDrawIndexedIndirectCommand) * vectorCommands.size());
 
     for (auto& kv : m_indirectBuffersMap)
     {
         for (int j = 0; j < MAX_FRAMES_IN_FLIGHT; j++)
         {
-            kv.second[j]->copyMapped(m_indirectDrawBuffer->getMapped(), m_indirectDrawBuffer->getSize());
+            kv.second[j]->copyMapped(m_indirectDrawBuffer->getMapped(), sizeof(VkDrawIndexedIndirectCommand) * vectorCommands.size());
         }
     }
 

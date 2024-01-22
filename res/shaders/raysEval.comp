@@ -23,6 +23,13 @@ layout(std430, set=0, binding=1) readonly buffer ssbo {
     ViewDataEvalCompute objects[];
 } cssbo;
 
+struct FrustumHit
+{
+    float t;
+    int viewId;
+    bool start;
+};
+
 // layout(set=0, binding=2) buffer hSsbo {
 //     RayFrustumHitsDataCompute objects[];
 // } hitssbo;
@@ -33,7 +40,7 @@ void main()
 {
     vec2 pixId = gl_GlobalInvocationID.xy;
 
-    vec2 t_s[256];
+    FrustumHit frustumHits[512];
 
     if (pixId.x <= ubo.res.x && pixId.y <= ubo.res.y)
     {
@@ -49,6 +56,7 @@ void main()
         vec3 org = org4f.xyz;
         vec3 dir = dir4f.xyz;
 
+        int intersectCount = 0;
         for (int i = 0; i < ubo.viewCnt; i++)
         {
             ViewDataEvalCompute currentView = cssbo.objects[i];
@@ -103,7 +111,31 @@ void main()
 
             if (foundIntersects == 2)
             {
-                // correct intersections found, do more work
+                frustumHits[intersectCount].viewId = i;
+                frustumHits[intersectCount + 1].viewId = i;
+
+                if (intersects[0] < intersects[1])
+                {
+                    frustumHits[intersectCount].t = intersects[0];
+                    frustumHits[intersectCount].start = true;
+
+                    intersectCount++;
+
+                    frustumHits[intersectCount].t = intersects[1];
+                    frustumHits[intersectCount].start = false;
+                }
+                else
+                {
+                    frustumHits[intersectCount].t = intersects[1];
+                    frustumHits[intersectCount].start = true;
+
+                    intersectCount++;
+
+                    frustumHits[intersectCount].t = intersects[0];
+                    frustumHits[intersectCount].start = false;
+                }
+
+                intersectCount++;
             }
         }
     }
