@@ -21,6 +21,8 @@ set ( INCLUDE
     include/Buffer.h
     include/Pipeline.h
     include/Renderer.h
+    include/RenderPass.h
+    include/Framebuffer.h
     include/Scene.h
     include/Model.h
     include/Mesh.h
@@ -58,6 +60,8 @@ set( SOURCE
     src/View.cpp
     src/Pipeline.cpp
     src/Renderer.cpp
+    src/RenderPass.cpp
+    src/Framebuffer.cpp
     src/Scene.cpp
     src/Model.cpp
     src/Mesh.cpp

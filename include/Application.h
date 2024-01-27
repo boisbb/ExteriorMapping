@@ -92,6 +92,8 @@ private:
     std::shared_ptr<Scene> m_scene;
     std::shared_ptr<Model> m_light;
     std::vector<std::shared_ptr<Model>> m_models;
+    
+    std::shared_ptr<View> m_mainView;
     std::vector<std::shared_ptr<View>> m_views;
 
     std::shared_ptr<Model> m_cameraCube;

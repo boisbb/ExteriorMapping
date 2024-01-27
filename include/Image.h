@@ -14,7 +14,7 @@ class Device;
 class Image
 {
 public:
-    Image(std::shared_ptr<Device> device, glm::vec2 dims, int channels, VkFormat format, VkImageTiling tiling,
+    Image(std::shared_ptr<Device> device, glm::vec2 dims, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED);
     ~Image();
 
@@ -27,7 +27,6 @@ public:
 
 private:
     glm::vec2 m_dims;
-    int m_channels;
 
     std::shared_ptr<Device> m_device;
 

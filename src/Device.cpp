@@ -45,6 +45,8 @@ Device::Device(std::shared_ptr<Window> window)
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
     auto props = properties.limits.maxBoundDescriptorSets;
+
+    m_depthFormat = findDepthFormat();
 }
 
 Device::~Device()
@@ -150,7 +152,7 @@ void Device::createLogicalDevice()
         createInfo.enabledLayerCount = 0;
     }
 
-    if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) != VK_SUCCESS)
+    if (vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device) == VK_ERROR_FEATURE_NOT_PRESENT)
         throw std::runtime_error("Failed to create logical device");
 
     vkGetDeviceQueue(m_device, indices.graphicsFamily.value(), 0, &m_graphicsQueue);
@@ -171,6 +173,31 @@ void Device::createCommandPool()
     {
         throw std::runtime_error("failed to create command pool!");
     }
+}
+
+VkFormat Device::findDepthFormat()
+{
+    return findSupportedFormat(
+        {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+        VK_IMAGE_TILING_OPTIMAL,
+        VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+    );
+}
+
+VkFormat Device::findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+{
+    for (VkFormat format : candidates)
+    {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(m_physicalDevice, format, &props);
+
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+            return format;
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+            return format;
+    }
+
+    throw std::runtime_error("failed to find supported format!");
 }
 
 void Device::pickPhysicalDevice()
@@ -264,6 +291,11 @@ VkPhysicalDevice Device::getPhysicalDevice() const
 VkPhysicalDeviceFeatures Device::getFeatures() const
 {
     return m_features;
+}
+
+VkFormat Device::getDepthFormat() const
+{
+    return m_depthFormat;
 }
 
 QueueFamilyIndices Device::getQueueFamilies()

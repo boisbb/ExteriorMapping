@@ -20,6 +20,8 @@ class DescriptorSetLayout;
 class DescriptorPool;
 class GraphicsPipeline;
 class ComputePipeline;
+class RenderPass;
+class Framebuffer;
 
 class Renderer
 {
@@ -86,6 +88,7 @@ private:
     void createCommandBuffers();
     void createComputeCommandBuffers();
     void createDescriptors();
+    void createRenderResources();
     void createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
         std::string computeShaderFile, std::string quadVertexShaderFile,
         std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile);
@@ -97,6 +100,11 @@ private:
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
     std::shared_ptr<SwapChain> m_swapChain;
+    std::shared_ptr<RenderPass> m_quadRenderPass;
+    std::shared_ptr<RenderPass> m_offscreenRenderPass;
+    std::shared_ptr<Framebuffer> m_mainFramebuffer;
+    std::shared_ptr<Framebuffer> m_offscreenFramebuffer;
+    std::shared_ptr<Framebuffer> m_cameraMatrixFramebuffer;
 
     std::shared_ptr<GraphicsPipeline> m_graphicsPipeline;
     std::shared_ptr<ComputePipeline> m_computePipeline;
@@ -118,6 +126,7 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_cssbos;
     std::vector<std::unique_ptr<Buffer>> m_creubo;
     std::vector<std::unique_ptr<Buffer>> m_cressbo;
+    std::vector<std::unique_ptr<Buffer>> m_creDebugSsbo;
     std::vector<std::unique_ptr<Buffer>> m_creHitsssbo;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;

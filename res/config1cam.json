@@ -1,0 +1,34 @@
+{
+    "viewData": {
+        "geometry": "../res/models/coloredCube/coloredCube.obj",
+        "novelView": {
+            "cameraPos": {
+                "x": 10,
+                "y": 2,
+                "z": 0
+            }
+        },
+        "views": [
+            [
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 8,
+                        "z": 3
+                    }
+                }
+            ]
+        ]
+    },
+    "sceneData": {
+        "models": [
+            "../res/models/dabrovic_sponza/sponza.obj",
+            "../res/models/porsche/porsche.obj"
+        ],
+        "lightPos": {
+            "x": 0,
+            "y": 10,
+            "z": 0
+        }
+    }
+}

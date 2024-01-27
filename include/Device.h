@@ -53,6 +53,7 @@ public:
     VkQueue getComputeQueue() const;
     VkPhysicalDevice getPhysicalDevice() const;
     VkPhysicalDeviceFeatures getFeatures() const;
+    VkFormat getDepthFormat() const;
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
@@ -73,6 +74,9 @@ private:
     void createSurface();
     void createLogicalDevice();
     void createCommandPool();
+    VkFormat findDepthFormat();
+    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
+        VkFormatFeatureFlags features);
 
     // void createCommandPool();
 
@@ -101,6 +105,7 @@ private:
     VkDevice m_device;
     VkCommandPool m_commandPool;
     VkPhysicalDeviceFeatures m_features;
+    VkFormat m_depthFormat;
 
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;

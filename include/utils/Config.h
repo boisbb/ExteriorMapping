@@ -15,6 +15,7 @@ struct Config
 		uint32_t row;
 	};
 
+	View novelView;
 	std::vector<View> views;
 	std::string viewGeometry;
 

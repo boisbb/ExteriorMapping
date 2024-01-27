@@ -9,6 +9,8 @@ namespace vke
 
 class Image;
 class Sampler;
+class RenderPass;
+class Framebuffer;
 
 class SwapChain
 {
@@ -16,9 +18,10 @@ public:
     SwapChain(std::shared_ptr<Device> device, VkExtent2D windowExtent);
     ~SwapChain();
 
-    VkRenderPass getRenderPass() const;
-    VkRenderPass getRenderPassDontCare() const;
-    VkRenderPass getOffscreenRenderPass() const;
+    void initializeFramebuffers(std::shared_ptr<RenderPass> renderPass);
+
+    // VkRenderPass getRenderPass() const;
+    // VkRenderPass getOffscreenRenderPass() const;
     VkFence getFenceId(int id);
     VkFence getComputeFenceId(int id);
     VkSwapchainKHR getSwapChain() const;
@@ -26,11 +29,11 @@ public:
     VkSemaphore getRenderFinishedSemaphore(int id);
     VkSemaphore getComputeFinishedSemaphore(int id);
     VkFramebuffer getFramebuffer(int id);
-    VkFramebuffer getOffscreenFramebuffer() const;
+    // VkFramebuffer getOffscreenFramebuffer() const;
     VkExtent2D getExtent();
     uint32_t getImageCount() const;
-    VkDescriptorImageInfo getOffscreenImageInfo() const;
-    VkDescriptorImageInfo getOffscreenDepthImageInfo() const;
+    // VkDescriptorImageInfo getOffscreenImageInfo() const;
+    VkFormat getImageFormat() const;
 
     void recreate(VkExtent2D windowExtent);
 
@@ -45,44 +48,27 @@ public:
 private:
     void createSwapChain();
     void createImageViews();
-    void createDepthResources();
-    void createRenderPass();
-    void createFramebuffers();
     void createSyncObjects();
-
-    void createOffscreenImages();
-    void createOffscreenRenderPass();
-    void createOffscreenFramebuffer();
 
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-        VkFormatFeatureFlags features);
-    VkFormat findDepthFormat();
-
     bool hasStencilComponent(VkFormat format);
 
     void cleanup();
 
-
     std::shared_ptr<Device> m_device;
+    
+    VkFormat m_depthFormat;
 
     VkExtent2D m_windowExtent;
 
     VkSwapchainKHR m_swapChain;
-    VkRenderPass m_renderPass;
-    VkRenderPass m_renderPassDontCare;
+    std::shared_ptr<RenderPass> m_renderPass;
 
-    VkRenderPass m_offscreenRenderPass;
-    VkFramebuffer m_offscreenFramebuffer;
-    std::shared_ptr<Image> m_offscreenImage;
-    std::shared_ptr<Image> m_offscreenDepthImage;
-    VkImageView m_offscreenImageView;
-    VkImageView m_offscreenDepthImageView;
-    std::shared_ptr<Sampler> m_offscreenSampler;
-    std::shared_ptr<Sampler> m_offscreenDepthSampler;
+    // std::shared_ptr<RenderPass> m_offscreenRenderPass;
+    // std::shared_ptr<Framebuffer> m_offscreenFramebuffer;
 
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;
@@ -90,7 +76,7 @@ private:
     uint32_t m_imageCount;
     std::vector<VkImage> m_swapChainImages;
     std::vector<VkImageView> m_swapChainImageViews;
-    std::vector<VkFramebuffer> m_swapChainFramebuffers;
+    std::vector<std::shared_ptr<Framebuffer>> m_swapChainFramebuffers;
 
     // Depth buffer
     std::shared_ptr<Image> m_depthImage;

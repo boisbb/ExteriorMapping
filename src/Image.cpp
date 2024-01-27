@@ -6,9 +6,9 @@
 namespace vke
 {
 
-Image::Image(std::shared_ptr<Device> device, glm::vec2 dims, int channels, VkFormat format, VkImageTiling tiling,
+Image::Image(std::shared_ptr<Device> device, glm::vec2 dims, VkFormat format, VkImageTiling tiling,
     VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout initialLayout)
-    : m_dims(dims), m_channels(channels), m_device(device), m_format(format), m_tiling(tiling),
+    : m_dims(dims), m_device(device), m_format(format), m_tiling(tiling),
     m_usage(usage), m_properties(properties), m_layout(initialLayout)
 {
     VkImageCreateInfo imageInfo{};

@@ -4,6 +4,8 @@
 #include "Camera.h"
 #include "View.h"
 #include "Pipeline.h"
+#include "RenderPass.h"
+#include "Framebuffer.h"
 #include "pipelines/GraphicsPipeline.h"
 #include "pipelines/ComputePipeline.h"
 #include "descriptors/SetLayout.h"
@@ -16,6 +18,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+// #define RAY_EVAL_DEBUG
+
 namespace vke
 {
 
@@ -24,15 +28,15 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
         std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile)
     : m_device(device), m_window(window), m_currentFrame(0), m_fubos(MAX_FRAMES_IN_FLIGHT),
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
-    m_creubo(MAX_FRAMES_IN_FLIGHT), m_cressbo(MAX_FRAMES_IN_FLIGHT), m_creHitsssbo(MAX_FRAMES_IN_FLIGHT),
+    m_creubo(MAX_FRAMES_IN_FLIGHT), m_cressbo(MAX_FRAMES_IN_FLIGHT), m_creDebugSsbo(MAX_FRAMES_IN_FLIGHT), m_creHitsssbo(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_computeRayEvalDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_sceneFramesUpdated(0), m_lightsFramesUpdated(0)
 {
-    m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
     createCommandBuffers();
     createComputeCommandBuffers();
     createDescriptors();
+    createRenderResources();
     createPipeline(vertexShaderFile, fragmentShaderFile, computeShaderFile, quadVertexShaderFile, quadFragmentShaderFile, 
         computeRaysEvalShaderFile);
 }
@@ -63,7 +67,7 @@ void Renderer::initDescriptorResources()
         m_generalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
 
         std::vector<VkDescriptorImageInfo> imageInfos{
-            m_swapChain->getOffscreenImageInfo(),
+            m_offscreenFramebuffer->getColorImageInfo()
         };
 
         std::vector<uint32_t> imageBinding{
@@ -138,14 +142,15 @@ void Renderer::initDescriptorResources()
         
         std::vector<VkDescriptorBufferInfo> bufferInfos = {
             m_creubo[i]->getInfo(),
-            m_cressbo[i]->getInfo()
+            m_cressbo[i]->getInfo(),
+            m_creDebugSsbo[i]->getInfo()
             // m_creHitsssbo[i]->getInfo()
         };
 
         std::vector<uint32_t> bufferBinding = {
             0,
-            1
-            // 2
+            1,
+            2
         };
 
         m_computeRayEvalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
@@ -186,7 +191,16 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>> &view
     
     m_computeRaysEvalPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
 
-    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::round((double)WIDTH / 16.f), std::round((double)HEIGHT / 16.f), 1);
+    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil((double)WIDTH / 16.f), std::ceil((double)HEIGHT / 16.f), 1);
+
+#ifdef RAY_EVAL_DEBUG
+    ViewEvalDebugCompute* evalData = (ViewEvalDebugCompute*)m_creDebugSsbo[m_currentFrame]->getMapped();
+
+    int linearResId = (WIDTH * (HEIGHT / 2.f)) + WIDTH / 2;
+    std::cout << "Eval data output for center pixel: " << std::endl;
+    std::cout << "    number of intersections: " << evalData[linearResId].numOfIntersections << std::endl;
+#endif
+
 }
 
 void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>> views)
@@ -478,7 +492,7 @@ return m_quadPipeline->getRenderPass();
 
 VkFramebuffer Renderer::getOffscreenFramebuffer() const
 {
-    return m_swapChain->getOffscreenFramebuffer();
+    return m_offscreenFramebuffer->getFramebuffer();
 }
 
 VkFramebuffer Renderer::getQuadFramebuffer(int imageIndex)
@@ -767,9 +781,13 @@ void Renderer::createDescriptors()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cressbo[i]->map();
 
-        m_creHitsssbo[i] = std::make_unique<Buffer>(m_device, sizeof(RayFrustumHitsDataCompute) * MAX_RESOLUTION_LINEAR, 
+        m_creDebugSsbo[i] = std::make_unique<Buffer>(m_device, sizeof(ViewEvalDebugCompute) * MAX_RESOLUTION_LINEAR, 
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        m_creHitsssbo[i]->map();
+        m_creDebugSsbo[i]->map();
+
+        // m_creHitsssbo[i] = std::make_unique<Buffer>(m_device, sizeof(RayFrustumHitsDataCompute) * MAX_RESOLUTION_LINEAR, 
+        //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        // m_creHitsssbo[i]->map();
     }
 
     // Compute general
@@ -817,12 +835,15 @@ void Renderer::createDescriptors()
         1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding ssboRayGenLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding ssboDebugRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
     // VkDescriptorSetLayoutBinding hitSsboRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     //     1, VK_SHADER_STAGE_COMPUTE_BIT);
     
     std::vector<VkDescriptorSetLayoutBinding> computeRayGenLayoutBindings = {
         uboRayGenLayoutBinding,
-        ssboRayGenLayoutBinding
+        ssboRayGenLayoutBinding,
+        ssboDebugRayGenLayoutBinding
         // hitSsboRayGenLayoutBinding
     };
 
@@ -832,17 +853,35 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize ssboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
+    VkDescriptorPoolSize ssboDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
     // VkDescriptorPoolSize hitSsboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
+    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * std::ceil(static_cast<uint32_t>(MAX_VIEWS / 5.f)) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
 
     std::vector<VkDescriptorPoolSize> computeRayGenSizes = {
         uboRayGenPoolSize,
-        ssboRayGenPoolSize
+        ssboRayGenPoolSize,
+        ssboDebugRayGenPoolSize
         // hitSsboRayGenPoolSize
     };
 
     m_computeRayEvalPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
         computeRayGenSizes);
+}
+
+void Renderer::createRenderResources()
+{
+    VkFormat depthFormat = m_device->getDepthFormat();
+
+    m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
+    m_quadRenderPass = std::make_shared<RenderPass>(m_device, m_swapChain->getImageFormat(), depthFormat);
+    m_swapChain->initializeFramebuffers(m_quadRenderPass);
+
+    m_offscreenRenderPass = std::make_shared<RenderPass>(m_device, VK_FORMAT_R8G8B8A8_UNORM,
+        depthFormat, true);
+
+    m_offscreenFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
+        VkExtent2D{(uint32_t)WIDTH, (uint32_t)HEIGHT});
 }
 
 void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
@@ -869,10 +908,10 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
         m_computeRayEvalSetLayout->getLayout()
     };
 
-    m_graphicsPipeline = std::make_shared<GraphicsPipeline>(m_device, m_swapChain->getOffscreenRenderPass(), vertexShaderFile,
+    m_graphicsPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), vertexShaderFile,
         fragmentShaderFile, offscreenGraphicsSetLayouts);
 
-    m_quadPipeline = std::make_shared<GraphicsPipeline>(m_device, m_swapChain->getRenderPass(), quadVertexShaderFile,
+    m_quadPipeline = std::make_shared<GraphicsPipeline>(m_device, m_quadRenderPass->getRenderPass(), quadVertexShaderFile,
         quadFragmentShaderFile, quadSetLayout, false, false);
     
     m_computePipeline = std::make_shared<ComputePipeline>(m_device, computeShaderFile, computeSetLayouts);
@@ -996,7 +1035,8 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
         memcpy(cressbo[i - 1].frustumPlanes, planes.data(), sizeof(glm::vec4) * 6);
     }
 
-    m_cressbo[m_currentFrame]->copyMapped(&cressbo, sizeof(MainViewDataCompute) * views.size());
+    m_cressbo[m_currentFrame]->copyMapped(cressbo.data(), sizeof(ViewEvalDataCompute) * cressbo.size());
+
 };
 
 

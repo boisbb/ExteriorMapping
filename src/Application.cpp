@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "RenderPass.h"
 #include "utils/Import.h"
 #include "utils/Callbacks.h"
 #include "utils/Constants.h"
@@ -37,7 +38,7 @@ void Application::run()
 
 void Application::init()
 {
-    utils::parseConfig("../res/config.json", m_config);
+    utils::parseConfig("../res/config1cam.json", m_config);
 
     m_window = std::make_shared<Window>(WIDTH, HEIGHT);
     m_device = std::make_shared<Device>(m_window);
@@ -166,7 +167,7 @@ void Application::initImgui()
     initInfo.CheckVkResultFn = NULL;
     initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-    ImGui_ImplVulkan_Init(&initInfo, m_renderer->getSwapChain()->getRenderPass());
+    ImGui_ImplVulkan_Init(&initInfo, m_renderer->getQuadRenderPass());
 
     ImGui::StyleColorsDark();
 
@@ -370,9 +371,18 @@ void Application::cleanup()
 
 void Application::addConfigViews()
 {
-    uint32_t row = 0;
-    std::cout << m_config.views.size() << std::endl;
+    glm::vec3 viewDir = glm::normalize(glm::vec3(-1,0,0));
 
+    utils::Config::View& mainView = m_config.novelView;
+
+    m_mainView = std::make_shared<View>(glm::vec2(WIDTH, HEIGHT),
+        glm::vec2(0.f, 0.f), m_device, m_renderer->getViewDescriptorSetLayout(),
+        m_renderer->getViewDescriptorPool());
+    m_mainView->setDebugCameraGeometry(m_cameraCube);
+    m_mainView->setCameraEye(mainView.cameraPos);
+    m_mainView->getCamera()->setViewDir(viewDir);
+
+    uint32_t row = 0;
     int currentRowStartId = 0;
     for (int i = 0; i < m_config.views.size(); i++)
     {
@@ -391,7 +401,6 @@ void Application::addConfigViews()
         }
 
         m_views.back()->setCameraEye(configView.cameraPos);
-        glm::vec3 viewDir = glm::normalize(glm::vec3(-1,0,0));
         m_views.back()->getCamera()->setViewDir(viewDir);
     }
 }
