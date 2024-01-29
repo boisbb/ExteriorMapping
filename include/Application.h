@@ -93,7 +93,7 @@ private:
     std::shared_ptr<Model> m_light;
     std::vector<std::shared_ptr<Model>> m_models;
     
-    std::shared_ptr<View> m_mainView;
+    std::vector<std::shared_ptr<View>> m_novelViews;
     std::vector<std::shared_ptr<View>> m_views;
 
     std::shared_ptr<Model> m_cameraCube;
@@ -104,6 +104,8 @@ private:
     std::vector<uint32_t> m_viewRowColumns;
 
     bool m_showCameraGeometry;
+    bool m_renderFromViews;
+    int m_changeOffscreenTarget;
 
     utils::Config m_config;
 };

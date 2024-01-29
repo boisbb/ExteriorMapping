@@ -184,7 +184,7 @@ void View::createDescriptorResources(std::shared_ptr<Device> device, std::shared
             0, 1, 2
         };
 
-        m_viewDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
+        m_viewDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
     }
 }
 

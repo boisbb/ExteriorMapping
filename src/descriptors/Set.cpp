@@ -15,7 +15,7 @@ DescriptorSet::~DescriptorSet()
 }
 
 
-void DescriptorSet::addBuffers(std::vector<uint32_t> binding, std::vector<VkDescriptorBufferInfo> bufferInfo,
+void DescriptorSet::updateBuffers(std::vector<uint32_t> binding, std::vector<VkDescriptorBufferInfo> bufferInfo,
         uint32_t dstArrayElement)
 {
     for (int i = 0; i < binding.size(); i++)
@@ -38,7 +38,7 @@ void DescriptorSet::addBuffers(std::vector<uint32_t> binding, std::vector<VkDesc
 
 }
 
-void DescriptorSet::addImages(std::vector<uint32_t> binding, std::vector<VkDescriptorImageInfo> imageInfo,
+void DescriptorSet::updateImages(std::vector<uint32_t> binding, std::vector<VkDescriptorImageInfo> imageInfo,
         uint32_t dstArrayElement)
 {
     for (int i = 0; i < binding.size(); i++)

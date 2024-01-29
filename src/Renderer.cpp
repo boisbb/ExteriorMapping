@@ -18,7 +18,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-// #define RAY_EVAL_DEBUG
+#define RAY_EVAL_DEBUG
 
 namespace vke
 {
@@ -64,7 +64,7 @@ void Renderer::initDescriptorResources()
             1, 2, 3
         };
 
-        m_generalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
+        m_generalDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
 
         std::vector<VkDescriptorImageInfo> imageInfos{
             m_offscreenFramebuffer->getColorImageInfo()
@@ -74,7 +74,7 @@ void Renderer::initDescriptorResources()
             4
         };
 
-        m_generalDescriptorSets[i]->addImages(imageBinding, imageInfos, 0);
+        m_generalDescriptorSets[i]->updateImages(imageBinding, imageInfos, 0);
     }
 
     // Materials
@@ -99,7 +99,7 @@ void Renderer::initDescriptorResources()
                 0
             };
 
-            m_materialDescriptorSets[i]->addImages(imageBinding, imageInfos, j);
+            m_materialDescriptorSets[i]->updateImages(imageBinding, imageInfos, j);
         }
 
         for (int j = 0; j < m_bumpTextures.size(); j++)
@@ -112,7 +112,7 @@ void Renderer::initDescriptorResources()
                 1
             };
 
-            m_materialDescriptorSets[i]->addImages(imageBinding, imageInfos, j);
+            m_materialDescriptorSets[i]->updateImages(imageBinding, imageInfos, j);
         }
     }
 
@@ -131,7 +131,7 @@ void Renderer::initDescriptorResources()
         };
 
 
-        m_computeDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
+        m_computeDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
     }
 
     // Compute Ray Eval
@@ -153,11 +153,12 @@ void Renderer::initDescriptorResources()
             2
         };
 
-        m_computeRayEvalDescriptorSets[i]->addBuffers(bufferBinding, bufferInfos);
+        m_computeRayEvalDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
     }
 }
 
-void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>>& views)
+void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>>& views,
+    bool novelViews)
 {
     updateCullComputeDescriptorData(scene);
 
@@ -170,9 +171,9 @@ void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::v
         {
             scene->createViewResources(view, m_device, m_computeSceneSetLayout, m_computeScenePool);
 
-            scene->setReinitializeDebugCameraGeometryFlag(true);
-            if (scene->getRenderDebugGeometryFlag())
+            if (scene->getRenderDebugGeometryFlag() && !novelViews)
             {
+                scene->setReinitializeDebugCameraGeometryFlag(true);
                 scene->addDebugCameraGeometry(views);
             }
         }
@@ -181,9 +182,10 @@ void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::v
     }
 }
 
-void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>> &views)
+void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& novelViews, 
+        const std::vector<std::shared_ptr<View>>& views)
 {
-    updateRayEvalComputeDescriptorData(views);
+    updateRayEvalComputeDescriptorData(novelViews, views);
 
     VkDescriptorSet rayEvalSet = m_computeRayEvalDescriptorSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_computeRaysEvalPipeline->getPipelineLayout(),
@@ -203,7 +205,8 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>> &view
 
 }
 
-void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>> views)
+void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>> views,
+    bool novelView)
 {
     bool resizeViews = false;
 
@@ -211,7 +214,7 @@ void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector
 
     // beginRenderPass(glm::vec2(WIDTH, HEIGHT), m_currentFrame, imageIndex);
 
-    updateDescriptorData(scene, views);
+    updateDescriptorData(scene, views, novelView);
 
     for (auto& view : views)
     {
@@ -388,6 +391,18 @@ void Renderer::presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> 
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo)
+{
+    std::vector<VkDescriptorImageInfo> imageInfos{
+        imageInfo
+    };
+
+    std::vector<uint32_t> imageBinding{
+        4
+    };
+
+    m_generalDescriptorSets[m_currentFrame]->updateImages(imageBinding, imageInfos, 0);
+}
 
 std::shared_ptr<SwapChain> Renderer::getSwapChain() const
 {
@@ -480,24 +495,29 @@ std::shared_ptr<DescriptorPool> Renderer::getViewDescriptorPool() const
     return m_viewPool;
 }
 
-VkRenderPass Renderer::getOffscreenRenderPass() const
+std::shared_ptr<RenderPass> Renderer::getOffscreenRenderPass() const
 {
-    return m_graphicsPipeline->getRenderPass();
+    return m_offscreenRenderPass;
 }
 
-VkRenderPass Renderer::getQuadRenderPass() const
+std::shared_ptr<RenderPass> Renderer::getQuadRenderPass() const
 {
-return m_quadPipeline->getRenderPass();
+return m_quadRenderPass;
 }
 
-VkFramebuffer Renderer::getOffscreenFramebuffer() const
+std::shared_ptr<Framebuffer> Renderer::getOffscreenFramebuffer() const
 {
-    return m_offscreenFramebuffer->getFramebuffer();
+    return m_offscreenFramebuffer;
 }
 
-VkFramebuffer Renderer::getQuadFramebuffer(int imageIndex)
+std::shared_ptr<Framebuffer> Renderer::getQuadFramebuffer(int imageIndex) const
 {
     return m_swapChain->getFramebuffer(imageIndex);
+}
+
+std::shared_ptr<Framebuffer> Renderer::getViewMatrixFramebuffer() const
+{
+    return m_viewMatrixFramebuffer;
 }
 
 int Renderer::addTexture(std::shared_ptr<Texture> texture, std::string filename)
@@ -669,7 +689,23 @@ void Renderer::createDescriptors()
         finalImageLayoutBinding
     };
 
-    m_descriptorSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutBindings);
+    VkDescriptorBindingFlags finalImageFlags = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+
+    std::vector<VkDescriptorBindingFlags> generalBindingFlags = {
+        0,
+        0,
+        0,
+        finalImageFlags
+    };
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT generalLayoutNext{};
+    generalLayoutNext.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+    generalLayoutNext.bindingCount = generalBindingFlags.size();
+    generalLayoutNext.pBindingFlags = generalBindingFlags.data();
+    generalLayoutNext.pNext = nullptr;
+
+    m_descriptorSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutBindings,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, &generalLayoutNext);
 
     VkDescriptorPoolSize vssboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
@@ -687,7 +723,7 @@ void Renderer::createDescriptors()
         finalImagePoolSize
     };
     m_descriptorPool = std::make_shared<DescriptorPool>(m_device,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, poolSizes);
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT, poolSizes);
 
     //! View Data
     VkDescriptorSetLayoutBinding viewLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -837,13 +873,13 @@ void Renderer::createDescriptors()
         1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding ssboDebugRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
-    // VkDescriptorSetLayoutBinding hitSsboRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    // VkDescriptorSetLayoutBinding hitSsboRayGenLayoutBinding = createDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     //     1, VK_SHADER_STAGE_COMPUTE_BIT);
     
     std::vector<VkDescriptorSetLayoutBinding> computeRayGenLayoutBindings = {
         uboRayGenLayoutBinding,
         ssboRayGenLayoutBinding,
-        ssboDebugRayGenLayoutBinding
+        ssboDebugRayGenLayoutBinding,
         // hitSsboRayGenLayoutBinding
     };
 
@@ -855,13 +891,14 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
     VkDescriptorPoolSize ssboDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
+
     // VkDescriptorPoolSize hitSsboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * std::ceil(static_cast<uint32_t>(MAX_VIEWS / 5.f)) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
+    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * std::ceil(static_cast<uint32_t>(MAX_VIEWS / 4.f)) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR) * ( * sizeof(int)));
 
     std::vector<VkDescriptorPoolSize> computeRayGenSizes = {
         uboRayGenPoolSize,
         ssboRayGenPoolSize,
-        ssboDebugRayGenPoolSize
+        ssboDebugRayGenPoolSize,
         // hitSsboRayGenPoolSize
     };
 
@@ -881,6 +918,9 @@ void Renderer::createRenderResources()
         depthFormat, true);
 
     m_offscreenFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
+        VkExtent2D{(uint32_t)WIDTH, (uint32_t)HEIGHT});
+
+    m_viewMatrixFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
         VkExtent2D{(uint32_t)WIDTH, (uint32_t)HEIGHT});
 }
 
@@ -950,7 +990,8 @@ void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const s
     scene->dispatch(view, commandBuffer, m_computePipeline->getPipelineLayout(), m_currentFrame);
 }
 
-void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views)
+void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views,
+    bool novelView)
 {
     if (scene->lightChanged())
     {
@@ -977,7 +1018,7 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
         for (auto& model : models)
             model->updateDescriptorData(vssboData, fssboData, true);
 
-        if (scene->getRenderDebugGeometryFlag())
+        if (scene->getRenderDebugGeometryFlag() && !novelView)
         {
             // std::cout << "update descriptor data for views" << std::endl;
             for (auto& view : views)
@@ -1014,10 +1055,11 @@ void Renderer::updateCullComputeDescriptorData(const std::shared_ptr<Scene> &sce
     }
 }
 
-void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>> &views)
+void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& novelViews,
+        const std::vector<std::shared_ptr<View>>& views)
 {
     // Main view for now is the first one.
-    std::shared_ptr<Camera> mainCamera = views[0]->getCamera();
+    std::shared_ptr<Camera> mainCamera = novelViews[0]->getCamera();
 
     MainViewDataCompute creuData{};
     creuData.invProj = mainCamera->getProjectionInverse();
@@ -1027,12 +1069,12 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
 
     m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(MainViewDataCompute));
 
-    std::vector<ViewEvalDataCompute> cressbo(views.size() - 1);
+    std::vector<ViewEvalDataCompute> cressbo(views.size());
 
-    for (int i = 1; i < views.size(); i++)
+    for (int i = 0; i < views.size(); i++)
     {
         std::vector<glm::vec4> planes = views[i]->getCamera()->getFrustumPlanes();
-        memcpy(cressbo[i - 1].frustumPlanes, planes.data(), sizeof(glm::vec4) * 6);
+        memcpy(cressbo[i].frustumPlanes, planes.data(), sizeof(glm::vec4) * 6);
     }
 
     m_cressbo[m_currentFrame]->copyMapped(cressbo.data(), sizeof(ViewEvalDataCompute) * cressbo.size());

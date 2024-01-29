@@ -28,7 +28,7 @@ public:
     VkSemaphore getImageAvailableSemaphore(int id);
     VkSemaphore getRenderFinishedSemaphore(int id);
     VkSemaphore getComputeFinishedSemaphore(int id);
-    VkFramebuffer getFramebuffer(int id);
+    std::shared_ptr<Framebuffer> getFramebuffer(int id);
     // VkFramebuffer getOffscreenFramebuffer() const;
     VkExtent2D getExtent();
     uint32_t getImageCount() const;

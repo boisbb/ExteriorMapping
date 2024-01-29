@@ -31,9 +31,11 @@ public:
         std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile);
     ~Renderer();
 
-    void cullComputePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
-    void rayEvalComputePass(const std::vector<std::shared_ptr<View>>& views);
-    void renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>> views);
+    void cullComputePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views,
+        bool novelViews = false);
+    void rayEvalComputePass(const std::vector<std::shared_ptr<View>>& novelViews, 
+        const std::vector<std::shared_ptr<View>>& views);
+    void renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>> views, bool novelView);
     void quadRenderPass(glm::vec2 windowResolution);
     void setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
     void setScissor(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
@@ -50,6 +52,8 @@ public:
     void submitCompute();
     void presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> window, std::shared_ptr<View> view,
         bool& resizeViews);
+
+    void changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo);
 
     std::shared_ptr<SwapChain> getSwapChain() const;
     VkCommandBuffer getCommandBuffer(int id) const;
@@ -68,10 +72,11 @@ public:
     std::shared_ptr<DescriptorPool> getSceneComputeDescriptorPool() const;
     std::shared_ptr<DescriptorSetLayout> getViewDescriptorSetLayout() const;
     std::shared_ptr<DescriptorPool> getViewDescriptorPool() const;
-    VkRenderPass getOffscreenRenderPass() const;
-    VkRenderPass getQuadRenderPass() const;
-    VkFramebuffer getOffscreenFramebuffer() const;
-    VkFramebuffer getQuadFramebuffer(int imageIndex);
+    std::shared_ptr<RenderPass> getOffscreenRenderPass() const;
+    std::shared_ptr<RenderPass> getQuadRenderPass() const;
+    std::shared_ptr<Framebuffer> getOffscreenFramebuffer() const;
+    std::shared_ptr<Framebuffer> getQuadFramebuffer(int imageIndex) const;
+    std::shared_ptr<Framebuffer> getViewMatrixFramebuffer() const;
 
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
@@ -93,9 +98,10 @@ private:
         std::string computeShaderFile, std::string quadVertexShaderFile,
         std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile);
 
-    void updateDescriptorData(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views);
+    void updateDescriptorData(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views, bool novelView);
     void updateCullComputeDescriptorData(const std::shared_ptr<Scene>& scene);
-    void updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& views);
+    void updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& novelViews,
+        const std::vector<std::shared_ptr<View>>& views);
 
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
@@ -104,7 +110,7 @@ private:
     std::shared_ptr<RenderPass> m_offscreenRenderPass;
     std::shared_ptr<Framebuffer> m_mainFramebuffer;
     std::shared_ptr<Framebuffer> m_offscreenFramebuffer;
-    std::shared_ptr<Framebuffer> m_cameraMatrixFramebuffer;
+    std::shared_ptr<Framebuffer> m_viewMatrixFramebuffer;
 
     std::shared_ptr<GraphicsPipeline> m_graphicsPipeline;
     std::shared_ptr<ComputePipeline> m_computePipeline;

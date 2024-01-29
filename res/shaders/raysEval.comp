@@ -1,5 +1,9 @@
 #version 450
 
+#define MAX_VIEWS 128
+#define MAX_INTERVALS 32
+#define MAX_HITS 128
+
 struct ViewDataEvalCompute
 {
     vec4 frustumPlanes[6];
@@ -8,6 +12,11 @@ struct ViewDataEvalCompute
 struct ViewEvalDebugCompute {
     vec4 frustumPlanes[6];
     int numOfIntersections;
+};
+
+struct IntervalHit {
+    vec2 t;
+    uint idBits[4];
 };
 
 // struct RayFrustumHitsDataCompute
@@ -36,7 +45,6 @@ struct FrustumHit
 {
     float t;
     int viewId;
-    bool start;
 };
 
 // layout(set=0, binding=2) buffer hSsbo {
@@ -45,6 +53,14 @@ struct FrustumHit
 
 layout (local_size_x=16, local_size_y=16, local_size_z=1) in;
 
+vec2 calculateMaskId(float id)
+{
+    int maskId = int(floor(id / 32));
+    int innermaskId = int(id) - (maskId * 32);
+
+    return vec2(maskId, innermaskId);
+}
+
 
 void main()
 {
@@ -52,7 +68,9 @@ void main()
 
     if (pixId.x <= ubo.res.x && pixId.y <= ubo.res.y)
     {
-        FrustumHit frustumHits[512];
+        FrustumHit frustumHitsIn[MAX_HITS];
+        FrustumHit frustumHitsOut[MAX_HITS];
+
         int intersectCount = 0;
 
         vec2 pixCenter = pixId + 0.5;
@@ -121,28 +139,18 @@ void main()
 
             if (foundIntersects == 2)
             {
-                frustumHits[intersectCount].viewId = i;
-                frustumHits[intersectCount + 1].viewId = i;
+                frustumHitsIn[intersectCount].viewId = i;
+                frustumHitsOut[intersectCount].viewId = i;
 
                 if (intersects[0] < intersects[1])
                 {
-                    frustumHits[intersectCount].t = intersects[0];
-                    frustumHits[intersectCount].start = true;
-
-                    intersectCount++;
-
-                    frustumHits[intersectCount].t = intersects[1];
-                    frustumHits[intersectCount].start = false;
+                    frustumHitsIn[intersectCount].t = intersects[0];
+                    frustumHitsOut[intersectCount].t = intersects[1];
                 }
                 else
                 {
-                    frustumHits[intersectCount].t = intersects[1];
-                    frustumHits[intersectCount].start = true;
-
-                    intersectCount++;
-
-                    frustumHits[intersectCount].t = intersects[0];
-                    frustumHits[intersectCount].start = false;
+                    frustumHitsIn[intersectCount].t = intersects[1];
+                    frustumHitsOut[intersectCount].t = intersects[0];
                 }
 
                 intersectCount++;
@@ -152,16 +160,29 @@ void main()
         // insert sort the intersections
         for (int i = 1; i < intersectCount; i++)
         {
-            FrustumHit key = frustumHits[i];
+            // hits in
+            FrustumHit keyIn = frustumHitsIn[i];
 
             int j = i - 1;
-            while (j >= 0 && frustumHits[j].t > key.t)
+            while (j >= 0 && frustumHitsIn[j].t > keyIn.t)
             {
-                frustumHits[j + 1] = frustumHits[j];
+                frustumHitsIn[j + 1] = frustumHitsIn[j];
                 j = j - 1;
             }
 
-            frustumHits[j + 1] = key;
+            frustumHitsIn[j + 1] = keyIn;
+
+            // hits out
+            FrustumHit keyOut = frustumHitsOut[i];
+
+            j = i - 1;
+            while (j >= 0 && frustumHitsOut[j].t > keyOut.t)
+            {
+                frustumHitsOut[j + 1] = frustumHitsOut[j];
+                j = j - 1;
+            }
+
+            frustumHitsOut[j + 1] = keyOut;
         }
 
 
@@ -169,6 +190,92 @@ void main()
 
         cssboDebug.objects[linearRes].numOfIntersections = intersectCount;
 
-        
+        // 32 because 128 / 4 = 32 since we are looking for intervals
+        // containing at least 4 cameras, then there are max 32 intervals
+        IntervalHit intervals[MAX_INTERVALS];
+
+        int currentlyInInterval = 0;
+        uint cameraIndexMask[4];
+        cameraIndexMask[0] = 0;
+        cameraIndexMask[1] = 0;
+        cameraIndexMask[2] = 0;
+        cameraIndexMask[3] = 0;
+
+        float currentStartT = 0;
+
+        int foundIntervals = 0;
+        int inId = 0;
+        int outId = 0;
+        for (int i = 0; i < intersectCount * 2; i++)
+        {
+            FrustumHit hitIn = frustumHitsIn[inId];
+            FrustumHit hitOut = frustumHitsOut[outId];
+
+            if (hitIn.t <= hitOut.t)
+            {
+                // add into interval
+                currentlyInInterval++;
+
+                vec2 maskId = calculateMaskId(hitIn.viewId);
+                int outer = int(maskId.x);
+                int inner = int(maskId.y);
+
+                cameraIndexMask[outer] = cameraIndexMask[outer] | (1 << inner);
+
+                currentStartT = hitIn.t;
+
+                inId++;
+            }
+            else
+            {
+                // remove from interval and possibly write interval
+                if (currentlyInInterval >= 4)
+                {
+                    intervals[foundIntervals].t = vec2(currentStartT, hitOut.t);
+                    intervals[foundIntervals].idBits = cameraIndexMask;
+
+                    foundIntervals++;
+                }
+
+                vec2 maskId = calculateMaskId(hitOut.viewId);
+                int outer = int(maskId.x);
+                int inner = int(maskId.y);
+
+                cameraIndexMask[outer] = cameraIndexMask[outer] & (~(1 << inner));
+
+                // cycle until we find a previous value in the interval
+                for (int j = inId; j >= 0; j--)
+                {
+                    FrustumHit prevHitIn = frustumHitsIn[j];
+                    
+                    if (prevHitIn.t == currentStartT && prevHitIn.viewId != hitOut.id)
+                    {
+                        break;
+                    }
+                    else if (prevHitIn.t == currentStartT && prevHitIn.viewId == hitOut.id)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        vec2 prevMaskId = calculateMaskId(prevHitIn.viewId);
+                        int prevOuter = int(maskId.x);
+                        int prevInner = int(maskId.y);
+
+                        int prevIdNum = (1 << prevInner);
+                        int check = cameraIndexMask[prevOuter] & prevIdNum;
+
+                        if (check == prevIdNum)
+                        {
+                            // it is in the interval
+                        }
+                    }
+                }
+
+                outId++;
+            }
+        }
     }
 }
+
+// [0, 3], [1, 2]

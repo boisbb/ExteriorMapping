@@ -44,6 +44,8 @@ public:
     void draw(std::shared_ptr<View> view, VkCommandBuffer commandBuffer, uint32_t currentFrame);
     void createViewResources(std::shared_ptr<View> view, const std::shared_ptr<Device>& device,
         std::shared_ptr<DescriptorSetLayout> descriptorSetLayout, std::shared_ptr<DescriptorPool> descriptorPool);
+    void addView(std::shared_ptr<View> view, std::vector<std::shared_ptr<View>> views, const std::shared_ptr<Device>& device,
+        std::shared_ptr<DescriptorSetLayout> descriptorSetLayout, std::shared_ptr<DescriptorPool> descriptorPool);
 
     // TODO: Just for testing now.
     void setLightPos(const glm::vec3& lightPos);

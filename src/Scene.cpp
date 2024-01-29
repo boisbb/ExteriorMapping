@@ -140,11 +140,23 @@ void Scene::createViewResources(std::shared_ptr<View> view, const std::shared_pt
         };
 
 
-        descriptorArray[i]->addBuffers(bufferBinding, bufferInfos);
+        descriptorArray[i]->updateBuffers(bufferBinding, bufferInfos);
     }
 
     m_computeDescriptorsMap[view] = descriptorArray;
     m_indirectBuffersMap[view] = drawBufferArray;
+}
+
+void Scene::addView(std::shared_ptr<View> view, std::vector<std::shared_ptr<View>> views, const std::shared_ptr<Device> &device,
+    std::shared_ptr<DescriptorSetLayout> descriptorSetLayout, std::shared_ptr<DescriptorPool> descriptorPool)
+{
+    createViewResources(view, device, descriptorSetLayout, descriptorPool);
+
+    setReinitializeDebugCameraGeometryFlag(true);
+    if (getRenderDebugGeometryFlag())
+    {
+        addDebugCameraGeometry(views);
+    }
 }
 
 void Scene::setLightPos(const glm::vec3& lightPos)

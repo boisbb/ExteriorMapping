@@ -16,9 +16,9 @@ public:
         std::shared_ptr<DescriptorPool> descriptorPool, const void* pNext = nullptr);
     ~DescriptorSet();
 
-    void addBuffers(std::vector<uint32_t> binding, std::vector<VkDescriptorBufferInfo> bufferInfo,
+    void updateBuffers(std::vector<uint32_t> binding, std::vector<VkDescriptorBufferInfo> bufferInfo,
         uint32_t dstArrayElement = 0);
-    void addImages(std::vector<uint32_t> binding, std::vector<VkDescriptorImageInfo> imageInfo,
+    void updateImages(std::vector<uint32_t> binding, std::vector<VkDescriptorImageInfo> imageInfo,
         uint32_t dstArrayElement = 0);
 
     VkDescriptorSet getDescriptorSet();

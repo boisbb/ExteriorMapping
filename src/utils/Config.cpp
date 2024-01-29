@@ -33,6 +33,8 @@ void parseViewData(nlohmann::json viewData, Config& config)
 		mainView["cameraPos"]["z"].template get<float>()
 	);
 
+	config.novelView = novelView;
+
 	nlohmann::json rows = viewData["views"];
 
 	uint32_t rowCount = 0;

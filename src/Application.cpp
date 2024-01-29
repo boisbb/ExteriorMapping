@@ -1,5 +1,6 @@
 #include "Application.h"
 #include "RenderPass.h"
+#include "Framebuffer.h"
 #include "utils/Import.h"
 #include "utils/Callbacks.h"
 #include "utils/Constants.h"
@@ -26,7 +27,9 @@ namespace vke
 {
 
 Application::Application()
-    : m_showCameraGeometry(false)
+    : m_showCameraGeometry(false),
+    m_renderFromViews(false),
+    m_changeOffscreenTarget(MAX_FRAMES_IN_FLIGHT)
 {
     init();
 }
@@ -70,21 +73,42 @@ void Application::draw()
     {
         windowResolution = m_window->getResolution();
 
+        if (m_changeOffscreenTarget < MAX_FRAMES_IN_FLIGHT)
+        {
+            if (m_renderFromViews)
+            {
+                m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getColorImageInfo());
+            }
+            else
+            {
+                m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenFramebuffer()->getColorImageInfo());
+            }
+
+            m_changeOffscreenTarget++;
+        }
+
+        std::vector<std::shared_ptr<View>>& views = m_renderFromViews ? m_views : m_novelViews;
+        std::shared_ptr<Framebuffer> framebuffer = m_renderFromViews ? m_renderer->getViewMatrixFramebuffer()
+            : m_renderer->getOffscreenFramebuffer();
+
         consumeInput();
 
         m_renderer->beginComputePass();
-        m_renderer->cullComputePass(m_scene, m_views);
-        m_renderer->rayEvalComputePass(m_views);
+        m_renderer->cullComputePass(m_scene, views, (!m_renderFromViews));
+        m_renderer->rayEvalComputePass(m_novelViews, m_views);
         m_renderer->endComputePass();
         m_renderer->submitCompute();
         
         uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
         m_renderer->beginCommandBuffer();
-        m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getOffscreenFramebuffer(), windowResolution, glm::vec2(WIDTH, HEIGHT));
-        m_renderer->renderPass(m_scene, m_views);
+        m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass()->getRenderPass(), framebuffer->getFramebuffer(),
+            windowResolution, glm::vec2(WIDTH, HEIGHT));
+        m_renderer->renderPass(m_scene, views, (!m_renderFromViews));
         m_renderer->endRenderPass();
+        // std::cout << "wtf" << std::endl;
 
-        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer(imageIndex), windowResolution, windowResolution);
+        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass()->getRenderPass(), m_renderer->getQuadFramebuffer(imageIndex)->getFramebuffer(),
+            windowResolution, windowResolution);
         m_renderer->quadRenderPass(windowResolution);
         renderImgui(lastFps);
         m_renderer->endRenderPass();
@@ -125,7 +149,7 @@ void Application::consumeInput()
 
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse && !io.WantCaptureKeyboard)
-        vke::utils::consumeDeviceInput(m_window->getWindow(), m_views);
+        vke::utils::consumeDeviceInput(m_window->getWindow(), (m_renderFromViews) ? m_views : m_novelViews);
 }
 
 void Application::initImgui()
@@ -167,7 +191,7 @@ void Application::initImgui()
     initInfo.CheckVkResultFn = NULL;
     initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-    ImGui_ImplVulkan_Init(&initInfo, m_renderer->getQuadRenderPass());
+    ImGui_ImplVulkan_Init(&initInfo, m_renderer->getQuadRenderPass()->getRenderPass());
 
     ImGui::StyleColorsDark();
 
@@ -213,6 +237,11 @@ void Application::renderImgui(int lastFps)
     if (ImGui::CollapsingHeader("Views"))
     {
         ImGui::Indent();
+
+        if (ImGui::Checkbox("Render from view matrix", &m_renderFromViews))
+        {
+            m_changeOffscreenTarget = 0;
+        }
 
         if (ImGui::Checkbox("Show camera geometry", &m_showCameraGeometry))
         {
@@ -375,12 +404,14 @@ void Application::addConfigViews()
 
     utils::Config::View& mainView = m_config.novelView;
 
-    m_mainView = std::make_shared<View>(glm::vec2(WIDTH, HEIGHT),
+    std::shared_ptr<View> novelView = std::make_shared<View>(glm::vec2(WIDTH, HEIGHT),
         glm::vec2(0.f, 0.f), m_device, m_renderer->getViewDescriptorSetLayout(),
         m_renderer->getViewDescriptorPool());
-    m_mainView->setDebugCameraGeometry(m_cameraCube);
-    m_mainView->setCameraEye(mainView.cameraPos);
-    m_mainView->getCamera()->setViewDir(viewDir);
+    novelView->setDebugCameraGeometry(m_cameraCube);
+    novelView->setCameraEye(mainView.cameraPos);
+    novelView->getCamera()->setViewDir(viewDir);
+
+    m_novelViews.push_back(novelView);
 
     uint32_t row = 0;
     int currentRowStartId = 0;

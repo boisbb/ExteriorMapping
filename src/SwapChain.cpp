@@ -178,9 +178,9 @@ VkSemaphore SwapChain::getComputeFinishedSemaphore(int id)
     return m_computeFinishedSemaphores[id];
 }
 
-VkFramebuffer SwapChain::getFramebuffer(int id)
+std::shared_ptr<Framebuffer> SwapChain::getFramebuffer(int id)
 {
-    return m_swapChainFramebuffers[id]->getFramebuffer();
+    return m_swapChainFramebuffers[id];
 }
 
 // VkFramebuffer SwapChain::getOffscreenFramebuffer() const
