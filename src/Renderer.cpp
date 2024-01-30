@@ -201,6 +201,7 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
     int linearResId = (WIDTH * (HEIGHT / 2.f)) + WIDTH / 2;
     std::cout << "Eval data output for center pixel: " << std::endl;
     std::cout << "    number of intersections: " << evalData[linearResId].numOfIntersections << std::endl;
+    std::cout << "    number of intervals:     " << evalData[linearResId].numOfFoundIntervals << std::endl;
 #endif
 
 }

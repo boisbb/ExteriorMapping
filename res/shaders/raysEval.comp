@@ -12,11 +12,18 @@ struct ViewDataEvalCompute
 struct ViewEvalDebugCompute {
     vec4 frustumPlanes[6];
     int numOfIntersections;
+    int numOfFoundIntervals;
 };
 
 struct IntervalHit {
     vec2 t;
     uint idBits[4];
+};
+
+struct FrustumHit
+{
+    float t;
+    int viewId;
 };
 
 // struct RayFrustumHitsDataCompute
@@ -41,11 +48,6 @@ layout(std430, set=0, binding=2) buffer ssbo1 {
     ViewEvalDebugCompute objects[];
 } cssboDebug;
 
-struct FrustumHit
-{
-    float t;
-    int viewId;
-};
 
 // layout(set=0, binding=2) buffer hSsbo {
 //     RayFrustumHitsDataCompute objects[];
@@ -186,9 +188,6 @@ void main()
         }
 
 
-        int linearRes = int((ubo.res.x * pixId.y) + pixId.x);
-
-        cssboDebug.objects[linearRes].numOfIntersections = intersectCount;
 
         // 32 because 128 / 4 = 32 since we are looking for intervals
         // containing at least 4 cameras, then there are max 32 intervals
@@ -211,7 +210,7 @@ void main()
             FrustumHit hitIn = frustumHitsIn[inId];
             FrustumHit hitOut = frustumHitsOut[outId];
 
-            if (hitIn.t <= hitOut.t)
+            if (hitIn.t <= hitOut.t && inId < intersectCount)
             {
                 // add into interval
                 currentlyInInterval++;
@@ -248,11 +247,11 @@ void main()
                 {
                     FrustumHit prevHitIn = frustumHitsIn[j];
                     
-                    if (prevHitIn.t == currentStartT && prevHitIn.viewId != hitOut.id)
+                    if (prevHitIn.t == currentStartT && prevHitIn.viewId != hitOut.viewId)
                     {
                         break;
                     }
-                    else if (prevHitIn.t == currentStartT && prevHitIn.viewId == hitOut.id)
+                    else if (prevHitIn.t == currentStartT && prevHitIn.viewId == hitOut.viewId)
                     {
                         continue;
                     }
@@ -262,12 +261,14 @@ void main()
                         int prevOuter = int(maskId.x);
                         int prevInner = int(maskId.y);
 
-                        int prevIdNum = (1 << prevInner);
-                        int check = cameraIndexMask[prevOuter] & prevIdNum;
+                        uint prevIdNum = (1 << prevInner);
+                        uint check = cameraIndexMask[prevOuter] & prevIdNum;
 
                         if (check == prevIdNum)
                         {
                             // it is in the interval
+                            currentStartT = prevHitIn.t;
+                            break;
                         }
                     }
                 }
@@ -275,6 +276,12 @@ void main()
                 outId++;
             }
         }
+
+        int linearRes = int((ubo.res.x * pixId.y) + pixId.x);
+
+        cssboDebug.objects[linearRes].numOfIntersections = foundIntervals;
+        cssboDebug.objects[linearRes].numOfFoundIntervals = foundIntervals;
+        
     }
 }
 

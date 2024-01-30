@@ -41,7 +41,7 @@ void Application::run()
 
 void Application::init()
 {
-    utils::parseConfig("../res/config1cam.json", m_config);
+    utils::parseConfig("../res/config.json", m_config);
 
     m_window = std::make_shared<Window>(WIDTH, HEIGHT);
     m_device = std::make_shared<Device>(m_window);
@@ -120,8 +120,8 @@ void Application::draw()
 
         // Ray Eval compute pass
 
-
-        // mainCameraTestRays();
+        if (m_rayEvalOnCpu)
+            mainCameraTestRays();
 
         if (resizeViews)
         {
@@ -255,6 +255,8 @@ void Application::renderImgui(int lastFps)
                 m_scene->setRenderDebugGeometryFlag(false);
             }
         }
+
+        ImGui::Checkbox("Calculate ray eval on cpu", &m_rayEvalOnCpu);
 
         if (ImGui::Button("-"))
         {
@@ -678,19 +680,45 @@ struct IntersectInfo
     std::vector<float> inOut;
 };
 
+struct IntervalHit {
+    glm::vec2 t;
+    uint idBits[4];
+};
+
+struct FrustumHit
+{
+    float t;
+    int viewId;
+};
+
+glm::vec2 calculateMaskId(float id)
+{
+    int maskId = int(floor(id / 32));
+    int innermaskId = int(id) - (maskId * 32);
+
+    return glm::vec2(maskId, innermaskId);
+}
+
 void Application::mainCameraTestRays()
 {
-    std::shared_ptr<Camera> mainCamera = m_views[0]->getCamera();
+    std::shared_ptr<Camera> mainCamera = m_novelViews[0]->getCamera();
     glm::vec2 mainCameraRes = mainCamera->getResolution();
 
-    std::cout << mainCameraRes.x << " " << mainCameraRes.y << std::endl;
+    // std::map<int, std::map<std::pair<int, int>, std::vector<IntersectInfo>>> intersectsMap;
 
-    std::map<int, std::map<std::pair<int, int>, std::vector<IntersectInfo>>> intersectsMap;
+    FrustumHit frustumHitsIn[128];
+    FrustumHit frustumHitsOut[128];
+
+    uint intersectCount = 0;
     
     for (int y = 0; y < mainCameraRes.y; y++)
     {
+        if (y != std::round(float(HEIGHT) / 2.f))
+            continue;
         for (int x = 0; x < mainCameraRes.x; x++)
         {
+            if (x != std::round(float(WIDTH) / 2.f))
+                continue;
 
             glm::vec2 pixelCenter(x + 0.5f, y + 0.5f);
             glm::vec2 uv = pixelCenter / mainCameraRes;
@@ -706,7 +734,7 @@ void Application::mainCameraTestRays()
 
             //auto vd = mainCamera->getViewDir();
 
-            for (int i = 1; i < m_views.size(); i++)
+            for (int i = 0; i < m_views.size(); i++)
             {
                 std::shared_ptr<Camera> testCamera = m_views[i]->getCamera();
                 std::vector<glm::vec4> frustumPlanes = testCamera->getFrustumPlanes();
@@ -777,38 +805,203 @@ void Application::mainCameraTestRays()
                     }
                 }
 
-                if (intersects.size() > 0)
+                if (intersects.size() == 2)
                 {
-                    intersectsMap[i][std::pair<int, int>(x, y)] = intersects;
+                    frustumHitsIn[intersectCount].viewId = i;
+                    frustumHitsOut[intersectCount].viewId = i;
+
+                    if (intersects[0].t < intersects[1].t)
+                    {
+                        frustumHitsIn[intersectCount].t = intersects[0].t;
+                        frustumHitsOut[intersectCount].t = intersects[1].t;
+                    }
+                    else
+                    {
+                        frustumHitsIn[intersectCount].t = intersects[1].t;
+                        frustumHitsOut[intersectCount].t = intersects[0].t;
+                    }
+
+                    std::cout << "      view: " << i << std::endl;
+                    std::cout << "      t0: " << frustumHitsIn[intersectCount].t << std::endl;
+                    std::cout << "      t1: " << frustumHitsOut[intersectCount].t << std::endl;
+
+                    intersectCount++;
+                    // intersectsMap[i][std::pair<int, int>(x, y)] = intersects;
                 }
             }
         }
     }
-    
-    for (auto& kvV : intersectsMap)
+
+    // insert sort the intersections
+    for (int i = 1; i < intersectCount; i++)
     {
-        std::cout << "View: " << kvV.first << std::endl;
+        // hits in
+        FrustumHit keyIn = frustumHitsIn[i];
 
-        std::array<int, 6> planesForView{0,0,0,0,0,0};
-        for (int y = 0; y < mainCameraRes.y; y++)
+        int j = i - 1;
+        while (j >= 0 && frustumHitsIn[j].t > keyIn.t)
         {
-            for (int x = 0; x < mainCameraRes.x; x++)
-            {                    
-                int cnt = 0;
-                for (auto& intersect : kvV.second[std::pair<int,int>(x, y)])
+            frustumHitsIn[j + 1] = frustumHitsIn[j];
+            j = j - 1;
+        }
+
+        frustumHitsIn[j + 1] = keyIn;
+
+        // hits out
+        FrustumHit keyOut = frustumHitsOut[i];
+
+        j = i - 1;
+        while (j >= 0 && frustumHitsOut[j].t > keyOut.t)
+        {
+            frustumHitsOut[j + 1] = frustumHitsOut[j];
+            j = j - 1;
+        }
+
+        frustumHitsOut[j + 1] = keyOut;
+    }
+
+    IntervalHit intervals[32];
+
+    int currentlyInInterval = 0;
+    uint cameraIndexMask[4];
+    cameraIndexMask[0] = 0;
+    cameraIndexMask[1] = 0;
+    cameraIndexMask[2] = 0;
+    cameraIndexMask[3] = 0;
+
+    float currentStartT = 0;
+
+    int foundIntervals = 0;
+    int inId = 0;
+    int outId = 0;
+    for (int i = 0; i < intersectCount * 2; i++)
+    {
+        FrustumHit hitIn = frustumHitsIn[inId];
+        FrustumHit hitOut = frustumHitsOut[outId];
+
+        if (hitIn.t <= hitOut.t && inId < intersectCount)
+        {
+            // add into interval
+            currentlyInInterval++;
+
+            glm::vec2 maskId = calculateMaskId(hitIn.viewId);
+            int outer = int(maskId.x);
+            int inner = int(maskId.y);
+
+            cameraIndexMask[outer] = cameraIndexMask[outer] | (1 << inner);
+
+            currentStartT = hitIn.t;
+
+            inId++;
+        }
+        else
+        {
+            // remove from interval and possibly write interval
+            if (currentlyInInterval >= 4)
+            {
+                intervals[foundIntervals].t = glm::vec2(currentStartT, hitOut.t);
+                intervals[foundIntervals].idBits[0] = cameraIndexMask[0];
+                intervals[foundIntervals].idBits[1] = cameraIndexMask[1];
+                intervals[foundIntervals].idBits[2] = cameraIndexMask[2];
+                intervals[foundIntervals].idBits[3] = cameraIndexMask[3];
+
+                foundIntervals++;
+            }
+
+            currentlyInInterval--;
+
+            glm::vec2 maskId = calculateMaskId(hitOut.viewId);
+            int outer = int(maskId.x);
+            int inner = int(maskId.y);
+
+            cameraIndexMask[outer] = cameraIndexMask[outer] & (~(1 << inner));
+
+            // cycle until we find a previous value in the interval
+            for (int j = inId; j >= 0; j--)
+            {
+                FrustumHit prevHitIn = frustumHitsIn[j];
+                
+                if (prevHitIn.t == currentStartT && prevHitIn.viewId != hitOut.viewId)
                 {
-                    planesForView[intersect.planeId]++;
+                    break;
+                }
+                else if (prevHitIn.t == currentStartT && prevHitIn.viewId == hitOut.viewId)
+                {
+                    continue;
+                }
+                else
+                {
+                    glm::vec2 prevMaskId = calculateMaskId(prevHitIn.viewId);
+                    int prevOuter = int(maskId.x);
+                    int prevInner = int(maskId.y);
+
+                    uint prevIdNum = (1 << prevInner);
+                    uint check = cameraIndexMask[prevOuter] & prevIdNum;
+
+                    if (check == prevIdNum)
+                    {
+                        // it is in the interval
+                        currentStartT = prevHitIn.t;
+                        break;
+                    }
                 }
             }
-        }
 
-        for (int i = 0; i < 6; i++)
-        {
-            std::cout << "    plane: " << i << " intersects: " << planesForView[i] << std::endl;
+            outId++;
         }
-
-        std::cout << std::endl;
     }
+
+    std::cout << "Debug cpu info:" << std::endl;
+    std::cout << "number of intersections: " << intersectCount << std::endl;
+    std::cout << "number of intervals: " << foundIntervals << std::endl;
+
+    for (int i = 0; i < foundIntervals; i++)
+    {
+        std::cout << "interval: " << intervals[i].t.x << " " << intervals[i].t.y << std::endl;
+        std::cout << "[";
+
+        for (int j = 0; j < 16; j++)
+        {
+            glm::vec2 maskId = calculateMaskId(j);
+            int outer = int(maskId.x);
+            int inner = int(maskId.y);
+
+            int pre = (1 << inner);
+            int check = intervals[i].idBits[outer] & (pre);
+
+            if (check == pre)
+            {
+                std::cout << j << " ";
+            }
+        }
+        std::cout << "]" << std::endl;
+    }
+
+    
+    // for (auto& kvV : intersectsMap)
+    // {
+    //     std::cout << "View: " << kvV.first << std::endl;
+// 
+    //     std::array<int, 6> planesForView{0,0,0,0,0,0};
+    //     for (int y = 0; y < mainCameraRes.y; y++)
+    //     {
+    //         for (int x = 0; x < mainCameraRes.x; x++)
+    //         {                    
+    //             int cnt = 0;
+    //             for (auto& intersect : kvV.second[std::pair<int,int>(x, y)])
+    //             {
+    //                 planesForView[intersect.planeId]++;
+    //             }
+    //         }
+    //     }
+// 
+    //     for (int i = 0; i < 6; i++)
+    //     {
+    //         std::cout << "    plane: " << i << " intersects: " << planesForView[i] << std::endl;
+    //     }
+// 
+    //     std::cout << std::endl;
+    // }
 }
 
 }

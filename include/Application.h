@@ -104,6 +104,7 @@ private:
     std::vector<uint32_t> m_viewRowColumns;
 
     bool m_showCameraGeometry;
+    bool m_rayEvalOnCpu = false;
     bool m_renderFromViews;
     int m_changeOffscreenTarget;
 
