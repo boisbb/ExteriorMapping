@@ -31,6 +31,7 @@ public:
     glm::vec2 getNearFar() const;
     glm::vec2 getResolution() const;
     glm::vec3 getViewDir() const;
+    float getSensitivity() const;
 
     void setCameraInfo(const glm::vec3& eye,
         const glm::vec3& up, const glm::vec3& viewDir, const float& speed);

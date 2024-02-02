@@ -43,7 +43,7 @@ void Application::init()
 {
     utils::parseConfig("../res/config.json", m_config);
 
-    m_window = std::make_shared<Window>(WIDTH, HEIGHT);
+    m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
     m_device = std::make_shared<Device>(m_window);
     m_renderer = std::make_shared<Renderer>(m_device, m_window, "../res/shaders/vert.spv",
         "../res/shaders/frag.spv", "../res/shaders/comp.spv", "../res/shaders/quad_vert.spv",
@@ -101,14 +101,12 @@ void Application::draw()
         
         uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
         m_renderer->beginCommandBuffer();
-        m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass()->getRenderPass(), framebuffer->getFramebuffer(),
-            windowResolution, glm::vec2(WIDTH, HEIGHT));
+        m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
         m_renderer->renderPass(m_scene, views, (!m_renderFromViews));
         m_renderer->endRenderPass();
         // std::cout << "wtf" << std::endl;
 
-        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass()->getRenderPass(), m_renderer->getQuadFramebuffer(imageIndex)->getFramebuffer(),
-            windowResolution, windowResolution);
+        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer(imageIndex));
         m_renderer->quadRenderPass(windowResolution);
         renderImgui(lastFps);
         m_renderer->endRenderPass();
@@ -117,8 +115,6 @@ void Application::draw()
 
         m_renderer->submitFrame();
         m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
-
-        // Ray Eval compute pass
 
         if (m_rayEvalOnCpu)
             mainCameraTestRays();
@@ -149,7 +145,13 @@ void Application::consumeInput()
 
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse && !io.WantCaptureKeyboard)
-        vke::utils::consumeDeviceInput(m_window->getWindow(), (m_renderFromViews) ? m_views : m_novelViews);
+    {
+        VkExtent2D fbSize = m_renderer->getOffscreenFramebuffer()->getResolution();
+        glm::vec2 windowSize = m_window->getResolution();
+
+        vke::utils::consumeDeviceInput(m_window->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
+            (m_renderFromViews) ? m_views : m_novelViews);
+    }
 }
 
 void Application::initImgui()
@@ -172,7 +174,7 @@ void Application::initImgui()
 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.DisplaySize = ImVec2(WIDTH, HEIGHT);
+    io.DisplaySize = ImVec2(WINDOW_WIDTH, WINDOW_HEIGHT);
     io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
 
     ImGui_ImplGlfw_InitForVulkan(m_window->getWindow(), true);
@@ -406,7 +408,7 @@ void Application::addConfigViews()
 
     utils::Config::View& mainView = m_config.novelView;
 
-    std::shared_ptr<View> novelView = std::make_shared<View>(glm::vec2(WIDTH, HEIGHT),
+    std::shared_ptr<View> novelView = std::make_shared<View>(glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT),
         glm::vec2(0.f, 0.f), m_device, m_renderer->getViewDescriptorSetLayout(),
         m_renderer->getViewDescriptorPool());
     novelView->setDebugCameraGeometry(m_cameraCube);
@@ -443,12 +445,12 @@ void Application::addViewColumn(int rowId, int rowViewStartId)
     if (m_viewRowColumns.size() == 0)
         m_viewRowColumns.push_back(0);
     
-    VkExtent2D windowExtent = m_window->getExtent();
+    VkExtent2D framebufferExtent = m_renderer->getOffscreenFramebuffer()->getResolution();
 
     int rowViewsCount = m_viewRowColumns[rowId];
 
-    int newViewWidth = static_cast<float>(windowExtent.width) / static_cast<float>(rowViewsCount + 1);
-    int newViewHeight = static_cast<float>(windowExtent.height) / static_cast<float>(m_viewRowColumns.size());
+    int newViewWidth = static_cast<float>(framebufferExtent.width) / static_cast<float>(rowViewsCount + 1);
+    int newViewHeight = static_cast<float>(framebufferExtent.height) / static_cast<float>(m_viewRowColumns.size());
 
     int newViewWidthOffset = 0;
     int newViewHeightOffset = rowId * newViewHeight;
@@ -486,12 +488,12 @@ void Application::removeViewColumn(int rowId, int rowViewStartId)
     if (m_viewRowColumns[rowId] == 1)
         return;
     
-    VkExtent2D windowExtent = m_window->getExtent();
+    VkExtent2D framebufferExtent = m_renderer->getOffscreenFramebuffer()->getResolution();
 
     int rowViewsCount = m_viewRowColumns[rowId];
 
-    int newViewWidth = static_cast<float>(windowExtent.width) / static_cast<float>(rowViewsCount - 1);
-    int newViewHeight = static_cast<float>(windowExtent.height) / static_cast<float>(m_viewRowColumns.size());
+    int newViewWidth = static_cast<float>(framebufferExtent.width) / static_cast<float>(rowViewsCount - 1);
+    int newViewHeight = static_cast<float>(framebufferExtent.height) / static_cast<float>(m_viewRowColumns.size());
 
     int newViewWidthOffset = 0;
     int newViewHeightOffset = rowId * newViewHeight;
@@ -514,11 +516,12 @@ void Application::removeViewColumn(int rowId, int rowViewStartId)
 
 void Application::addViewRow()
 {
-    VkExtent2D windowExtent = m_window->getExtent();
+    // VkExtent2D windowExtent = m_window->getExtent();
+    VkExtent2D framebufferExtent = m_renderer->getOffscreenFramebuffer()->getResolution();
 
     int rowsCount = m_viewRowColumns.size();
 
-    int newViewHeight = static_cast<float>(windowExtent.height) / static_cast<float>(rowsCount + 1);
+    int newViewHeight = static_cast<float>(framebufferExtent.height) / static_cast<float>(rowsCount + 1);
     int newViewHeightOffset = 0;
     
     int viewId = 0;
@@ -545,7 +548,7 @@ void Application::addViewRow()
 
     newViewHeightOffset = newViewHeight * rowsCount;
 
-    std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(windowExtent.width, newViewHeight),
+    std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(framebufferExtent.width, newViewHeight),
         glm::vec2(0.f, newViewHeightOffset), m_device, m_renderer->getViewDescriptorSetLayout(),
         m_renderer->getViewDescriptorPool());
     view->setDebugCameraGeometry(m_cameraCube);
@@ -559,7 +562,7 @@ void Application::removeViewRow()
     if (m_viewRowColumns.size() == 1)
         return;
 
-    VkExtent2D windowExtent = m_window->getExtent();
+    VkExtent2D framebufferExtent = m_renderer->getOffscreenFramebuffer()->getResolution();
 
     int rowsCount = m_viewRowColumns.size();
     int lastRowViewsCount = m_viewRowColumns.back();
@@ -574,7 +577,7 @@ void Application::removeViewRow()
 
     m_viewRowColumns.erase(m_viewRowColumns.end() - 1);
 
-    int newViewHeight = static_cast<float>(windowExtent.height) / static_cast<float>(rowsCount - 1);
+    int newViewHeight = static_cast<float>(framebufferExtent.height) / static_cast<float>(rowsCount - 1);
     int newViewHeightOffset = 0;
 
     int viewId = 0;
@@ -702,6 +705,7 @@ glm::vec2 calculateMaskId(float id)
 void Application::mainCameraTestRays()
 {
     std::shared_ptr<Camera> mainCamera = m_novelViews[0]->getCamera();
+    glm::vec2 res = m_novelViews[0]->getResolution();
     glm::vec2 mainCameraRes = mainCamera->getResolution();
 
     // std::map<int, std::map<std::pair<int, int>, std::vector<IntersectInfo>>> intersectsMap;
@@ -713,11 +717,11 @@ void Application::mainCameraTestRays()
     
     for (int y = 0; y < mainCameraRes.y; y++)
     {
-        if (y != std::round(float(HEIGHT) / 2.f))
+        if (y != std::round(res.y / 2.f))
             continue;
         for (int x = 0; x < mainCameraRes.x; x++)
         {
-            if (x != std::round(float(WIDTH) / 2.f))
+            if (x != std::round(res.x / 2.f))
                 continue;
 
             glm::vec2 pixelCenter(x + 0.5f, y + 0.5f);
@@ -899,13 +903,55 @@ void Application::mainCameraTestRays()
             // remove from interval and possibly write interval
             if (currentlyInInterval >= 4)
             {
-                intervals[foundIntervals].t = glm::vec2(currentStartT, hitOut.t);
-                intervals[foundIntervals].idBits[0] = cameraIndexMask[0];
-                intervals[foundIntervals].idBits[1] = cameraIndexMask[1];
-                intervals[foundIntervals].idBits[2] = cameraIndexMask[2];
-                intervals[foundIntervals].idBits[3] = cameraIndexMask[3];
+                bool alreadyIn = false;
+                for (int j = 0; j < foundIntervals; j++)
+                {
+                    IntervalHit current = intervals[j];
 
-                foundIntervals++;
+                    bool currentSame = true;
+                    bool newSame = true;
+                    for (int k = 0; k < 4; k++)
+                    {
+                        uint mask = current.idBits[k] & cameraIndexMask[k];
+
+                        if (mask != current.idBits[k])
+                            currentSame = false;
+                        
+                        if (mask != cameraIndexMask[k])
+                            newSame = false;
+
+                    }
+
+                    if (currentSame && newSame)
+                    {
+                        alreadyIn = true;
+                        break;
+                    }
+                    else if (currentSame)
+                    {
+                        intervals[j].t = glm::vec2(currentStartT, hitOut.t);
+                        
+                        for (int k = 0; k < 4; k++)
+                        {
+                            intervals[j].idBits[k] = cameraIndexMask[k];
+                        }
+                    }
+                    else if (newSame)
+                    {
+                        alreadyIn = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyIn)
+                {
+                    intervals[foundIntervals].t = glm::vec2(currentStartT, hitOut.t);
+                    intervals[foundIntervals].idBits[0] = cameraIndexMask[0];
+                    intervals[foundIntervals].idBits[1] = cameraIndexMask[1];
+                    intervals[foundIntervals].idBits[2] = cameraIndexMask[2];
+                    intervals[foundIntervals].idBits[3] = cameraIndexMask[3];
+                    foundIntervals++;
+                }
             }
 
             currentlyInInterval--;

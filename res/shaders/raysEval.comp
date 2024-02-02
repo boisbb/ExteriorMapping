@@ -4,6 +4,8 @@
 #define MAX_INTERVALS 32
 #define MAX_HITS 128
 
+// #define WRITE_DEBUG
+
 struct ViewDataEvalCompute
 {
     vec4 frustumPlanes[6];
@@ -13,6 +15,8 @@ struct ViewEvalDebugCompute {
     vec4 frustumPlanes[6];
     int numOfIntersections;
     int numOfFoundIntervals;
+    // vec2 t[32];
+    // uint ids[128];
 };
 
 struct IntervalHit {
@@ -25,13 +29,6 @@ struct FrustumHit
     float t;
     int viewId;
 };
-
-// struct RayFrustumHitsDataCompute
-// {
-//     vec2 t;
-//     vec2 id;
-//     int planeId;
-// };
 
 layout(set=0, binding=0) uniform MainViewDataCompute {
     mat4 invView;
@@ -47,6 +44,8 @@ layout(std430, set=0, binding=1) readonly buffer ssbo {
 layout(std430, set=0, binding=2) buffer ssbo1 {
     ViewEvalDebugCompute objects[];
 } cssboDebug;
+
+layout(set=0, binding=3) uniform sampler2D viewImagesSampler;
 
 
 // layout(set=0, binding=2) buffer hSsbo {
@@ -230,11 +229,51 @@ void main()
                 // remove from interval and possibly write interval
                 if (currentlyInInterval >= 4)
                 {
-                    intervals[foundIntervals].t = vec2(currentStartT, hitOut.t);
-                    intervals[foundIntervals].idBits = cameraIndexMask;
+                    bool alreadyIn = false;
+                    for (int j = 0; j < foundIntervals; j++)
+                    {
+                        IntervalHit current = intervals[j];
 
-                    foundIntervals++;
+                        bool currentSame = true;
+                        bool newSame = true;
+                        for (int k = 0; k < 4; k++)
+                        {
+                            uint mask = current.idBits[k] & cameraIndexMask[k];
+
+                            if (mask != current.idBits[k])
+                                currentSame = false;
+                            
+                            if (mask != cameraIndexMask[k])
+                                newSame = false;
+
+                        }
+
+                        if (currentSame && newSame)
+                        {
+                            alreadyIn = true;
+                            break;
+                        }
+                        else if (currentSame)
+                        {
+                            intervals[j].t = vec2(currentStartT, hitOut.t);
+                            intervals[j].idBits = cameraIndexMask;
+                        }
+                        else if (newSame)
+                        {
+                            alreadyIn = true;
+                            break;
+                        }
+                    }
+
+                    if (!alreadyIn)
+                    {
+                        intervals[foundIntervals].t = vec2(currentStartT, hitOut.t);
+                        intervals[foundIntervals].idBits = cameraIndexMask;
+                        foundIntervals++;
+                    }
                 }
+
+                currentlyInInterval--;
 
                 vec2 maskId = calculateMaskId(hitOut.viewId);
                 int outer = int(maskId.x);
@@ -279,8 +318,20 @@ void main()
 
         int linearRes = int((ubo.res.x * pixId.y) + pixId.x);
 
-        cssboDebug.objects[linearRes].numOfIntersections = foundIntervals;
+#ifdef WRITE_DEBUG
+        cssboDebug.objects[linearRes].numOfIntersections = intersectCount;
         cssboDebug.objects[linearRes].numOfFoundIntervals = foundIntervals;
+
+        // for (int j = 0; j < foundIntervals; j++)
+        // {
+        //     cssboDebug.objects[linearRes].t[j] = intervals[j].t;
+// 
+        //     for (int k = 0; k < 4; k++)
+        //     {
+        //         cssboDebug.objects[linearRes].ids[int(j * 4 + k)] = intervals[j].idBits[k];
+        //     }
+        // }
+#endif
         
     }
 }

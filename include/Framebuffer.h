@@ -24,6 +24,7 @@ public:
     VkImageView getColorImageView() const;
     std::shared_ptr<Image> getColorImage() const; 
     VkDescriptorImageInfo getColorImageInfo();
+    VkExtent2D getResolution() const;
 
 private:
     void createImages();

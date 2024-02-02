@@ -88,6 +88,11 @@ glm::vec3 Camera::getViewDir() const
     return m_viewDirection;
 }
 
+float Camera::getSensitivity() const
+{
+    return m_sensitivity;
+}
+
 void Camera::setCameraInfo(const glm::vec3& eye,
     const glm::vec3& up, const glm::vec3& viewDir, const float& speed)
 {

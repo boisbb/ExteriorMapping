@@ -86,8 +86,9 @@ struct ViewEvalDebugCompute {
     glm::vec4 frustumPlanes[6];
     int numOfIntersections;
     int numOfFoundIntervals;
-    float __padding0[2];
-    // float __padding1[3];
+    // glm::vec2 t[32];
+    // uint ids[128];
+    float __padding[2];
 };
 
 struct RayFrustumHitsDataCompute {

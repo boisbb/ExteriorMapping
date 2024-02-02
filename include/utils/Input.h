@@ -27,7 +27,7 @@
 namespace vke::utils
 {
 
-void consumeDeviceInput(GLFWwindow* window, std::vector<std::shared_ptr<View>> views)
+void consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::vector<std::shared_ptr<View>> views)
 {
     double mouseX;
     double mouseY;
@@ -36,11 +36,14 @@ void consumeDeviceInput(GLFWwindow* window, std::vector<std::shared_ptr<View>> v
     std::shared_ptr<Camera> camera = views[0]->getCamera();
     std::shared_ptr<View> view = views[0];
 
+    glm::vec2 offset;
+    glm::vec2 resolution;
+
     for (int i = 0; i < views.size(); i++)
     {
-        auto& v = views[i];
-        glm::vec2 offset = v->getViewportStart();
-        glm::vec2 resolution = v->getResolution();
+        auto v = views[i];
+        offset = v->getViewportStart() * framebufferRatio;
+        resolution = v->getResolution() * framebufferRatio;
 
         if ((mouseX >= offset.x && mouseX < offset.x + resolution.x)
          && (mouseY >= offset.y && mouseY < offset.y + resolution.y))
@@ -49,7 +52,6 @@ void consumeDeviceInput(GLFWwindow* window, std::vector<std::shared_ptr<View>> v
             view = v;
         }
     }
-
 
     static bool firstClick = true;
     static double prevMouseX = 0;
@@ -95,23 +97,23 @@ void consumeDeviceInput(GLFWwindow* window, std::vector<std::shared_ptr<View>> v
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
-        float sensitivity = 0.f;
-
-        glm::vec2 resolution;
-        camera->getCameraRotateInfo(resolution, sensitivity);
+        float sensitivity = camera->getSensitivity();
+        offset = view->getViewportStart() * framebufferRatio;
+        resolution = view->getResolution() * framebufferRatio;
         
-        glm::vec2 viewportOffset = view->getViewportStart();
         if (firstClick)
         {
-            glfwSetCursorPos(window, viewportOffset.x + (resolution.x / 2), viewportOffset.y + (resolution.y / 2));
+            glfwSetCursorPos(window, std::round(offset.x + (resolution.x / 2)), std::round(offset.y + (resolution.y / 2)));
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
             firstClick = false;
         }
         else
         {
+            float rotx = sensitivity * (float)(mouseY - std::round((offset.y + (resolution.y / 2)))) / resolution.y;
+            float roty = sensitivity * (float)(mouseX - std::round((offset.x + (resolution.x / 2)))) / resolution.x;
 
-            float rotx = sensitivity * (float)(mouseY - (viewportOffset.y + (resolution.y / 2))) / resolution.y;
-            float roty = sensitivity * (float)(mouseX - (viewportOffset.x + (resolution.x / 2))) / resolution.x;
+            float t = (float)((offset.y + (resolution.y / 2)));
+            float t2 = (float)((offset.x + (resolution.x / 2)));
 
             glm::vec3 newViewDir = glm::rotate(viewDir, glm::radians(-rotx), glm::normalize(glm::cross(viewDir, up)));
 
@@ -122,7 +124,7 @@ void consumeDeviceInput(GLFWwindow* window, std::vector<std::shared_ptr<View>> v
 
             viewDir = glm::rotate(viewDir, glm::radians(-roty), up);
 
-            glfwSetCursorPos(window, viewportOffset.x + (resolution.x / 2), viewportOffset.y + (resolution.y / 2));
+            glfwSetCursorPos(window, std::round(offset.x + (resolution.x / 2)), std::round(offset.y + (resolution.y / 2)));
         }
 
     }

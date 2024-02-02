@@ -55,6 +55,11 @@ VkDescriptorImageInfo Framebuffer::getColorImageInfo()
     return info;
 }
 
+VkExtent2D Framebuffer::getResolution() const
+{
+    return m_resolution;
+}
+
 void Framebuffer::createFramebuffer(std::shared_ptr<RenderPass> renderPass)
 {
     std::array<VkImageView, 2> attachments = {

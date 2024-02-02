@@ -85,8 +85,7 @@ public:
     void endComputePass();
 
     void beginCommandBuffer();
-    void beginRenderPass(VkRenderPass renderPass, VkFramebuffer framebuffer, glm::vec2 windowResolution,
-        glm::uvec2 renderArea, bool clear = true);
+    void beginRenderPass(std::shared_ptr<RenderPass> renderPass, std::shared_ptr<Framebuffer> framebuffer, bool clear = true);
     void endRenderPass();
     void endCommandBuffer();
 private:
