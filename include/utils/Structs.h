@@ -80,15 +80,19 @@ struct MainViewDataCompute {
 
 struct ViewEvalDataCompute {
     glm::vec4 frustumPlanes[6];
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::vec4 resOffset;
 };
 
 struct ViewEvalDebugCompute {
     glm::vec4 frustumPlanes[6];
     int numOfIntersections;
     int numOfFoundIntervals;
+    glm::vec2 viewRes;
     // glm::vec2 t[32];
     // uint ids[128];
-    float __padding[2];
+    //float __padding[2];
 };
 
 struct RayFrustumHitsDataCompute {

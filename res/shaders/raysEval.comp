@@ -3,18 +3,23 @@
 #define MAX_VIEWS 128
 #define MAX_INTERVALS 32
 #define MAX_HITS 128
+#define RAY_PIX_SAMPLES 32
 
 // #define WRITE_DEBUG
 
 struct ViewDataEvalCompute
 {
     vec4 frustumPlanes[6];
+    mat4 view;
+    mat4 proj;
+    vec4 resOffset;
 };
 
 struct ViewEvalDebugCompute {
     vec4 frustumPlanes[6];
     int numOfIntersections;
     int numOfFoundIntervals;
+    vec2 viewRes;
     // vec2 t[32];
     // uint ids[128];
 };
@@ -47,6 +52,8 @@ layout(std430, set=0, binding=2) buffer ssbo1 {
 
 layout(set=0, binding=3) uniform sampler2D viewImagesSampler;
 
+layout(set=0, binding=4) uniform writeonly image2D novelImageSampler;
+
 
 // layout(set=0, binding=2) buffer hSsbo {
 //     RayFrustumHitsDataCompute objects[];
@@ -62,12 +69,19 @@ vec2 calculateMaskId(float id)
     return vec2(maskId, innermaskId);
 }
 
+vec2 calculatePixId(vec3 t, mat4 view, mat4 proj, vec2 res, vec2 offset)
+{
+    vec4 ct = proj * view * vec4(t, 1.f);
+    ct /= ct.w;
+
+    return (((ct.xy + 1) / 2) * res) + offset;
+}
 
 void main()
 {
     vec2 pixId = gl_GlobalInvocationID.xy;
 
-    if (pixId.x <= ubo.res.x && pixId.y <= ubo.res.y)
+    if (pixId.x < ubo.res.x && pixId.y < ubo.res.y)
     {
         FrustumHit frustumHitsIn[MAX_HITS];
         FrustumHit frustumHitsOut[MAX_HITS];
@@ -316,11 +330,66 @@ void main()
             }
         }
 
+        vec4 dist = vec4(2);
+        vec4 avg = vec4(0);
+
+        for (int i = 0; i < foundIntervals; i++)
+        {
+            for (int j = 0; j < 128; j++)
+            {
+                ViewDataEvalCompute currentView = cssbo.objects[j];
+
+                vec2 maskId = calculateMaskId(j);
+                int outer = int(maskId.x);
+                int inner = int(maskId.y);
+
+                uint check = intervals[i].idBits[outer] & (1 << inner);
+
+                if (check == (1 << inner))
+                {
+                    mat4 view = currentView.view;
+                    mat4 proj = currentView.proj;
+                    vec2 res = currentView.resOffset.xy;
+                    vec2 offset = currentView.resOffset.zw;
+                    
+                    float sampleDist = (intervals[i].t.y - intervals[i].t.x) / RAY_PIX_SAMPLES;
+                    float segmentStart = intervals[i].t.x;
+
+                    vec4 localMin = vec4(2);
+                    vec4 localMax = vec4(-1);
+
+                    for (int k = 0; k < RAY_PIX_SAMPLES; k++)
+                    {
+                        vec3 p = org + dir * (segmentStart + k * sampleDist);
+                        vec2 pixId = calculatePixId(p, view, proj, res, offset);
+
+                        // todo: here normalize the pixId
+
+                        vec4 pixVal = texture(viewImagesSampler, pixId);
+                    }
+
+                }
+            }
+        }
+
+
+
+        if (foundIntervals > 0)
+        {
+            vec3 color = vec3(1, 0, 0);
+            imageStore(novelImageSampler, ivec2(pixId), vec4(color, 1));
+        }
+        else
+        {
+            imageStore(novelImageSampler, ivec2(pixId), vec4(0, 0, 1, 1));
+        }
+
         int linearRes = int((ubo.res.x * pixId.y) + pixId.x);
 
 #ifdef WRITE_DEBUG
         cssboDebug.objects[linearRes].numOfIntersections = intersectCount;
         cssboDebug.objects[linearRes].numOfFoundIntervals = foundIntervals;
+        cssboDebug.objects[linearRes].viewRes = cssbo.objects[0].resOffset.xy;
 
         // for (int j = 0; j < foundIntervals; j++)
         // {

@@ -46,6 +46,8 @@ Device::Device(std::shared_ptr<Window> window)
     vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
     auto props = properties.limits.maxBoundDescriptorSets;
 
+    getQueueFamilies();
+
     m_depthFormat = findDepthFormat();
 }
 
@@ -300,7 +302,13 @@ VkFormat Device::getDepthFormat() const
 
 QueueFamilyIndices Device::getQueueFamilies()
 {
-    return findQueueFamilies(m_physicalDevice);
+    m_familyIndices = findQueueFamilies(m_physicalDevice);
+    return m_familyIndices;
+}
+
+QueueFamilyIndices Device::getQueueFamilyIndices()
+{
+    return m_familyIndices;
 }
 
 uint32_t Device::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
@@ -404,6 +412,14 @@ void Device::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
+    else if (oldL == VK_IMAGE_LAYOUT_UNDEFINED && newL == VK_IMAGE_LAYOUT_GENERAL)
+    {
+        barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.dstAccessMask = 0;
+
+        sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    }
     else
     {
         throw std::invalid_argument("Unsupported layout transition.");
@@ -437,6 +453,24 @@ VkImageView Device::createImageView(VkImage image, VkFormat format, VkImageAspec
     if (vkCreateImageView(m_device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
         throw std::runtime_error("Error createing image view");
     return imageView;
+}
+
+void Device::createImageBarrier(VkCommandBuffer commandBuffer, VkAccessFlags src, VkAccessFlags dst, VkImageLayout oldL,
+    VkImageLayout newL, VkImage image, VkImageAspectFlags imgAspectFlags, VkPipelineStageFlags srcStage,
+    VkPipelineStageFlags dstStage)
+{
+    VkImageMemoryBarrier imb{};
+    imb.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imb.oldLayout = oldL;
+    imb.newLayout = newL;
+    imb.image = image;
+    imb.subresourceRange = { imgAspectFlags, 0, 1, 0, 1 };
+    imb.srcAccessMask = src;
+    imb.dstAccessMask = dst;
+    imb.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imb.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &imb);
 }
 
 void Device::beginSingleCommands(VkCommandBuffer& commandBuffer)

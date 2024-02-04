@@ -22,6 +22,8 @@ class GraphicsPipeline;
 class ComputePipeline;
 class RenderPass;
 class Framebuffer;
+class Image;
+class Sampler;
 
 class Renderer
 {
@@ -52,6 +54,7 @@ public:
     void submitCompute();
     void presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> window, std::shared_ptr<View> view,
         bool& resizeViews);
+    void setQuadSourceImage(const bool& novelViewImage);
 
     void changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo);
 
@@ -86,6 +89,7 @@ public:
 
     void beginCommandBuffer();
     void beginRenderPass(std::shared_ptr<RenderPass> renderPass, std::shared_ptr<Framebuffer> framebuffer, bool clear = true);
+    void setNovelViewBarrier();
     void endRenderPass();
     void endCommandBuffer();
 private:
@@ -152,6 +156,10 @@ private:
     std::shared_ptr<DescriptorPool> m_computePool;
     std::shared_ptr<DescriptorPool> m_computeScenePool;
     std::shared_ptr<DescriptorPool> m_computeRayEvalPool;
+
+    std::shared_ptr<Image> m_novelImage;
+    std::shared_ptr<Sampler> m_novelImageSampler;
+    VkImageView m_novelImageView;
 
     std::vector<int> bufferBindings;
 

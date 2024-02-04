@@ -133,8 +133,7 @@
     },
     "sceneData": {
         "models": [
-            "../res/models/dabrovic_sponza/sponza.obj",
-            "../res/models/porsche/porsche.obj"
+            "../res/models/dabrovic_sponza/sponza.obj"
         ],
         "lightPos": {
             "x": 0,

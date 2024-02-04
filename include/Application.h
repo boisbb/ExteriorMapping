@@ -103,6 +103,7 @@ private:
 
     std::vector<uint32_t> m_viewRowColumns;
 
+    bool m_renderNovel = false;
     bool m_showCameraGeometry;
     bool m_rayEvalOnCpu = false;
     bool m_renderFromViews;

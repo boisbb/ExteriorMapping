@@ -3,6 +3,8 @@
 #include "Scene.h"
 #include "Camera.h"
 #include "View.h"
+#include "Image.h"
+#include "Sampler.h"
 #include "Pipeline.h"
 #include "RenderPass.h"
 #include "Framebuffer.h"
@@ -68,6 +70,7 @@ void Renderer::initDescriptorResources()
 
         std::vector<VkDescriptorImageInfo> imageInfos{
             m_offscreenFramebuffer->getColorImageInfo()
+            // VkDescriptorImageInfo{m_novelImageSampler->getVkSampler(), m_novelImageView, m_novelImage->getVkImageLayout()}
         };
 
         std::vector<uint32_t> imageBinding{
@@ -155,11 +158,12 @@ void Renderer::initDescriptorResources()
         m_computeRayEvalDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
 
         std::vector<VkDescriptorImageInfo> imageInfos = {
-            m_viewMatrixFramebuffer->getColorImageInfo()
+            m_viewMatrixFramebuffer->getColorImageInfo(),
+            VkDescriptorImageInfo{m_novelImageSampler->getVkSampler(), m_novelImageView, m_novelImage->getVkImageLayout()}
         };
 
         std::vector<uint32_t> imageBinding = {
-            3
+            3, 4
         };
 
         m_computeRayEvalDescriptorSets[i]->updateImages(imageBinding, imageInfos);
@@ -196,6 +200,9 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
 {
     updateRayEvalComputeDescriptorData(novelViews, views);
 
+    m_device->createImageBarrier(m_computeCommandBuffers[m_currentFrame], 0, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_GENERAL, m_novelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
     VkDescriptorSet rayEvalSet = m_computeRayEvalDescriptorSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_computeRaysEvalPipeline->getPipelineLayout(),
         0, 1, &rayEvalSet, 0, nullptr);
@@ -212,6 +219,7 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
     std::cout << "Debug gpu info:" << std::endl;
     std::cout << "number of intersections: " << evalData[linearResId].numOfIntersections << std::endl;
     std::cout << "number of intervals: " << evalData[linearResId].numOfFoundIntervals << std::endl;
+    std::cout << "res: " << evalData[linearResId].viewRes.x << std::endl;
 
     // for (int i = 0; i < evalData[linearResId].numOfFoundIntervals; i++)
     // {
@@ -422,6 +430,29 @@ void Renderer::presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> 
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+void Renderer::setQuadSourceImage(const bool& novelViewImage)
+{
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        std::vector<VkDescriptorImageInfo> imageInfos;
+
+        if (novelViewImage)
+        {
+            imageInfos.push_back(VkDescriptorImageInfo{m_novelImageSampler->getVkSampler(), m_novelImageView, m_novelImage->getVkImageLayout()});
+        }
+        else
+        {
+            imageInfos.push_back(m_offscreenFramebuffer->getColorImageInfo());
+        }
+
+        std::vector<uint32_t> imageBinding{
+            4
+        };
+
+        m_generalDescriptorSets[i]->updateImages(imageBinding, imageInfos, 0);
+    }
+}
+
 void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo)
 {
     std::vector<VkDescriptorImageInfo> imageInfos{
@@ -629,6 +660,12 @@ void Renderer::beginRenderPass(std::shared_ptr<RenderPass> renderPass, std::shar
     renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void Renderer::setNovelViewBarrier()
+{
+    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], 0, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_LAYOUT_GENERAL, m_novelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void Renderer::endRenderPass()
@@ -900,13 +937,15 @@ void Renderer::createDescriptors()
         1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding viewsFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
+        VkDescriptorSetLayoutBinding novelFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
     
     std::vector<VkDescriptorSetLayoutBinding> computeRayGenLayoutBindings = {
         uboRayGenLayoutBinding,
         ssboRayGenLayoutBinding,
         ssboDebugRayGenLayoutBinding,
-        viewsFramebRayGenLayoutBinding
-        // hitSsboRayGenLayoutBinding
+        viewsFramebRayGenLayoutBinding,
+        novelFramebRayGenLayoutBinding
     };
 
     m_computeRayEvalSetLayout = std::make_shared<DescriptorSetLayout>(m_device, computeRayGenLayoutBindings);
@@ -919,13 +958,16 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
     VkDescriptorPoolSize viewsFramebDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    VkDescriptorPoolSize frameFramebDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     
 
     std::vector<VkDescriptorPoolSize> computeRayGenSizes = {
         uboRayGenPoolSize,
         ssboRayGenPoolSize,
         ssboDebugRayGenPoolSize,
-        viewsFramebDebugRayGenPoolSize
+        viewsFramebDebugRayGenPoolSize,
+        frameFramebDebugRayGenPoolSize
     };
 
     m_computeRayEvalPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
@@ -948,6 +990,14 @@ void Renderer::createRenderResources()
 
     m_viewMatrixFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
         VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
+
+    m_novelImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    m_novelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_novelImageView = m_novelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
+    m_novelImageSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR);
+    
 }
 
 void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
@@ -1102,6 +1152,15 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
     {
         std::vector<glm::vec4> planes = views[i]->getCamera()->getFrustumPlanes();
         memcpy(cressbo[i].frustumPlanes, planes.data(), sizeof(glm::vec4) * 6);
+        cressbo[i].view = views[i]->getCamera()->getView();
+        cressbo[i].proj = views[i]->getCamera()->getProjection();
+
+        glm::vec2 res = views[i]->getResolution();
+        glm::vec2 offset = views[i]->getViewportStart();
+        cressbo[i].resOffset.x = res.x;
+        cressbo[i].resOffset.y = res.y;
+        cressbo[i].resOffset.z = offset.x;
+        cressbo[i].resOffset.w = offset.y;
     }
 
     m_cressbo[m_currentFrame]->copyMapped(cressbo.data(), sizeof(ViewEvalDataCompute) * cressbo.size());

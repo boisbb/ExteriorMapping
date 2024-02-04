@@ -43,6 +43,7 @@ public:
     ~Device();
 
     QueueFamilyIndices getQueueFamilies();
+    QueueFamilyIndices getQueueFamilyIndices();
     SwapChainSupportDetails getSwapChainSupport();
     VkSurfaceKHR getSurface() const;
     VkDevice getVkDevice() const;
@@ -64,6 +65,9 @@ public:
         VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectMask);
+    void createImageBarrier(VkCommandBuffer commandBuffer, VkAccessFlags src, VkAccessFlags dst, VkImageLayout oldL, VkImageLayout newL,
+        VkImage image, VkImageAspectFlags imgAspectFlags, VkPipelineStageFlags srcStage,
+        VkPipelineStageFlags dstStage);
 
     void beginSingleCommands(VkCommandBuffer& commandBuffer);
     void endSingleCommands(VkCommandBuffer& commandBuffer);
@@ -110,6 +114,8 @@ private:
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;
     VkQueue m_computeQueue;
+
+    QueueFamilyIndices m_familyIndices;
 
     bool m_enableValidationLayers = true;
 
