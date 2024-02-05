@@ -41,7 +41,7 @@ void Application::run()
 
 void Application::init()
 {
-    utils::parseConfig("../res/config.json", m_config);
+    utils::parseConfig("../res/config2grid.json", m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
     m_device = std::make_shared<Device>(m_window);
@@ -220,30 +220,52 @@ void Application::renderImgui(int lastFps)
     std::string fpsStr = std::to_string(lastFps) + "fps";
     ImGui::Text(fpsStr.c_str());
 
-    if (ImGui::CollapsingHeader("Light"))
+    if(ImGui::CollapsingHeader("Main view"))
     {
-        glm::vec3 lightPos = m_scene->getLightPos();
-        if (ImGui::SliderFloat3("Light Position:", &lightPos.x, -50.f, 50.f))
-        {
-            m_scene->setLightPos(lightPos);
-            m_scene->setLightChanged(true);
-            
-#if DRAW_LIGHT
-            glm::mat4 lightMatrix = glm::translate(glm::mat4(1.f), lightPos);
-            lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
-            m_light->setModelMatrix(lightMatrix);
-#endif
-        }
-    }
+        ImGui::Indent();
+        ImGui::PushID(0);
 
-    if (ImGui::Checkbox("Render novel view", &m_renderNovel))
-    {
-        m_renderer->setQuadSourceImage(m_renderNovel);
+        if (ImGui::Checkbox("Render novel view", &m_renderNovel))
+        {
+            m_renderer->setQuadSourceImage(m_renderNovel);
+        }
+        
+        //ImGui::DragFloat("Views FOV", &m_viewsFov, 5.f, 0.f, 120.f);
+        if(ImGui::CollapsingHeader("Parameters"))
+        {
+            ImGui::InputFloat("FOV", &m_mainViewFov);
+            if(ImGui::Button("Apply"))
+            {
+                m_novelViews[0]->getCamera()->setFov(m_mainViewFov);
+            }
+        }
+
+        ImGui::PopID();
+        ImGui::Unindent();
     }
 
     if (ImGui::CollapsingHeader("Views"))
     {
         ImGui::Indent();
+
+        if (ImGui::CollapsingHeader("Views parameters"))
+        {
+            ImGui::Indent();
+            ImGui::PushID(1);
+            
+            //ImGui::DragFloat("Views FOV", &m_viewsFov, 5.f, 0.f, 120.f);
+            ImGui::InputFloat("FOV", &m_viewsFov);
+            if(ImGui::Button("Apply"))
+            {
+                for (auto& view : m_views)
+                {
+                    view->getCamera()->setFov(m_viewsFov);
+                }
+            }
+
+            ImGui::PopID();
+            ImGui::Unindent();
+        }
 
         if (ImGui::Checkbox("Render from view matrix", &m_renderFromViews))
         {
@@ -396,6 +418,25 @@ void Application::renderImgui(int lastFps)
         ImGui::Unindent();
     }
 
+
+    if (ImGui::CollapsingHeader("Light"))
+    {
+        glm::vec3 lightPos = m_scene->getLightPos();
+        ImGui::Indent();
+        if (ImGui::SliderFloat3("Light Position:", &lightPos.x, -50.f, 50.f))
+        {
+            m_scene->setLightPos(lightPos);
+            m_scene->setLightChanged(true);
+            
+#if DRAW_LIGHT
+            glm::mat4 lightMatrix = glm::translate(glm::mat4(1.f), lightPos);
+            lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
+            m_light->setModelMatrix(lightMatrix);
+#endif
+        }
+        ImGui::Unindent();
+    }
+
     ImGui::End();
 
     ImGui::Render();
@@ -419,6 +460,7 @@ void Application::addConfigViews()
     novelView->setDebugCameraGeometry(m_cameraCube);
     novelView->setCameraEye(mainView.cameraPos);
     novelView->getCamera()->setViewDir(viewDir);
+    novelView->getCamera()->setFov(m_mainViewFov);
 
     m_novelViews.push_back(novelView);
 
@@ -474,6 +516,7 @@ void Application::addViewColumn(int rowId, int rowViewStartId)
     std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(newViewWidth, newViewHeight), glm::vec2(newViewWidthOffset, newViewHeightOffset),
         m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
     view->setDebugCameraGeometry(m_cameraCube);
+    view->getCamera()->setFov(m_viewsFov);
 
     // m_scene->setReinitializeDebugCameraGeometryFlag(true);
     // if (m_scene->getRenderDebugGeometryFlag())
@@ -557,6 +600,7 @@ void Application::addViewRow()
         glm::vec2(0.f, newViewHeightOffset), m_device, m_renderer->getViewDescriptorSetLayout(),
         m_renderer->getViewDescriptorPool());
     view->setDebugCameraGeometry(m_cameraCube);
+    view->getCamera()->setFov(m_viewsFov);
     
     m_viewRowColumns.push_back(1);
     m_views.push_back(view);

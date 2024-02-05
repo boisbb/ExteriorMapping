@@ -219,7 +219,7 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
     std::cout << "Debug gpu info:" << std::endl;
     std::cout << "number of intersections: " << evalData[linearResId].numOfIntersections << std::endl;
     std::cout << "number of intervals: " << evalData[linearResId].numOfFoundIntervals << std::endl;
-    std::cout << "res: " << evalData[linearResId].viewRes.x << std::endl;
+    std::cout << "res: " << evalData[linearResId].viewRes.x << " " << evalData[linearResId].viewRes.y << std::endl;
 
     // for (int i = 0; i < evalData[linearResId].numOfFoundIntervals; i++)
     // {
@@ -1137,11 +1137,13 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
     // Main view for now is the first one.
     std::shared_ptr<Camera> mainCamera = novelViews[0]->getCamera();
     glm::vec2 res = novelViews[0]->getResolution();
+    VkExtent2D offscreenFbRes = m_offscreenFramebuffer->getResolution();
 
     MainViewDataCompute creuData{};
     creuData.invProj = mainCamera->getProjectionInverse();
     creuData.invView = mainCamera->getViewInverse();
     creuData.res = res;
+    creuData.viewsTotalRes = glm::vec2(offscreenFbRes.width, offscreenFbRes.height);
     creuData.viewCnt = views.size();
 
     m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(MainViewDataCompute));

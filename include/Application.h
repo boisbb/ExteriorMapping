@@ -108,6 +108,8 @@ private:
     bool m_rayEvalOnCpu = false;
     bool m_renderFromViews;
     int m_changeOffscreenTarget;
+    float m_viewsFov = 90.f;
+    float m_mainViewFov = 90.f;
 
     utils::Config m_config;
 };

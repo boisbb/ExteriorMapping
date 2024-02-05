@@ -124,7 +124,7 @@ void View::updateDescriptorDataRenderDebugCube(std::vector<MeshShaderDataVertex>
 
         glm::mat4 matrix = glm::inverse(m_camera->getView());
         // glm::mat4 matrix = glm::translate(glm::mat4(1.f), m_camera->getEye());
-        matrix = glm::scale(matrix, glm::vec3(0.3f, 0.3f, 0.3f));
+        matrix = glm::scale(matrix, glm::vec3(0.09f, 0.09f, 0.09f));
 
         vertexShaderData.push_back(MeshShaderDataVertex());
         vertexShaderData.back().model = matrix;

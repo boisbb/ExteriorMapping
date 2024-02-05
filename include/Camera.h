@@ -15,7 +15,7 @@ public:
         glm::vec3 up = glm::vec3(0.f, 1.f, 0.f),
         float nearPlane = 0.1f,
         float farPlane = 100.f,
-        float fov = 45.f);
+        float fov = 90.f);
     ~Camera();
 
     glm::mat4 getView() const;
@@ -32,12 +32,14 @@ public:
     glm::vec2 getResolution() const;
     glm::vec3 getViewDir() const;
     float getSensitivity() const;
+    float getFov() const;
 
     void setCameraInfo(const glm::vec3& eye,
         const glm::vec3& up, const glm::vec3& viewDir, const float& speed);
     void setCameraResolution(const glm::vec2& resolution);
     void setCameraEye(glm::vec3 eye);
     void setViewDir(glm::vec3& viewDir);
+    void setFov(float fov);
 
     void reconstructMatrices();
 private:

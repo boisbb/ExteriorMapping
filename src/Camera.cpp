@@ -93,6 +93,11 @@ float Camera::getSensitivity() const
     return m_sensitivity;
 }
 
+float Camera::getFov() const
+{
+    return m_fov;
+}
+
 void Camera::setCameraInfo(const glm::vec3& eye,
     const glm::vec3& up, const glm::vec3& viewDir, const float& speed)
 {
@@ -115,6 +120,11 @@ void Camera::setCameraEye(glm::vec3 eye)
 void Camera::setViewDir(glm::vec3 &viewDir)
 {
     m_viewDirection = viewDir;
+}
+
+void Camera::setFov(float fov)
+{
+    m_fov = fov;
 }
 
 void Camera::reconstructMatrices()

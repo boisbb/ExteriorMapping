@@ -16,14 +16,20 @@
                         "y": 2,
                         "z": 0
                     }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 2,
+                        "z": 1
+                    }
                 }
             ]
         ]
     },
     "sceneData": {
         "models": [
-            "../res/models/dabrovic_sponza/sponza.obj",
-            "../res/models/porsche/porsche.obj"
+            "../res/models/dabrovic_sponza/sponza.obj"
         ],
         "lightPos": {
             "x": 0,

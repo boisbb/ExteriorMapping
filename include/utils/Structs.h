@@ -75,6 +75,7 @@ struct MainViewDataCompute {
     glm::mat4 invView;
     glm::mat4 invProj;
     glm::vec2 res;
+    glm::vec2 viewsTotalRes;
     int viewCnt;
 };
 
