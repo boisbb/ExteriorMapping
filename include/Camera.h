@@ -63,7 +63,7 @@ private:
     float m_far;
     float m_fov;
 
-    float m_moveSpeed = 0.1f;
+    float m_moveSpeed = 0.05f;
     float m_sensitivity = 100.f;
 };
 

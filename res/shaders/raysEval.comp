@@ -3,7 +3,7 @@
 #define MAX_VIEWS 128
 #define MAX_INTERVALS 32
 #define MAX_HITS 128
-#define RAY_PIX_SAMPLES 128
+#define RAY_PIX_SAMPLES 32
 #define MIN_INTERVAL_VIEWS 4
 
 // #define WRITE_DEBUG
@@ -338,64 +338,59 @@ void main()
         vec4 testColor = vec4(1);
         int chosenView = -1;
 
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < foundIntervals; i++)
         {
-            for (int j = 0; j < 15; j++)
+            float sampleDist = (intervals[i].t.y - intervals[i].t.x) / RAY_PIX_SAMPLES;
+            float segmentStart = intervals[i].t.x;
+
+            for (int j = 0; j < RAY_PIX_SAMPLES; j++)
             {
-                ViewDataEvalCompute currentView = cssbo.objects[j];
+                vec3 p = org + dir * (segmentStart + j * sampleDist);
 
-                vec2 maskId = calculateMaskId(j);
-                int outer = int(maskId.x);
-                int inner = int(maskId.y);
+                vec4 localMin = vec4(2);
+                vec4 localMax = vec4(-1);
+                vec4 localAvg = vec4(0);
 
-                uint check = intervals[i].idBits[outer] & (1 << inner);
+                int numOfViews = 0;
 
-                if (check == (1 << inner))
+                for (int k = 0; k < MAX_VIEWS; k++)
                 {
-                    mat4 view = currentView.view;
-                    mat4 proj = currentView.proj;
-                    vec2 res = currentView.resOffset.xy;
-                    vec2 offset = currentView.resOffset.zw;
-                    
-                    float sampleDist = (intervals[i].t.y - intervals[i].t.x) / RAY_PIX_SAMPLES;
-                    float segmentStart = intervals[i].t.x;
+                    vec2 maskId = calculateMaskId(k);
+                    int outer = int(maskId.x);
+                    int inner = int(maskId.y);
 
-                    vec4 localMin = vec4(2);
-                    vec4 localMax = vec4(-1);
+                    uint check = intervals[i].idBits[outer] & (1 << inner);
 
-                    vec4 localAvg = vec4(0);
-
-                    for (int k = 0; k < RAY_PIX_SAMPLES; k++)
+                    if (check == (1 << inner))
                     {
-                        vec3 p = org + dir * (segmentStart + k * sampleDist);
-                        vec2 pixId = calculatePixId(p, view, proj, res, offset);
+                        ViewDataEvalCompute currentView = cssbo.objects[k];
+
+                        vec2 pixId = calculatePixId(p, currentView.view, 
+                            currentView.proj, currentView.resOffset.xy, 
+                            currentView.resOffset.zw);
                         vec2 pixIdNorm = pixId / ubo.viewsTotalRes;
 
-                        // todo: here normalize the pixId
                         vec4 pixVal = texture(viewImagesSampler, pixIdNorm);
 
                         localMin = min(localMin, pixVal);
                         localMax = max(localMax, pixVal);
 
                         localAvg += pixVal;
+
+                        numOfViews++;
                     }
+                }
 
-                    localAvg /= RAY_PIX_SAMPLES;
+                localAvg /= float(numOfViews);
 
-                    vec4 localVecDist = localMax - localMin;
-                    float localDist = localVecDist.x + localVecDist.y + localVecDist.z + localVecDist.w;
+                vec4 localVecDist = localMax - localMin;
+                float localDist = localVecDist.x + localVecDist.y + localVecDist.z + localVecDist.w;
 
-                    if (localDist < dist)
-                    {
-                        dist = localDist;
-                        // avg = localMin + localVecDist / 2;
-                        avg = localAvg;//localMin + localVecDist / 2;
-                        chosenView = j;
-                    }
-
-                    // if (localDist)
-                    // dist = min(dist, localDist);
-
+                if (localDist < dist)
+                {
+                    dist = localDist;
+                    avg = localAvg;//localMin + localVecDist / 2;
+                    chosenView = j;
                 }
             }
         }
@@ -404,17 +399,6 @@ void main()
 
         if (foundIntervals > 0)
         {
-
-            // vec4 color;
-            // if (chosenView == 0)
-            //     color = vec4(0);
-            // else if (chosenView == 1)
-            //     color = vec4(1,0,0,1);
-            // else if (chosenView == 2)
-            //     color = vec4(0,1,0,1);
-            // else if (chosenView == 3)
-            //     color = vec4(0,0,1,1);
-            //imageStore(novelImageSampler, ivec2(pixId), color);
             imageStore(novelImageSampler, ivec2(pixId), avg);
         }
         else

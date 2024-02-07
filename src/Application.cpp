@@ -41,7 +41,7 @@ void Application::run()
 
 void Application::init()
 {
-    utils::parseConfig("../res/config2grid.json", m_config);
+    utils::parseConfig("../res/config6grid.json", m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
     m_device = std::make_shared<Device>(m_window);
@@ -94,7 +94,8 @@ void Application::draw()
         consumeInput();
 
         m_renderer->beginComputePass();
-        m_renderer->cullComputePass(m_scene, views, (!m_renderFromViews));
+        if (!m_renderNovel)
+            m_renderer->cullComputePass(m_scene, views, (!m_renderFromViews));
         m_renderer->rayEvalComputePass(m_novelViews, m_views);
         m_renderer->endComputePass();
         m_renderer->submitCompute();

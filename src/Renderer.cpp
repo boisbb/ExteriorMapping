@@ -209,7 +209,7 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
     
     m_computeRaysEvalPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
 
-    glm::vec2 res = novelViews[0]->getResolution();
+    glm::vec2 res(WINDOW_WIDTH, WINDOW_HEIGHT);//novelViews[0]->getResolution();
     vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil((double)res.x / 16.f), std::ceil((double)res.y / 16.f), 1);
 
 #ifdef RAY_EVAL_DEBUG
@@ -991,7 +991,7 @@ void Renderer::createRenderResources()
     m_viewMatrixFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
         VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
 
-    m_novelImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_novelImage = std::make_shared<Image>(m_device, glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     m_novelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageView = m_novelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1136,7 +1136,7 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
 {
     // Main view for now is the first one.
     std::shared_ptr<Camera> mainCamera = novelViews[0]->getCamera();
-    glm::vec2 res = novelViews[0]->getResolution();
+    glm::vec2 res(WINDOW_WIDTH, WINDOW_HEIGHT);//novelViews[0]->getResolution();
     VkExtent2D offscreenFbRes = m_offscreenFramebuffer->getResolution();
 
     MainViewDataCompute creuData{};
