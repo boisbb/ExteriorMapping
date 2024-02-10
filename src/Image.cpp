@@ -75,4 +75,8 @@ VkFormat Image::getVkFormat() const
     return m_format;
 }
 
+glm::vec2 Image::getDims() const
+{
+    return m_dims;
+}
 }

@@ -1,10 +1,14 @@
 #version 450
 
-#define MAX_VIEWS 128
-#define MAX_INTERVALS 32
-#define MAX_HITS 128
-#define RAY_PIX_SAMPLES 32
+#define INTERPOLATE_PIXELS_X 1
+#define INTERPOLATE_PIXELS_Y 1
+
+#define MAX_VIEWS 64
+#define MAX_HITS 64
 #define MIN_INTERVAL_VIEWS 4
+#define RAY_PIX_SAMPLES 16
+#define MAX_INTERVALS (MAX_HITS / MIN_INTERVAL_VIEWS)
+#define INTS_FOR_ENCODING (MAX_HITS / 32)
 
 // #define WRITE_DEBUG
 
@@ -21,13 +25,11 @@ struct ViewEvalDebugCompute {
     int numOfIntersections;
     int numOfFoundIntervals;
     vec2 viewRes;
-    // vec2 t[32];
-    // uint ids[128];
 };
 
 struct IntervalHit {
     vec2 t;
-    uint idBits[4];
+    uint idBits[INTS_FOR_ENCODING];
 };
 
 struct FrustumHit
@@ -48,20 +50,17 @@ layout(std430, set=0, binding=1) readonly buffer ssbo {
     ViewDataEvalCompute objects[];
 } cssbo;
 
-layout(std430, set=0, binding=2) buffer ssbo1 {
+#ifdef WRITE_DEBUG
+layout(std430, set=0, binding=2) writeonly buffer ssbo1 {
     ViewEvalDebugCompute objects[];
 } cssboDebug;
+#endif
 
 layout(set=0, binding=3) uniform sampler2D viewImagesSampler;
 
 layout(set=0, binding=4) uniform writeonly image2D novelImageSampler;
 
-
-// layout(set=0, binding=2) buffer hSsbo {
-//     RayFrustumHitsDataCompute objects[];
-// } hitssbo;
-
-layout (local_size_x=16, local_size_y=16, local_size_z=1) in;
+layout (local_size_x=32, local_size_y=32, local_size_z=1) in;
 
 vec2 calculateMaskId(float id)
 {
@@ -81,16 +80,16 @@ vec2 calculatePixId(vec3 t, mat4 view, mat4 proj, vec2 res, vec2 offset)
 
 void main()
 {
-    vec2 pixId = gl_GlobalInvocationID.xy;
+    vec2 origPixId = gl_GlobalInvocationID.xy * vec2(INTERPOLATE_PIXELS_X, INTERPOLATE_PIXELS_Y);
 
-    if (pixId.x < ubo.res.x && pixId.y < ubo.res.y)
+    if (origPixId.x < ubo.res.x && origPixId.y < ubo.res.y)
     {
-        FrustumHit frustumHitsIn[MAX_HITS];
-        FrustumHit frustumHitsOut[MAX_HITS];
-
         int intersectCount = 0;
 
-        vec2 pixCenter = pixId + 0.5;
+        vec2 pixCenter = origPixId + vec2(float(INTERPOLATE_PIXELS_X) / 2, float(INTERPOLATE_PIXELS_Y) / 2);
+        
+        FrustumHit frustumHitsIn[MAX_HITS];
+        FrustumHit frustumHitsOut[MAX_HITS];
         vec2 uv = pixCenter / ubo.res;
 
         vec2 d = uv * 2.0 - 1.0;
@@ -121,57 +120,33 @@ void main()
                     float t = -(dot(frustumNormal, org) + frustumDistance) / dot(frustumNormal, dir);
                     vec3 intersect = org + t * dir;
 
-                    bool valid = true;
+                    bool valid = t >= 0;
 
-                    if (t < 0)
+                    for (int k = 0; k < 6 && valid; k++)
                     {
-                        valid = false;
-                    }
-                    else
-                    {
-                        for (int k = 0; k < 6; k++)
-                        {
-                            if (k != j)
-                            {
-                                vec4 checkPlane = currentView.frustumPlanes[k];
+                        vec4 checkPlane = currentView.frustumPlanes[k];
 
-                                vec3 checkNormal = checkPlane.xyz;
-                                float checkDistance = checkPlane.w;
+                        vec3 checkNormal = checkPlane.xyz;
+                        float checkDistance = checkPlane.w;
 
-                                if (dot(checkNormal, intersect) + checkDistance < 0.f)
-                                {
-                                    valid = false;
-                                }
-                            }
-                        }
+                        valid = (dot(checkNormal, intersect) + checkDistance >= 0.f);
+                        valid = k == j || valid;
                     }
 
-                    if (valid == true && foundIntersects < 2)
-                    {
-                        intersects[foundIntersects] = t;
-                        foundIntersects++;
-                    }
+                    intersects[foundIntersects] = t;
+                    foundIntersects += int(valid == true && foundIntersects < 2) * 1;
                 }
             }
 
-            if (foundIntersects == 2)
-            {
-                frustumHitsIn[intersectCount].viewId = i;
-                frustumHitsOut[intersectCount].viewId = i;
+            int idIn = int(intersects[0] >= intersects[1]);
+            int idOut = int(intersects[0] < intersects[1]);
 
-                if (intersects[0] < intersects[1])
-                {
-                    frustumHitsIn[intersectCount].t = intersects[0];
-                    frustumHitsOut[intersectCount].t = intersects[1];
-                }
-                else
-                {
-                    frustumHitsIn[intersectCount].t = intersects[1];
-                    frustumHitsOut[intersectCount].t = intersects[0];
-                }
+            frustumHitsIn[intersectCount].viewId = i;
+            frustumHitsOut[intersectCount].viewId = i;
+            frustumHitsIn[intersectCount].t = intersects[idIn];
+            frustumHitsOut[intersectCount].t = intersects[idOut];
 
-                intersectCount++;
-            }
+            intersectCount += int(foundIntersects == 2);
         }
 
         // insert sort the intersections
@@ -202,18 +177,16 @@ void main()
             frustumHitsOut[j + 1] = keyOut;
         }
 
-
-
         // 32 because 128 / 4 = 32 since we are looking for intervals
         // containing at least 4 cameras, then there are max 32 intervals
         IntervalHit intervals[MAX_INTERVALS];
 
         int currentlyInInterval = 0;
-        uint cameraIndexMask[4];
-        cameraIndexMask[0] = 0;
-        cameraIndexMask[1] = 0;
-        cameraIndexMask[2] = 0;
-        cameraIndexMask[3] = 0;
+        uint cameraIndexMask[INTS_FOR_ENCODING];
+        for (int i = 0; i < INTS_FOR_ENCODING; i++)
+        {
+            cameraIndexMask[i] = 0;
+        }
 
         float currentStartT = 0;
 
@@ -246,30 +219,21 @@ void main()
                 if (currentlyInInterval >= MIN_INTERVAL_VIEWS)
                 {
                     bool alreadyIn = false;
-                    for (int j = 0; j < foundIntervals; j++)
+                    for (int j = foundIntervals - 1; j >= 0; j--)
                     {
                         IntervalHit current = intervals[j];
 
                         bool currentSame = true;
                         bool newSame = true;
-                        for (int k = 0; k < 4; k++)
+                        for (int k = 0; k < INTS_FOR_ENCODING; k++)
                         {
                             uint mask = current.idBits[k] & cameraIndexMask[k];
 
-                            if (mask != current.idBits[k])
-                                currentSame = false;
-                            
-                            if (mask != cameraIndexMask[k])
-                                newSame = false;
-
+                            currentSame = mask == current.idBits[k];
+                            newSame = mask == cameraIndexMask[k];
                         }
 
-                        if (currentSame && newSame)
-                        {
-                            alreadyIn = true;
-                            break;
-                        }
-                        else if (currentSame)
+                        if (currentSame && !newSame)
                         {
                             intervals[j].t = vec2(currentStartT, hitOut.t);
                             intervals[j].idBits = cameraIndexMask;
@@ -281,12 +245,9 @@ void main()
                         }
                     }
 
-                    if (!alreadyIn)
-                    {
-                        intervals[foundIntervals].t = vec2(currentStartT, hitOut.t);
-                        intervals[foundIntervals].idBits = cameraIndexMask;
-                        foundIntervals++;
-                    }
+                    intervals[foundIntervals].t = vec2(currentStartT, hitOut.t);
+                    intervals[foundIntervals].idBits = cameraIndexMask;
+                    foundIntervals += int(!alreadyIn);
                 }
 
                 currentlyInInterval--;
@@ -353,7 +314,7 @@ void main()
 
                 int numOfViews = 0;
 
-                for (int k = 0; k < MAX_VIEWS; k++)
+                for (int k = 0; k < ubo.viewCnt; k++)
                 {
                     vec2 maskId = calculateMaskId(k);
                     int outer = int(maskId.x);
@@ -394,35 +355,52 @@ void main()
                 }
             }
         }
-
-
-
+        
         if (foundIntervals > 0)
         {
-            imageStore(novelImageSampler, ivec2(pixId), avg);
+            for (int x = 0; x < INTERPOLATE_PIXELS_X; x++)
+            {
+                for (int y = 0; y < INTERPOLATE_PIXELS_Y; y++)
+                {
+                    imageStore(novelImageSampler, ivec2(origPixId + vec2(x, y)), avg);
+                }
+            }
         }
         else
         {
-            imageStore(novelImageSampler, ivec2(pixId), vec4(0, 0, 1, 1));
+            for (int x = 0; x < INTERPOLATE_PIXELS_X; x++)
+            {
+                for (int y = 0; y < INTERPOLATE_PIXELS_Y; y++)
+                {
+                    imageStore(novelImageSampler, ivec2(origPixId + vec2(x, y)), vec4(0, 0, 1, 1));
+                }
+            }
         }
 
-        int linearRes = int((ubo.res.x * pixId.y) + pixId.x);
-
-#ifdef WRITE_DEBUG
-        cssboDebug.objects[linearRes].numOfIntersections = intersectCount;
-        cssboDebug.objects[linearRes].numOfFoundIntervals = foundIntervals;
-        cssboDebug.objects[linearRes].viewRes = min(vec2(0.2, 1.0), vec2(0.5, 0.8));
-
-        // for (int j = 0; j < foundIntervals; j++)
+        // if (foundIntervals > 0)
         // {
-        //     cssboDebug.objects[linearRes].t[j] = intervals[j].t;
-// 
-        //     for (int k = 0; k < 4; k++)
-        //     {
-        //         cssboDebug.objects[linearRes].ids[int(j * 4 + k)] = intervals[j].idBits[k];
-        //     }
+        //     imageStore(novelImageSampler, ivec2(pixId), avg);
         // }
-#endif
+        // else
+        // {
+        //     imageStore(novelImageSampler, ivec2(pixId), vec4(0, 0, 1, 1));
+        // }
+
+        #ifdef WRITE_DEBUG
+                cssboDebug.objects[linearRes].numOfIntersections = intersectCount;
+                cssboDebug.objects[linearRes].numOfFoundIntervals = foundIntervals;
+                cssboDebug.objects[linearRes].viewRes = min(vec2(0.2, 1.0), vec2(0.5, 0.8));
+
+                // for (int j = 0; j < foundIntervals; j++)
+                // {
+                //     cssboDebug.objects[linearRes].t[j] = intervals[j].t;
+        // 
+                //     for (int k = 0; k < 4; k++)
+                //     {
+                //         cssboDebug.objects[linearRes].ids[int(j * 4 + k)] = intervals[j].idBits[k];
+                //     }
+                // }
+        #endif
         
     }
 }

@@ -22,6 +22,9 @@
 
 // #define RAY_EVAL_DEBUG
 
+#define INTERPOLATE_PIXELS_X 1.f
+#define INTERPOLATE_PIXELS_Y 1.f
+
 namespace vke
 {
 
@@ -146,13 +149,13 @@ void Renderer::initDescriptorResources()
         std::vector<VkDescriptorBufferInfo> bufferInfos = {
             m_creubo[i]->getInfo(),
             m_cressbo[i]->getInfo(),
-            m_creDebugSsbo[i]->getInfo()
+            // m_creDebugSsbo[i]->getInfo()
         };
 
         std::vector<uint32_t> bufferBinding = {
             0,
             1,
-            2
+            // 2
         };
 
         m_computeRayEvalDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
@@ -209,8 +212,8 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
     
     m_computeRaysEvalPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
 
-    glm::vec2 res(WINDOW_WIDTH, WINDOW_HEIGHT);//novelViews[0]->getResolution();
-    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil((double)res.x / 16.f), std::ceil((double)res.y / 16.f), 1);
+    glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
+    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil(((double)res.x / INTERPOLATE_PIXELS_X) / 32.f), std::ceil(((double)res.y / INTERPOLATE_PIXELS_Y) / 32.f), 1);
 
 #ifdef RAY_EVAL_DEBUG
     ViewEvalDebugCompute* evalData = (ViewEvalDebugCompute*)m_creDebugSsbo[m_currentFrame]->getMapped();
@@ -879,9 +882,9 @@ void Renderer::createDescriptors()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cressbo[i]->map();
 
-        m_creDebugSsbo[i] = std::make_unique<Buffer>(m_device, sizeof(ViewEvalDebugCompute) * MAX_RESOLUTION_LINEAR, 
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        m_creDebugSsbo[i]->map();
+        // m_creDebugSsbo[i] = std::make_unique<Buffer>(m_device, sizeof(ViewEvalDebugCompute) * MAX_RESOLUTION_LINEAR, 
+        //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        // m_creDebugSsbo[i]->map();
 
         // m_creHitsssbo[i] = std::make_unique<Buffer>(m_device, sizeof(RayFrustumHitsDataCompute) * MAX_RESOLUTION_LINEAR, 
         //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -933,17 +936,17 @@ void Renderer::createDescriptors()
         1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding ssboRayGenLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
-    VkDescriptorSetLayoutBinding ssboDebugRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    // VkDescriptorSetLayoutBinding ssboDebugRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    //     1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding viewsFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
-        VkDescriptorSetLayoutBinding novelFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding novelFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+    1, VK_SHADER_STAGE_COMPUTE_BIT);
     
     std::vector<VkDescriptorSetLayoutBinding> computeRayGenLayoutBindings = {
         uboRayGenLayoutBinding,
         ssboRayGenLayoutBinding,
-        ssboDebugRayGenLayoutBinding,
+        // ssboDebugRayGenLayoutBinding,
         viewsFramebRayGenLayoutBinding,
         novelFramebRayGenLayoutBinding
     };
@@ -954,8 +957,8 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize ssboRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
-    VkDescriptorPoolSize ssboDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
+    // VkDescriptorPoolSize ssboDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
     VkDescriptorPoolSize viewsFramebDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize frameFramebDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -965,7 +968,7 @@ void Renderer::createDescriptors()
     std::vector<VkDescriptorPoolSize> computeRayGenSizes = {
         uboRayGenPoolSize,
         ssboRayGenPoolSize,
-        ssboDebugRayGenPoolSize,
+        // ssboDebugRayGenPoolSize,
         viewsFramebDebugRayGenPoolSize,
         frameFramebDebugRayGenPoolSize
     };
@@ -991,7 +994,7 @@ void Renderer::createRenderResources()
     m_viewMatrixFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
         VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
 
-    m_novelImage = std::make_shared<Image>(m_device, glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_novelImage = std::make_shared<Image>(m_device, glm::vec2(NOVEL_VIEW_WIDTH, NOVEL_VIEW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     m_novelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageView = m_novelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1136,7 +1139,7 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
 {
     // Main view for now is the first one.
     std::shared_ptr<Camera> mainCamera = novelViews[0]->getCamera();
-    glm::vec2 res(WINDOW_WIDTH, WINDOW_HEIGHT);//novelViews[0]->getResolution();
+    glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
     VkExtent2D offscreenFbRes = m_offscreenFramebuffer->getResolution();
 
     MainViewDataCompute creuData{};

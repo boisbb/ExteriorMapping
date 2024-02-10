@@ -220,6 +220,16 @@ void Device::pickPhysicalDevice()
         if (checkDeviceSuitable(device))
         {
             m_physicalDevice = device;
+
+            VkPhysicalDeviceProperties props;
+            vkGetPhysicalDeviceProperties(m_physicalDevice, &props);
+
+            std::cout << "apiVersion: " << props.apiVersion << std::endl
+                      << "driverVersion: " << props.driverVersion << std::endl
+                      << "vendorId: " << props.vendorID << std::endl
+                      << "deviceId: " << props.deviceID << std::endl
+                      << "deviceType: " << props.deviceType << std::endl;
+
             break;
         }
     }

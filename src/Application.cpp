@@ -94,17 +94,30 @@ void Application::draw()
         consumeInput();
 
         m_renderer->beginComputePass();
+
         if (!m_renderNovel)
             m_renderer->cullComputePass(m_scene, views, (!m_renderFromViews));
-        m_renderer->rayEvalComputePass(m_novelViews, m_views);
+        else
+            m_renderer->rayEvalComputePass(m_novelViews, m_views);
+        
         m_renderer->endComputePass();
         m_renderer->submitCompute();
         
         uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
+
         m_renderer->beginCommandBuffer();
-        m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
-        m_renderer->renderPass(m_scene, views, (!m_renderFromViews));
-        m_renderer->endRenderPass();
+        
+        if (!m_renderNovel)
+        {
+            m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
+            m_renderer->renderPass(m_scene, views, (!m_renderFromViews));
+            m_renderer->endRenderPass();
+        }
+        else
+        {
+            m_novelViews[0]->getCamera()->reconstructMatrices();
+            m_novelViews[0]->updateDescriptorData(m_renderer->getCurrentFrame());
+        }
 
         m_renderer->setNovelViewBarrier();
         m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer(imageIndex));
