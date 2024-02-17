@@ -68,6 +68,8 @@ public:
     void createImageBarrier(VkCommandBuffer commandBuffer, VkAccessFlags src, VkAccessFlags dst, VkImageLayout oldL, VkImageLayout newL,
         VkImage image, VkImageAspectFlags imgAspectFlags, VkPipelineStageFlags srcStage,
         VkPipelineStageFlags dstStage);
+    void createMemoryBarrier(VkCommandBuffer commandBuffer, VkAccessFlags src, VkAccessFlags dst, VkPipelineStageFlags srcStage,
+        VkPipelineStageFlags dstStage);
 
     void beginSingleCommands(VkCommandBuffer& commandBuffer);
     void endSingleCommands(VkCommandBuffer& commandBuffer);

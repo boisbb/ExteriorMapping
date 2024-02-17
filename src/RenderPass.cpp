@@ -19,6 +19,11 @@ VkRenderPass RenderPass::getRenderPass() const
     return m_renderPass;
 }
 
+bool RenderPass::isOffscreen() const
+{
+    return m_offscreen;
+}
+
 void RenderPass::createRenderPass()
 {
     VkAttachmentDescription colorAttachment{};
@@ -43,11 +48,21 @@ void RenderPass::createRenderPass()
     depthAttachment.format = m_depthFormat;
     depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+    if (m_offscreen)
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    else
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
     depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE ;
     depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    if (m_offscreen)
+        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    else
+        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     VkAttachmentReference depthAttachmentRef{};
     depthAttachmentRef.attachment = 1;
@@ -63,7 +78,7 @@ void RenderPass::createRenderPass()
 
     if (m_offscreen)
     {
-        colorDependencies.resize(2);
+        colorDependencies.resize(4);
 
         colorDependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         colorDependencies[0].dstSubpass = 0;
@@ -80,6 +95,22 @@ void RenderPass::createRenderPass()
         colorDependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         colorDependencies[1].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         colorDependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+        colorDependencies[2].srcSubpass = VK_SUBPASS_EXTERNAL;
+        colorDependencies[2].dstSubpass = 0;
+        colorDependencies[2].srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        colorDependencies[2].dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        colorDependencies[2].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        colorDependencies[2].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        colorDependencies[2].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+        colorDependencies[3].srcSubpass = 0;
+        colorDependencies[3].dstSubpass = VK_SUBPASS_EXTERNAL;
+        colorDependencies[3].srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        colorDependencies[3].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        colorDependencies[3].srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        colorDependencies[3].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        colorDependencies[3].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
     }
     else
     {

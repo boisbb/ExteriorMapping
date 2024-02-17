@@ -483,6 +483,17 @@ void Device::createImageBarrier(VkCommandBuffer commandBuffer, VkAccessFlags src
     vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &imb);
 }
 
+void Device::createMemoryBarrier(VkCommandBuffer commandBuffer, VkAccessFlags src, VkAccessFlags dst, VkPipelineStageFlags srcStage, VkPipelineStageFlags dstStage)
+{
+    VkMemoryBarrier mb{};
+    mb.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    mb.srcAccessMask = src;
+    mb.dstAccessMask = dst;
+    mb.pNext = nullptr;
+
+    vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 1, &mb, 0, nullptr, 0, nullptr);
+}
+
 void Device::beginSingleCommands(VkCommandBuffer& commandBuffer)
 {
     VkCommandBufferAllocateInfo allocInfo{};

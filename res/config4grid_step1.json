@@ -1,0 +1,144 @@
+{
+    "viewData": {
+        "geometry": "../res/models/coloredCube/coloredCube.obj",
+        "novelView": {
+            "cameraPos": {
+                "x": 10,
+                "y": 2,
+                "z": 0
+            }
+        },
+        "views": [
+            [
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 2.0,
+                        "z": 1.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 2.0,
+                        "z": 0.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 2.0,
+                        "z": -0.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 2.0,
+                        "z": -1.5
+                    }
+                }
+            ],
+            [
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 3.0,
+                        "z": 1.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 3.0,
+                        "z": 0.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 3.0,
+                        "z": -0.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 3.0,
+                        "z": -1.5
+                    }
+                }
+            ],
+            [
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 4.0,
+                        "z": 1.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 4.0,
+                        "z": 0.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 4.0,
+                        "z": -0.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 4.0,
+                        "z": -1.5
+                    }
+                }
+            ],
+            [
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 5.0,
+                        "z": 1.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 5.0,
+                        "z": 0.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 5.0,
+                        "z": -0.5
+                    }
+                },
+                {
+                    "cameraPos": {
+                        "x": 10,
+                        "y": 5.0,
+                        "z": -1.5
+                    }
+                }
+            ]
+        ]
+    },
+    "sceneData": {
+        "models": [
+            "../res/models/dabrovic_sponza/sponza.obj"
+        ],
+        "lightPos": {
+            "x": 0,
+            "y": 10,
+            "z": 0
+        }
+    }
+}

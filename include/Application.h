@@ -67,6 +67,7 @@ private:
 
     void init();
     void draw();
+    void preRender();
     void consumeInput();
     void initImgui();
     void renderImgui(int lastFps);
@@ -103,6 +104,7 @@ private:
 
     std::vector<uint32_t> m_viewRowColumns;
 
+    bool m_depthOnly = false;
     bool m_renderNovel = false;
     bool m_showCameraGeometry;
     bool m_rayEvalOnCpu = false;
@@ -110,7 +112,7 @@ private:
     int m_changeOffscreenTarget;
     float m_viewsFov = 90.f;
     float m_mainViewFov = 90.f;
-
+    
     utils::Config m_config;
 };
 

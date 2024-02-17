@@ -224,6 +224,10 @@ void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)
     if(!m_reinitializeDebugCameraGeometry)
         return;
 
+    static int update = 0;
+    std::cout << "update: " << update << std::endl;
+    update++;
+
     m_reinitializeDebugCameraGeometry = false;
 
     int startId = m_drawCount;
