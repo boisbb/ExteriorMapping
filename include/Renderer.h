@@ -112,6 +112,7 @@ private:
     void updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& novelViews,
         const std::vector<std::shared_ptr<View>>& views);
     void updateQuadDescriptorData(bool depthOnly);
+    void updateQuadDescriptorData(bool depthOnly);
 
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
@@ -125,7 +126,13 @@ private:
     std::shared_ptr<GraphicsPipeline> m_offscreenPipeline;
     std::shared_ptr<ComputePipeline> m_cullPipeline;
     std::shared_ptr<ComputePipeline> m_raysEvalPipeline;
+    std::shared_ptr<GraphicsPipeline> m_offscreenPipeline;
+    std::shared_ptr<ComputePipeline> m_cullPipeline;
+    std::shared_ptr<ComputePipeline> m_raysEvalPipeline;
     std::shared_ptr<GraphicsPipeline> m_quadPipeline;
+    // test
+    std::shared_ptr<ComputePipeline> m_intersectsPipeline;
+    std::shared_ptr<ComputePipeline> m_intervalsPipeline;
     // test
     std::shared_ptr<ComputePipeline> m_intersectsPipeline;
     std::shared_ptr<ComputePipeline> m_intervalsPipeline;
@@ -149,11 +156,14 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_creHitsssbo;
     std::vector<std::unique_ptr<Buffer>> m_creHitsCntssbo;
     std::vector<std::unique_ptr<Buffer>> m_quadubo;
+    std::vector<std::unique_ptr<Buffer>> m_creHitsCntssbo;
+    std::vector<std::unique_ptr<Buffer>> m_quadubo;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_materialDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_computeDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_computeRayEvalDescriptorSets;
+    std::vector<std::shared_ptr<DescriptorSet>> m_quadDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_quadDescriptorSets;
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
@@ -163,6 +173,7 @@ private:
     std::shared_ptr<DescriptorSetLayout> m_computeSceneSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_computeRayEvalSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_quadSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_quadSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
     std::shared_ptr<DescriptorPool> m_viewPool;
@@ -170,6 +181,7 @@ private:
     std::shared_ptr<DescriptorPool> m_computePool;
     std::shared_ptr<DescriptorPool> m_computeScenePool;
     std::shared_ptr<DescriptorPool> m_computeRayEvalPool;
+    std::shared_ptr<DescriptorPool> m_quadPool;
     std::shared_ptr<DescriptorPool> m_quadPool;
 
     std::shared_ptr<Image> m_novelImage;

@@ -347,6 +347,9 @@ void Application::renderImgui(int lastFps)
             }
         }
 
+
+
+
         if (ImGui::Checkbox("Show camera geometry", &m_showCameraGeometry))
         {
             if (m_showCameraGeometry)

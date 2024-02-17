@@ -21,6 +21,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #define RAY_EVAL_DEBUG
+#define RAY_EVAL_DEBUG
 
 #define INTERPOLATE_PIXELS_X 1.f
 #define INTERPOLATE_PIXELS_Y 1.f
@@ -35,8 +36,10 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
     m_creubo(MAX_FRAMES_IN_FLIGHT), m_cressbo(MAX_FRAMES_IN_FLIGHT), m_creDebugSsbo(MAX_FRAMES_IN_FLIGHT), m_creHitsssbo(MAX_FRAMES_IN_FLIGHT),
     m_creHitsCntssbo(MAX_FRAMES_IN_FLIGHT), m_quadubo(MAX_FRAMES_IN_FLIGHT),
+    m_creHitsCntssbo(MAX_FRAMES_IN_FLIGHT), m_quadubo(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_computeRayEvalDescriptorSets(MAX_FRAMES_IN_FLIGHT),
+    m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0)
     m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0)
 {
     createCommandBuffers();
@@ -144,11 +147,21 @@ void Renderer::initDescriptorResources()
 #endif
             // m_creHitsssbo[i]->getInfo(),
             // m_creHitsCntssbo[i]->getInfo()
+#ifdef RAY_EVAL_DEBUG
+            m_creDebugSsbo[i]->getInfo()
+#endif
+            // m_creHitsssbo[i]->getInfo(),
+            // m_creHitsCntssbo[i]->getInfo()
         };
 
         std::vector<uint32_t> bufferBinding = {
             0,
             1,
+#ifdef RAY_EVAL_DEBUG
+            2
+#endif
+            // 5,
+            // 6
 #ifdef RAY_EVAL_DEBUG
             2
 #endif
@@ -161,14 +174,43 @@ void Renderer::initDescriptorResources()
         std::vector<VkDescriptorImageInfo> imageInfos = {
             m_viewMatrixFramebuffer->getColorImageInfo(),
             m_viewMatrixFramebuffer->getDepthImageInfo(),
+            m_viewMatrixFramebuffer->getDepthImageInfo(),
             VkDescriptorImageInfo{m_novelImageSampler->getVkSampler(), m_novelImageView, m_novelImage->getVkImageLayout()}
         };
 
         std::vector<uint32_t> imageBinding = {
             3, 4, 5
+            3, 4, 5
         };
 
         m_computeRayEvalDescriptorSets[i]->updateImages(imageBinding, imageInfos);
+    }
+
+    // Quad
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_quadDescriptorSets[i] = std::make_shared<DescriptorSet>(m_device, m_quadSetLayout,
+            m_quadPool);
+        
+        std::vector<VkDescriptorBufferInfo> bufferInfos = {
+            m_quadubo[i]->getInfo()
+        };
+
+        std::vector<uint32_t> bufferBinding = {
+            0
+        };
+
+        m_quadDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
+
+        std::vector<VkDescriptorImageInfo> imageInfos = {
+            m_offscreenFramebuffer->getColorImageInfo()
+        };
+
+        std::vector<uint32_t> imageBinding = {
+            1
+        };
+
+        m_quadDescriptorSets[i]->updateImages(imageBinding, imageInfos, 0);
     }
 
     // Quad
@@ -231,17 +273,40 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
 
     glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
 
+    glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
+
     m_device->createImageBarrier(m_computeCommandBuffers[m_currentFrame], 0, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_LAYOUT_GENERAL, m_novelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
     VkDescriptorSet rayEvalSet = m_computeRayEvalDescriptorSets[m_currentFrame]->getDescriptorSet();
 
     vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_raysEvalPipeline->getPipelineLayout(),
+
+    vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_raysEvalPipeline->getPipelineLayout(),
         0, 1, &rayEvalSet, 0, nullptr);
     
     m_raysEvalPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
+    m_raysEvalPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
 
     vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil(((double)res.x / INTERPOLATE_PIXELS_X) / 32.f), std::ceil(((double)res.y / INTERPOLATE_PIXELS_Y) / 32.f), 1);
+
+    // vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_intersectsPipeline->getPipelineLayout(),
+    //     0, 1, &rayEvalSet, 0, nullptr);
+    // m_intersectsPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
+// 
+    // vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], 
+    //     std::ceil(((double)res.x / INTERPOLATE_PIXELS_X) / 32.f), std::ceil(((double)res.y / INTERPOLATE_PIXELS_Y) / 32.f), 1);
+    // 
+    // m_device->createMemoryBarrier(m_computeCommandBuffers[m_currentFrame], VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+    //     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+// 
+    // vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_intervalsPipeline->getPipelineLayout(),
+    //     0, 1, &rayEvalSet, 0, nullptr);
+    // m_intervalsPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
+// 
+    // vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], 
+    //     std::ceil(((double)res.x / INTERPOLATE_PIXELS_X) / 32.f), std::ceil(((double)res.y / INTERPOLATE_PIXELS_Y) / 32.f), 1);
+
 
     // vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_intersectsPipeline->getPipelineLayout(),
     //     0, 1, &rayEvalSet, 0, nullptr);
@@ -269,6 +334,9 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
     std::cout << "number of intersections: " << evalData[linearResId].numOfIntersections << std::endl;
     std::cout << "number of intervals: " << evalData[linearResId].numOfFoundIntervals << std::endl;
     std::cout << "res: " << evalData[linearResId].viewRes.x << " " << evalData[linearResId].viewRes.y << std::endl;
+    std::cout << "p: " << evalData[linearResId].pointInWSpace.x << " " << 
+        evalData[linearResId].pointInWSpace.y << " " << 
+        evalData[linearResId].pointInWSpace.z << std::endl;
     std::cout << "p: " << evalData[linearResId].pointInWSpace.x << " " << 
         evalData[linearResId].pointInWSpace.y << " " << 
         evalData[linearResId].pointInWSpace.z << std::endl;
@@ -325,7 +393,10 @@ void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector
 }
 
 void Renderer::quadRenderPass(glm::vec2 windowResolution, bool depthOnly)
+void Renderer::quadRenderPass(glm::vec2 windowResolution, bool depthOnly)
 {
+    updateQuadDescriptorData(depthOnly);
+
     updateQuadDescriptorData(depthOnly);
 
     setViewport(glm::vec2(0, 0), windowResolution);
@@ -333,6 +404,7 @@ void Renderer::quadRenderPass(glm::vec2 windowResolution, bool depthOnly)
 
     m_quadPipeline->bind(m_commandBuffers[m_currentFrame]);
 
+    VkDescriptorSet descriptorSet = m_quadDescriptorSets[m_currentFrame]->getDescriptorSet();
     VkDescriptorSet descriptorSet = m_quadDescriptorSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(m_commandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_quadPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
 
@@ -519,8 +591,10 @@ void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo)
 
     std::vector<uint32_t> imageBinding{
         1
+        1
     };
 
+    m_quadDescriptorSets[m_currentFrame]->updateImages(imageBinding, imageInfos, 0);
     m_quadDescriptorSets[m_currentFrame]->updateImages(imageBinding, imageInfos, 0);
 }
 
@@ -813,6 +887,10 @@ void Renderer::createDescriptors()
         m_quadubo[i] = std::make_unique<Buffer>(m_device, sizeof(QuadUniformBuffer),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_quadubo[i]->map();
+
+        m_quadubo[i] = std::make_unique<Buffer>(m_device, sizeof(QuadUniformBuffer),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_quadubo[i]->map();
     }
 
     VkDescriptorSetLayoutBinding vssboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -829,6 +907,9 @@ void Renderer::createDescriptors()
     };
 
     m_descriptorSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutBindings);
+    };
+
+    m_descriptorSetLayout = std::make_shared<DescriptorSetLayout>(m_device, layoutBindings);
 
     VkDescriptorPoolSize vssboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_SBOS));
@@ -842,7 +923,10 @@ void Renderer::createDescriptors()
         fuboPoolSize,
         fssboPoolSize
         };
+        fssboPoolSize
+        };
     m_descriptorPool = std::make_shared<DescriptorPool>(m_device,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, poolSizes);
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0, poolSizes);
 
     //! View Data
@@ -942,10 +1026,20 @@ void Renderer::createDescriptors()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_creDebugSsbo[i]->map();
 #endif
+#ifdef RAY_EVAL_DEBUG
+        m_creDebugSsbo[i] = std::make_unique<Buffer>(m_device, sizeof(ViewEvalDebugCompute) * MAX_RESOLUTION_LINEAR, 
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_creDebugSsbo[i]->map();
+#endif
 
+        // m_creHitsssbo[i] = std::make_unique<Buffer>(m_device, sizeof(FrustumHit) * MAX_RESOLUTION_LINEAR * MAX_VIEWS * 2, 
         // m_creHitsssbo[i] = std::make_unique<Buffer>(m_device, sizeof(FrustumHit) * MAX_RESOLUTION_LINEAR * MAX_VIEWS * 2, 
         //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         // m_creHitsssbo[i]->map();
+        // 
+        // m_creHitsCntssbo[i] = std::make_unique<Buffer>(m_device, sizeof(int) * MAX_RESOLUTION_LINEAR, 
+        //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        // m_creHitsCntssbo[i]->map();
         // 
         // m_creHitsCntssbo[i] = std::make_unique<Buffer>(m_device, sizeof(int) * MAX_RESOLUTION_LINEAR, 
         //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -1001,8 +1095,23 @@ void Renderer::createDescriptors()
     VkDescriptorSetLayoutBinding ssboDebugRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
 #endif
+#ifdef RAY_EVAL_DEBUG
+    VkDescriptorSetLayoutBinding ssboDebugRayGenLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+#endif
     VkDescriptorSetLayoutBinding viewsFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding viewsFramebDepthRayGenLayoutBinding = createDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding novelFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    
+    // VkDescriptorSetLayoutBinding frustumHitRayGenLayoutBinding = createDescriptorSetLayoutBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    //     1, VK_SHADER_STAGE_COMPUTE_BIT);
+    // VkDescriptorSetLayoutBinding frustumHitCountRayGenLayoutBinding = createDescriptorSetLayoutBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    //     1, VK_SHADER_STAGE_COMPUTE_BIT);
+
+
     VkDescriptorSetLayoutBinding viewsFramebDepthRayGenLayoutBinding = createDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding novelFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
@@ -1020,7 +1129,14 @@ void Renderer::createDescriptors()
 #ifdef RAY_EVAL_DEBUG
         ssboDebugRayGenLayoutBinding,
 #endif
+#ifdef RAY_EVAL_DEBUG
+        ssboDebugRayGenLayoutBinding,
+#endif
         viewsFramebRayGenLayoutBinding,
+        viewsFramebDepthRayGenLayoutBinding,
+        novelFramebRayGenLayoutBinding,
+        // frustumHitRayGenLayoutBinding,
+        // frustumHitCountRayGenLayoutBinding
         viewsFramebDepthRayGenLayoutBinding,
         novelFramebRayGenLayoutBinding,
         // frustumHitRayGenLayoutBinding,
@@ -1038,9 +1154,21 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
 #endif
     VkDescriptorPoolSize viewsFramebRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+#ifdef RAY_EVAL_DEBUG
+    VkDescriptorPoolSize ssboDebugRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_RESOLUTION_LINEAR));
+#endif
+    VkDescriptorPoolSize viewsFramebRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize viewsFramebDepthRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    VkDescriptorPoolSize viewsFramebDepthRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    VkDescriptorPoolSize novelFramebRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    // VkDescriptorPoolSize frustumHitRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * sizeof(FrustumHit) * (MAX_VIEWS * 2) * MAX_RESOLUTION_LINEAR);
+    // VkDescriptorPoolSize frustumHitCountRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * sizeof(int) * MAX_RESOLUTION_LINEAR);
     VkDescriptorPoolSize novelFramebRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     // VkDescriptorPoolSize frustumHitRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -1060,10 +1188,58 @@ void Renderer::createDescriptors()
         novelFramebRayGenPoolSize,
         // frustumHitRayGenPoolSize,
         // frustumHitCountRayGenPoolSize
+#ifdef RAY_EVAL_DEBUG
+        ssboDebugRayGenPoolSize,
+#endif
+        viewsFramebRayGenPoolSize,
+        viewsFramebDepthRayGenPoolSize,
+        novelFramebRayGenPoolSize,
+        // frustumHitRayGenPoolSize,
+        // frustumHitCountRayGenPoolSize
     };
 
     m_computeRayEvalPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
         computeRayGenSizes);
+
+    // quad
+    VkDescriptorSetLayoutBinding quboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        1, VK_SHADER_STAGE_FRAGMENT_BIT);
+    VkDescriptorSetLayoutBinding finalImageLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        1, VK_SHADER_STAGE_FRAGMENT_BIT);
+    
+    std::vector<VkDescriptorSetLayoutBinding> quadBindings = {
+        quboLayoutBinding,
+        finalImageLayoutBinding
+    };
+
+    VkDescriptorBindingFlags finalImageFlags = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT;
+
+    std::vector<VkDescriptorBindingFlags> quadBindingFlags = {
+        0,
+        finalImageFlags
+    };
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT quadLayoutNext{};
+    quadLayoutNext.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
+    quadLayoutNext.bindingCount = quadBindingFlags.size();
+    quadLayoutNext.pBindingFlags = quadBindingFlags.data();
+    quadLayoutNext.pNext = nullptr;
+
+    m_quadSetLayout = std::make_shared<DescriptorSetLayout>(m_device, quadBindings,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, &quadLayoutNext);
+    
+    VkDescriptorPoolSize quboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    VkDescriptorPoolSize finalImagePoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+
+    std::vector<VkDescriptorPoolSize> quadPoolSizes = {
+        quboPoolSize,
+        finalImagePoolSize
+    };
+
+    m_quadPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, quadPoolSizes);
 
     // quad
     VkDescriptorSetLayoutBinding quboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1150,6 +1326,7 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
 
     std::vector<VkDescriptorSetLayout> quadSetLayout = {
         m_quadSetLayout->getLayout()
+        m_quadSetLayout->getLayout()
     };
 
     std::vector<VkDescriptorSetLayout> computeRaysEvalSetLayout = {
@@ -1157,13 +1334,20 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
     };
 
     m_offscreenPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), vertexShaderFile,
+    m_offscreenPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), vertexShaderFile,
         fragmentShaderFile, offscreenGraphicsSetLayouts);
 
     m_quadPipeline = std::make_shared<GraphicsPipeline>(m_device, m_quadRenderPass->getRenderPass(), quadVertexShaderFile,
         quadFragmentShaderFile, quadSetLayout, false, false);
     
     m_cullPipeline = std::make_shared<ComputePipeline>(m_device, computeShaderFile, computeSetLayouts);
+    m_cullPipeline = std::make_shared<ComputePipeline>(m_device, computeShaderFile, computeSetLayouts);
 
+    m_raysEvalPipeline = std::make_shared<ComputePipeline>(m_device, computeRaysEvalShaderFile, computeRaysEvalSetLayout);
+
+    // testing
+    // m_intersectsPipeline = std::make_shared<ComputePipeline>(m_device, "intersect.spv", computeRaysEvalSetLayout);
+    // m_intervalsPipeline = std::make_shared<ComputePipeline>(m_device, "intervalsInterpolate.spv", computeRaysEvalSetLayout);
     m_raysEvalPipeline = std::make_shared<ComputePipeline>(m_device, computeRaysEvalShaderFile, computeRaysEvalSetLayout);
 
     // testing
@@ -1175,14 +1359,18 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::sha
     const std::shared_ptr<View>& view)
 {
     m_offscreenPipeline->bind(commandBuffer);
+    m_offscreenPipeline->bind(commandBuffer);
 
     VkDescriptorSet descriptorSet = m_generalDescriptorSets[m_currentFrame]->getDescriptorSet();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_offscreenPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_offscreenPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
 
     VkDescriptorSet textureSet = m_materialDescriptorSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_offscreenPipeline->getPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_offscreenPipeline->getPipelineLayout(), 1, 1, &textureSet, 0, nullptr);
 
     VkDescriptorSet viewSet = view->getViewDescriptorSet(m_currentFrame)->getDescriptorSet();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_offscreenPipeline->getPipelineLayout(), 2, 1, &viewSet, 0, nullptr);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_offscreenPipeline->getPipelineLayout(), 2, 1, &viewSet, 0, nullptr);
 
     scene->draw(view, commandBuffer, m_currentFrame);
@@ -1193,12 +1381,16 @@ void Renderer::recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const s
 {
     VkDescriptorSet computeSet = m_computeDescriptorSets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_cullPipeline->getPipelineLayout(), 0, 1, &computeSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_cullPipeline->getPipelineLayout(), 0, 1, &computeSet, 0, nullptr);
 
     VkDescriptorSet viewSet = view->getViewDescriptorSet(m_currentFrame)->getDescriptorSet();
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_cullPipeline->getPipelineLayout(), 2, 1, &viewSet, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_cullPipeline->getPipelineLayout(), 2, 1, &viewSet, 0, nullptr);
 
     m_cullPipeline->bind(commandBuffer);
+    m_cullPipeline->bind(commandBuffer);
 
+    scene->dispatch(view, commandBuffer, m_cullPipeline->getPipelineLayout(), m_currentFrame);
     scene->dispatch(view, commandBuffer, m_cullPipeline->getPipelineLayout(), m_currentFrame);
 }
 
@@ -1305,6 +1497,14 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
 
     m_cressbo[m_currentFrame]->copyMapped(cressbo.data(), sizeof(ViewEvalDataCompute) * cressbo.size());
 
+}
+
+void Renderer::updateQuadDescriptorData(bool depthOnly){
+    QuadUniformBuffer quboData{};
+    quboData.m_depthOnly = depthOnly;
+    
+    m_quadubo[m_currentFrame]->copyMapped(&quboData, sizeof(QuadUniformBuffer));
+};
 }
 
 void Renderer::updateQuadDescriptorData(bool depthOnly){
