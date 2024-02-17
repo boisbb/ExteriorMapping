@@ -1,0 +1,227 @@
+#version 450
+
+#include "constants.glsl"
+#include "utils.glsl"
+
+#define WRITE_DEBUG
+
+layout (local_size_x=32, local_size_y=32, local_size_z=1) in;
+
+layout(set=0, binding=0) uniform MainViewDataCompute {
+    mat4 invView;
+    mat4 invProj;
+    vec2 res;
+    vec2 viewsTotalRes;
+    int viewCnt;
+} ubo;
+
+layout(std430, set=0, binding=1) readonly buffer ssbo {
+    ViewDataEvalCompute objects[];
+} cssbo;
+
+#ifdef WRITE_DEBUG
+layout(std430, set=0, binding=2) writeonly buffer ssbo1 {
+    ViewEvalDebugCompute objects[];
+} cssboDebug;
+#endif
+
+layout(set=0, binding=3) uniform sampler2D viewImagesSampler;
+
+layout(set=0, binding=4) uniform sampler2D viewImagesDepthSampler;
+
+layout(set=0, binding=5) uniform writeonly image2D novelImageSampler;
+
+
+void main()
+{
+    vec2 origPixId = gl_GlobalInvocationID.xy * vec2(INTERPOLATE_PIXELS_X, INTERPOLATE_PIXELS_Y);
+
+    if (origPixId.x < ubo.res.x && origPixId.y < ubo.res.y)
+    {
+        int intersectCount = 0;
+
+        FrustumHit frustumHitsIn[MAX_HITS];
+        FrustumHit frustumHitsOut[MAX_HITS];
+        
+        vec2 pixCenter = origPixId + vec2(float(INTERPOLATE_PIXELS_X) / 2, float(INTERPOLATE_PIXELS_Y) / 2);
+
+        vec2 uv = pixCenter / ubo.res;
+        vec2 d = uv * 2.0 - 1.0;
+
+        vec4 from = ubo.invProj * vec4(d.x, d.y, 0.f, 1.f);
+        vec4 target = ubo.invProj * vec4(d.x, d.y, 1.f, 1.f);
+
+        vec3 org = (ubo.invView * vec4(from.xyz, 1.0)).xyz;
+        vec3 dir = (ubo.invView * vec4(normalize(target.xyz), 0.f)).xyz;
+
+        for (int i = 0; i < ubo.viewCnt; i++)
+        {
+            ViewDataEvalCompute currentView = cssbo.objects[i];
+
+            float intersects[2];
+            int foundIntersects = 0;
+
+            for (int j = 0; j < 6; j++)
+            {
+                vec4 currentPlane = currentView.frustumPlanes[j];
+
+                vec3 frustumNormal = currentPlane.xyz;
+                float frustumDistance = currentPlane.w;
+
+                if (abs(dot(frustumNormal, dir)) > 1e-6)
+                {
+                    float t = -(dot(frustumNormal, org) + frustumDistance) / dot(frustumNormal, dir);
+                    vec3 intersect = org + t * dir;
+
+                    intersects[foundIntersects] = t;
+                    foundIntersects += int(isPointInFrustum(t, intersect, currentView.frustumPlanes, j) 
+                        && foundIntersects < 2) * 1;
+                }
+            }
+
+            int idIn = int(intersects[0] >= intersects[1]);
+            int idOut = int(intersects[0] < intersects[1]);
+
+            frustumHitsIn[intersectCount].viewId = i;
+            frustumHitsOut[intersectCount].viewId = i;
+            frustumHitsIn[intersectCount].t = intersects[idIn];
+            frustumHitsOut[intersectCount].t = intersects[idOut];
+
+            intersectCount += int(foundIntersects == 2);
+        }
+
+        // insert sort the intersections
+        for (int i = 1; i < intersectCount; i++)
+        {
+            // hits in
+            FrustumHit keyIn = frustumHitsIn[i];
+
+            int j = i - 1;
+            while (j >= 0 && frustumHitsIn[j].t > keyIn.t)
+            {
+                frustumHitsIn[j + 1] = frustumHitsIn[j];
+                j = j - 1;
+            }
+
+            frustumHitsIn[j + 1] = keyIn;
+
+            // hits out
+            FrustumHit keyOut = frustumHitsOut[i];
+
+            j = i - 1;
+            while (j >= 0 && frustumHitsOut[j].t > keyOut.t)
+            {
+                frustumHitsOut[j + 1] = frustumHitsOut[j];
+                j = j - 1;
+            }
+
+            frustumHitsOut[j + 1] = keyOut;
+        }
+
+        IntervalHit maxInterval;  
+        FIND_MAX_INTERVAL(maxInterval, frustumHitsIn, frustumHitsOut, intersectCount);   
+         
+        if (maxFound)
+        {
+            float dist = 20;
+            vec4 avg = vec4(0);
+            float sampleDist = (maxInterval.t.y - maxInterval.t.x) / RAY_PIX_SAMPLES;
+            float segmentStart = maxInterval.t.x;
+
+            for (int j = 0; j < RAY_PIX_SAMPLES; j++)
+            {
+                vec3 p = org + dir * (segmentStart + j * sampleDist);
+
+                vec4 localMin = vec4(2);
+                vec4 localMax = vec4(-1);
+                vec4 localAvg = vec4(0);
+
+                int numOfViews = 0;
+
+                for (int k = 0; k < ubo.viewCnt; k++)
+                {
+                    if (isInMask(k, maxInterval.idBits))
+                    {
+                        ViewDataEvalCompute currentView = cssbo.objects[k];
+
+                        vec2 pixId;
+                        CALCULATE_PIX_ID(p, currentView.view,  currentView.proj,
+                            currentView.resOffset.xy, currentView.resOffset.zw,
+                            pixId);
+
+                        vec2 pixIdNorm = pixId / ubo.viewsTotalRes;
+
+                        vec4 pixVal = texture(viewImagesSampler, pixIdNorm);
+
+                        localMin = min(localMin, pixVal);
+                        localMax = max(localMax, pixVal);
+
+                        localAvg += pixVal;
+
+                        numOfViews++;
+                    }
+                }
+
+                localAvg /= float(numOfViews);
+
+                vec4 localVecDist = localMax - localMin;
+                float localDist = localVecDist.x + localVecDist.y + localVecDist.z + localVecDist.w;
+
+                if (localDist < dist)
+                {
+                    dist = localDist;
+                    avg = localAvg;//localMin + localVecDist / 2;
+                }
+            }
+
+            for (int x = 0; x < INTERPOLATE_PIXELS_X; x++)
+            {
+                for (int y = 0; y < INTERPOLATE_PIXELS_Y; y++)
+                {
+                    imageStore(novelImageSampler, ivec2(origPixId + vec2(x, y)), avg);
+                }
+            }
+        }
+        else
+        {
+            for (int x = 0; x < INTERPOLATE_PIXELS_X; x++)
+            {
+                for (int y = 0; y < INTERPOLATE_PIXELS_Y; y++)
+                {
+                    imageStore(novelImageSampler, ivec2(origPixId + vec2(x, y)), vec4(0, 0, 1, 1));
+                }
+            }
+        }
+
+        #ifdef WRITE_DEBUG
+                int linearRes = int((ubo.res.x * origPixId.y) + origPixId.x);
+
+                cssboDebug.objects[linearRes].numOfIntersections = intersectCount;
+                cssboDebug.objects[linearRes].numOfFoundIntervals = 0;
+                cssboDebug.objects[linearRes].viewRes = min(vec2(0.2, 1.0), vec2(0.5, 0.8));
+
+                ViewDataEvalCompute currentView = cssbo.objects[0];
+
+                vec2 uv1 = (currentView.resOffset.xy / 2) / ubo.viewsTotalRes;
+                vec2 d1 = uv1 * 2.0 - 1.0;
+
+                float n = 0.1f;
+		        float f = 100.f;
+                float z = texture(viewImagesDepthSampler, d1).r;
+                float clipDepth = (2.0 * n) / (f + n - z * (f - n));
+
+                vec3 clipPoint = vec3(uv1, clipDepth);
+
+                mat4 inverted = inverse(currentView.view);
+
+                vec3 point = (inverted * vec4(clipPoint, 1.0)).xyz;
+
+                cssboDebug.objects[linearRes].pointInWSpace = vec4(point, 1.0);
+
+                // vec3 coords = vec3(pixIdNorm)
+
+                // TODO:
+        #endif
+        
+    }
+}

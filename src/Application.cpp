@@ -45,14 +45,13 @@ void Application::init()
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
     m_device = std::make_shared<Device>(m_window);
-    m_renderer = std::make_shared<Renderer>(m_device, m_window, "../res/shaders/vert.spv",
-        "../res/shaders/frag.spv", "../res/shaders/comp.spv", "../res/shaders/quad_vert.spv",
-        "../res/shaders/quad_frag.spv", "../res/shaders/raysEval.spv");
+    m_renderer = std::make_shared<Renderer>(m_device, m_window, "offscreen_vert.spv",
+        "offscreen_frag.spv", "cull.spv", "quad_vert.spv",
+        "quad_frag.spv", "novelView.spv");
 
     createScene();
 
     addConfigViews();
-    // addViewRow();
     
     m_renderer->initDescriptorResources();
     initImgui();
@@ -72,20 +71,6 @@ void Application::draw()
     while (!glfwWindowShouldClose(m_window->getWindow()))
     {
         windowResolution = m_window->getResolution();
-
-        if (m_changeOffscreenTarget < MAX_FRAMES_IN_FLIGHT)
-        {
-            if (m_renderFromViews)
-            {
-                m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getColorImageInfo());
-            }
-            else
-            {
-                m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenFramebuffer()->getColorImageInfo());
-            }
-
-            m_changeOffscreenTarget++;
-        }
 
         std::vector<std::shared_ptr<View>>& views = m_renderFromViews ? m_views : m_novelViews;
         std::shared_ptr<Framebuffer> framebuffer = m_renderFromViews ? m_renderer->getViewMatrixFramebuffer()
@@ -121,7 +106,7 @@ void Application::draw()
 
         m_renderer->setNovelViewBarrier();
         m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer(imageIndex));
-        m_renderer->quadRenderPass(windowResolution);
+        m_renderer->quadRenderPass(windowResolution, m_depthOnly);
         renderImgui(lastFps);
         m_renderer->endRenderPass();
 
@@ -147,6 +132,32 @@ void Application::draw()
             frames = 0;
 
             lastTime = glfwGetTime();
+        }
+
+        if (m_changeOffscreenTarget < MAX_FRAMES_IN_FLIGHT)
+        {
+            vkDeviceWaitIdle(m_device->getVkDevice());
+            
+            if (m_renderFromViews)
+            {
+                if (!m_depthOnly)
+                    m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getColorImageInfo());
+                else
+                    m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getDepthImageInfo());
+            }
+            else if (m_renderNovel)
+            {
+                m_renderer->changeQuadRenderPassSource(m_renderer->getNovelImageInfo());
+            }
+            else
+            {
+                if (!m_depthOnly)
+                    m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenFramebuffer()->getColorImageInfo());
+                else
+                    m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenFramebuffer()->getDepthImageInfo());
+            }
+
+            m_changeOffscreenTarget++;
         }
     }
 
@@ -234,14 +245,34 @@ void Application::renderImgui(int lastFps)
     std::string fpsStr = std::to_string(lastFps) + "fps";
     ImGui::Text(fpsStr.c_str());
 
+    if (ImGui::CollapsingHeader("General"))
+    {
+        ImGui::Indent();
+        ImGui::PushID(26);
+
+        if (!m_renderNovel)
+        {
+            if (ImGui::Checkbox("Depth only", &m_depthOnly))
+            {
+                m_changeOffscreenTarget = 0;
+            }
+        }
+
+        ImGui::PopID();
+        ImGui::Unindent();
+    }
+
     if(ImGui::CollapsingHeader("Main view"))
     {
         ImGui::Indent();
         ImGui::PushID(0);
 
-        if (ImGui::Checkbox("Render novel view", &m_renderNovel))
+        if (!m_renderFromViews)
         {
-            m_renderer->setQuadSourceImage(m_renderNovel);
+            if (ImGui::Checkbox("Render novel view", &m_renderNovel))
+            {
+                m_changeOffscreenTarget = 0;
+            }
         }
         
         //ImGui::DragFloat("Views FOV", &m_viewsFov, 5.f, 0.f, 120.f);
@@ -281,10 +312,16 @@ void Application::renderImgui(int lastFps)
             ImGui::Unindent();
         }
 
-        if (ImGui::Checkbox("Render from view matrix", &m_renderFromViews))
+        if (!m_renderNovel)
         {
-            m_changeOffscreenTarget = 0;
+            if (ImGui::Checkbox("Render from view matrix", &m_renderFromViews))
+            {
+                m_changeOffscreenTarget = 0;
+            }
         }
+
+
+
 
         if (ImGui::Checkbox("Show camera geometry", &m_showCameraGeometry))
         {
@@ -751,12 +788,6 @@ struct IntervalHit {
     uint idBits[4];
 };
 
-struct FrustumHit
-{
-    float t;
-    int viewId;
-};
-
 glm::vec2 calculateMaskId(float id)
 {
     int maskId = int(floor(id / 32));
@@ -941,7 +972,7 @@ void Application::mainCameraTestRays()
             int outId = 0;
             for (int i = 0; i < intersectCount * 2; i++)
             {
-                FrustumHit hitIn = frustumHitsIn[inId];
+                FrustumHit hitIn = frustumHitsIn[std::min(inId, 64)];
                 FrustumHit hitOut = frustumHitsOut[outId];
 
                 if (hitIn.t <= hitOut.t && inId < intersectCount)

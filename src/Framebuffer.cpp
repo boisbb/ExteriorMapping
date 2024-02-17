@@ -8,7 +8,7 @@ Framebuffer::Framebuffer(std::shared_ptr<Device> device, std::shared_ptr<RenderP
     VkExtent2D resolution)
     : m_device(device), m_resolution(resolution), m_colorImage(nullptr)
 {
-    createImages();
+    createImages(renderPass);
     createFramebuffer(renderPass);
 }
 
@@ -17,7 +17,7 @@ Framebuffer::Framebuffer(std::shared_ptr<Device> device, std::shared_ptr<RenderP
     : m_device(device), m_resolution(resolution), m_colorImage(nullptr), m_fromSwapchain(true),
     m_colorImageView(swapchainImageView)
 {
-    createImages();
+    createImages(renderPass);
     createFramebuffer(renderPass);
 }
 
@@ -47,12 +47,20 @@ std::shared_ptr<Image> Framebuffer::getColorImage() const
 
 VkDescriptorImageInfo Framebuffer::getColorImageInfo()
 {
-    VkDescriptorImageInfo info{};
-    info.sampler = m_sampler->getVkSampler();
-    info.imageView = m_colorImageView;
-    info.imageLayout = m_colorImage->getVkImageLayout();
+    return VkDescriptorImageInfo{
+        m_sampler->getVkSampler(),
+        m_colorImageView,
+        m_colorImage->getVkImageLayout()
+    };
+}
 
-    return info;
+VkDescriptorImageInfo Framebuffer::getDepthImageInfo()
+{
+    return VkDescriptorImageInfo{
+        m_sampler->getVkSampler(),
+        m_depthImageView,
+        m_depthImage->getVkImageLayout()
+    };
 }
 
 VkExtent2D Framebuffer::getResolution() const
@@ -82,26 +90,37 @@ void Framebuffer::createFramebuffer(std::shared_ptr<RenderPass> renderPass)
     }
 }
 
-void Framebuffer::createImages()
+void Framebuffer::createImages(std::shared_ptr<RenderPass> renderPass)
 {
     if (m_colorImage == nullptr && !m_fromSwapchain)
     {
         m_colorImage = std::make_shared<Image>(m_device, glm::vec2(m_resolution.width, m_resolution.height), VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     
         m_colorImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         m_colorImage->transitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     
         m_sampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
-        VK_SAMPLER_MIPMAP_MODE_LINEAR);
+            VK_SAMPLER_MIPMAP_MODE_LINEAR);
 
         m_colorImageView = m_colorImage->createImageView();
     }
 
-    m_depthImage = std::make_shared<Image>(m_device, glm::vec2(m_resolution.width, m_resolution.height), m_device->getDepthFormat(),
-        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
+    if (renderPass->isOffscreen())
+    {
+        m_depthImage = std::make_shared<Image>(m_device, glm::vec2(m_resolution.width, m_resolution.height), m_device->getDepthFormat(),
+            VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        
+        m_depthImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        m_depthImage->transitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    }
+    else
+    {
+        m_depthImage = std::make_shared<Image>(m_device, glm::vec2(m_resolution.width, m_resolution.height), m_device->getDepthFormat(),
+            VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    }
 
     VkImageAspectFlags depthAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT;
     if (m_device->getDepthFormat() >= VK_FORMAT_D16_UNORM_S8_UINT)

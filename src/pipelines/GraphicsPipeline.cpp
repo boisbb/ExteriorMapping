@@ -1,4 +1,5 @@
 #include "pipelines/GraphicsPipeline.h"
+#include "utils/Constants.h"
 #include "utils/FileHandling.h"
 
 namespace vke
@@ -27,8 +28,8 @@ void GraphicsPipeline::create(VkRenderPass renderPass, std::string vertFile, std
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
-    std::vector<char> vertShaderCode = utils::readFile(vertFile);
-    std::vector<char> fragShaderCode = utils::readFile(fragFile);
+    std::vector<char> vertShaderCode = utils::readFile(COMPILED_SHADER_LOC + vertFile);
+    std::vector<char> fragShaderCode = utils::readFile(COMPILED_SHADER_LOC + fragFile);
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);

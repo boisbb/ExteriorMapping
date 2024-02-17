@@ -15,6 +15,7 @@ public:
     ~RenderPass();
 
     VkRenderPass getRenderPass() const;
+    bool isOffscreen() const;
 
 private:
     void createRenderPass();

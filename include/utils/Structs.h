@@ -91,16 +91,22 @@ struct ViewEvalDebugCompute {
     int numOfIntersections;
     int numOfFoundIntervals;
     glm::vec2 viewRes;
+    glm::vec4 pointInWSpace;
     // glm::vec2 t[32];
     // uint ids[128];
     //float __padding[2];
 };
 
-struct RayFrustumHitsDataCompute {
-    glm::vec2 t;
-    glm::vec2 id;
-    int planeId;
-    float __padding;
+struct FrustumHit
+{
+    float t;
+    int viewId;
+};
+
+// Quad shaders
+struct QuadUniformBuffer
+{
+    bool m_depthOnly;
 };
 
 struct Vertex {

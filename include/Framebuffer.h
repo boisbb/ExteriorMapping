@@ -24,10 +24,11 @@ public:
     VkImageView getColorImageView() const;
     std::shared_ptr<Image> getColorImage() const; 
     VkDescriptorImageInfo getColorImageInfo();
+    VkDescriptorImageInfo getDepthImageInfo();
     VkExtent2D getResolution() const;
 
 private:
-    void createImages();
+    void createImages(std::shared_ptr<RenderPass> renderPass);
     void createFramebuffer(std::shared_ptr<RenderPass> renderPass);
 
     VkFramebuffer m_framebuffer;
