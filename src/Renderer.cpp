@@ -205,7 +205,6 @@ void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::s
 {
     updateCullComputeDescriptorData(scene);
 
-    viewGrid->reconstructMatrices();
     std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
 
     for (auto& view : views)
@@ -313,8 +312,6 @@ void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared
         const std::shared_ptr<ViewGrid>& viewMatrixGrid)
 {
     bool resizeViews = false;
-
-    viewGrid->reconstructMatrices();
 
     std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
     std::vector<std::shared_ptr<View>> viewMatrix = viewMatrixGrid->getViews();
@@ -1232,7 +1229,7 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
 
     if (scene->sceneChanged())
     {
-        std::cout << "update" << std::endl;
+        // std::cout << "update" << std::endl;
 
         std::vector<MeshShaderDataVertex> vssboData;
         std::vector<MeshShaderDataFragment> fssboData;

@@ -27,12 +27,7 @@ void ViewGrid::viewCalculateEye(std::shared_ptr<View> view)
 
     // std::cout << worldPos.x << " " << worldPos.y << " " << worldPos.z << std::endl;
 
-    view->setCameraEye(worldPos);
-
-    glm::vec3 newViewDir = glm::normalize(m_viewDir + view->getCamera()->getViewDir());
-
-    view->getCamera()->setViewDir(newViewDir);
-}
+    view->setCameraEye(worldPos);}
 
 void ViewGrid::reconstructMatrices()
 {
@@ -43,7 +38,7 @@ void ViewGrid::reconstructMatrices()
         if (m_byStep)
             viewCalculateEye(view);
         
-        view->getCamera()->reconstructMatrices();
+        view->getCamera()->reconstructMatrices(m_gridMatrix);
     }
 }
 
@@ -96,8 +91,8 @@ void ViewGrid::initializeByStep()
     calculateGridMatrix();
 
     glm::vec2 start = glm::vec2(
-        -(m_config.gridSize.x * m_config.step.x / 2),
-        m_config.gridSize.y * m_config.step.y / 2
+        -(((m_config.gridSize.x - 1) * m_config.step.x) / 2),
+        ((m_config.gridSize.y - 1) * m_config.step.y) / 2
     );
 
     glm::vec2 viewResolution = m_resolution / glm::vec2(m_config.gridSize);
@@ -108,11 +103,13 @@ void ViewGrid::initializeByStep()
         {
             glm::vec3 gridPos = glm::vec3(start, 0.f) + glm::vec3(x, -y, 0.f) * glm::vec3(m_config.step, 0.f);
 
+            std::cout << gridPos.x << " " << gridPos.y << " " << gridPos.z << std::endl;
+
             std::shared_ptr<View> view = std::make_shared<View>(viewResolution, viewResolution * glm::vec2(x, y), m_device, 
                 m_setLayout, m_setPool);
             view->setDebugCameraGeometry(m_cameraCube);
             view->getCamera()->setFov(m_fov);
-            view->getCamera()->setViewDir(m_config.viewDir);
+            view->getCamera()->setViewDir(m_prevViewDir);
             m_views.push_back(view);
 
             m_viewGridPos[view] = gridPos;
@@ -217,12 +214,6 @@ void ViewGrid::addViewColumn(int rowId, int rowViewStartId)
         m_device, m_setLayout, m_setPool);
     view->setDebugCameraGeometry(m_cameraCube);
     view->getCamera()->setFov(m_fov);
-
-    // m_scene->setReinitializeDebugCameraGeometryFlag(true);
-    // if (m_scene->getRenderDebugGeometryFlag())
-    // {
-    //     m_scene->addDebugCameraGeometry(m_cameraCube, m_views);
-    // }
     
     m_views.insert(m_views.begin() + rowViewStartId + rowViewsCount, view);
     m_viewRowColumns[rowId] += 1;
@@ -236,11 +227,9 @@ void ViewGrid::calculateGridMatrix()
     float angle = glm::acos(glm::dot(org, target));
     glm::vec3 axis = glm::normalize(glm::cross(org, target));
 
-    // m_gridMatrix = glm::translate(glm::mat4(1.f), m_position);
+    m_gridMatrix = glm::translate(glm::mat4(1.f), m_position);
     if (m_prevViewDir != m_viewDir)
-        m_gridMatrix = glm::rotate(glm::mat4(1.f), angle, axis);
-
-    std::cout << m_viewDir.x << " " << m_viewDir.y << " " << m_viewDir.z << std::endl;
+        m_gridMatrix = glm::rotate(m_gridMatrix, angle, axis);
 }
 
 }

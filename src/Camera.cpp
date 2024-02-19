@@ -132,12 +132,14 @@ void Camera::setFov(float fov)
     m_fov = fov;
 }
 
-void Camera::reconstructMatrices()
+void Camera::reconstructMatrices(glm::mat4 viewDirMatrix)
 {
     m_view = glm::mat4(1.f);
     m_projection = glm::mat4(1.f);
 
-    m_view = glm::lookAt(m_eye, m_eye + m_viewDirection, m_up);
+    glm::vec3 transfViewDir = viewDirMatrix * glm::vec4(m_viewDirection, 0.f);
+
+    m_view = glm::lookAt(m_eye, m_eye + transfViewDir, m_up);
     m_projection = glm::perspective(glm::radians(m_fov), m_resolution.x / m_resolution.y, m_near, m_far);
 
     // Vulkan only.

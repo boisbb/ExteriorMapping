@@ -42,7 +42,7 @@ public:
     void setViewDir(glm::vec3& viewDir);
     void setFov(float fov);
 
-    void reconstructMatrices();
+    void reconstructMatrices(glm::mat4 viewDirMatrix = glm::mat4(1.f));
 private:
 
     void buildFrustum();

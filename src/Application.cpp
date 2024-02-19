@@ -91,6 +91,8 @@ void Application::draw()
             m_renderer->setSceneChanged(0);
             m_scene->setSceneChanged(true);
         }
+
+        viewGrid->reconstructMatrices();
         
         m_renderer->beginComputePass();
 
@@ -99,7 +101,9 @@ void Application::draw()
             m_renderer->cullComputePass(m_scene, viewGrid, (!m_renderFromViews));
         }
         else
+        {
             m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid);
+        }
         
         m_renderer->endComputePass();
         m_renderer->submitCompute();
@@ -553,245 +557,9 @@ void Application::createMainView()
 
     VkExtent2D offscreenRes = m_renderer->getOffscreenFramebuffer()->getResolution();
 
-    m_novelViewGrid = std::make_shared<ViewGrid>(m_device, glm::vec2(offscreenRes.width, offscreenRes.height), mainViewConfig, 
+    m_novelViewGrid = std::make_shared<ViewGrid>(m_device, glm::vec2(offscreenRes.width, offscreenRes.height), mainViewConfig,
         m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool(), m_cameraCube);
-
-    // glm::vec3 viewDir = glm::normalize(glm::vec3(-1,0,0));
-// 
-    // utils::Config::View& mainView = m_config.novelView;
-// 
-    // std::shared_ptr<View> novelView = std::make_shared<View>(glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT),
-    //     glm::vec2(0.f, 0.f), m_device, m_renderer->getViewDescriptorSetLayout(),
-    //     m_renderer->getViewDescriptorPool());
-    // novelView->setDebugCameraGeometry(m_cameraCube);
-    // novelView->setCameraEye(mainView.cameraPos);
-    // novelView->getCamera()->setViewDir(viewDir);
-    // novelView->getCamera()->setFov(m_mainViewFov);
-// 
-    // m_novelViews.push_back(novelView);
-
-    // uint32_t row = 0;
-    // int currentRowStartId = 0;
-    // for (int i = 0; i < m_config.views.size(); i++)
-    // {
-    //     utils::Config::View configView = m_config.views[i];
-    //     
-    //     row = configView.row;
-// 
-    //     if (m_viewRowColumns.size() == row)
-    //     {
-    //         currentRowStartId = m_views.size();
-    //         addViewRow();
-    //     }
-    //     else
-    //     {
-    //         addViewColumn(row, currentRowStartId);
-    //     }
-// 
-    //     m_views.back()->setCameraEye(configView.cameraPos);
-    //     m_views.back()->getCamera()->setViewDir(viewDir);
-    // }
 }
-
-/*
-void Application::addViewColumn(int rowId, int rowViewStartId)
-{
-    if (m_viewRowColumns.size() == 0)
-        m_viewRowColumns.push_back(0);
-    
-    VkExtent2D framebufferExtent = m_renderer->getOffscreenFramebuffer()->getResolution();
-
-    int rowViewsCount = m_viewRowColumns[rowId];
-
-    int newViewWidth = static_cast<float>(framebufferExtent.width) / static_cast<float>(rowViewsCount + 1);
-    int newViewHeight = static_cast<float>(framebufferExtent.height) / static_cast<float>(m_viewRowColumns.size());
-
-    int newViewWidthOffset = 0;
-    int newViewHeightOffset = rowId * newViewHeight;
-
-    for (int i = 0; i < rowViewsCount; i++)
-    {
-        newViewWidthOffset = newViewWidth * i;
-
-        m_views[rowViewStartId + i]->setResolution(glm::vec2(newViewWidth, newViewHeight));
-        m_views[rowViewStartId + i]->setViewportStart(glm::vec2(newViewWidthOffset, newViewHeightOffset));
-        
-    }
-
-    newViewWidthOffset = newViewWidth * rowViewsCount;
-
-    std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(newViewWidth, newViewHeight), glm::vec2(newViewWidthOffset, newViewHeightOffset),
-        m_device, m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool());
-    view->setDebugCameraGeometry(m_cameraCube);
-    view->getCamera()->setFov(m_viewsFov);
-
-    // m_scene->setReinitializeDebugCameraGeometryFlag(true);
-    // if (m_scene->getRenderDebugGeometryFlag())
-    // {
-    //     m_scene->addDebugCameraGeometry(m_cameraCube, m_views);
-    // }
-    
-    m_views.insert(m_views.begin() + rowViewStartId + rowViewsCount, view);
-    m_viewRowColumns[rowId] += 1;
-}
-
-void Application::removeViewColumn(int rowId, int rowViewStartId)
-{
-    if (m_viewRowColumns.size() == 0)
-        return;
-    
-    if (m_viewRowColumns[rowId] == 1)
-        return;
-    
-    VkExtent2D framebufferExtent = m_renderer->getOffscreenFramebuffer()->getResolution();
-
-    int rowViewsCount = m_viewRowColumns[rowId];
-
-    int newViewWidth = static_cast<float>(framebufferExtent.width) / static_cast<float>(rowViewsCount - 1);
-    int newViewHeight = static_cast<float>(framebufferExtent.height) / static_cast<float>(m_viewRowColumns.size());
-
-    int newViewWidthOffset = 0;
-    int newViewHeightOffset = rowId * newViewHeight;
-
-    for (int i = 0; i < rowViewsCount - 1; i++)
-    {
-        newViewWidthOffset = newViewWidth * i;
-
-        m_views[rowViewStartId + i]->setResolution(glm::vec2(newViewWidth, newViewHeight));
-        m_views[rowViewStartId + i]->setViewportStart(glm::vec2(newViewWidthOffset, newViewHeightOffset));
-        
-    }
-
-    std::shared_ptr<View> toRemoveView = m_views[rowViewStartId + rowViewsCount - 1];
-    m_scene->removeView(toRemoveView);
-
-    m_views.erase(m_views.begin() + rowViewStartId + rowViewsCount - 1);
-    m_viewRowColumns[rowId] -= 1;
-}
-
-void Application::addViewRow()
-{
-    // VkExtent2D windowExtent = m_window->getExtent();
-    VkExtent2D framebufferExtent = m_renderer->getOffscreenFramebuffer()->getResolution();
-
-    int rowsCount = m_viewRowColumns.size();
-
-    int newViewHeight = static_cast<float>(framebufferExtent.height) / static_cast<float>(rowsCount + 1);
-    int newViewHeightOffset = 0;
-    
-    int viewId = 0;
-    for (int i = 0; i < m_viewRowColumns.size(); i++)
-    {
-        newViewHeightOffset = newViewHeight * i;
-        
-        for (int j = 0; j < m_viewRowColumns[i]; j++)
-        {
-            auto& view = m_views[viewId];
-
-            glm::vec2 viewOffset =  view->getViewportStart();
-            viewOffset.y = newViewHeightOffset;
-
-            glm::vec2 viewResolution = view->getResolution();
-            viewResolution.y = newViewHeight;
-
-            view->setViewportStart(viewOffset);
-            view->setResolution(viewResolution);
-
-            viewId += 1;
-        }
-    }
-
-    newViewHeightOffset = newViewHeight * rowsCount;
-
-    std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(framebufferExtent.width, newViewHeight),
-        glm::vec2(0.f, newViewHeightOffset), m_device, m_renderer->getViewDescriptorSetLayout(),
-        m_renderer->getViewDescriptorPool());
-    view->setDebugCameraGeometry(m_cameraCube);
-    view->getCamera()->setFov(m_viewsFov);
-    
-    m_viewRowColumns.push_back(1);
-    m_views.push_back(view);
-}
-
-void Application::removeViewRow()
-{
-    if (m_viewRowColumns.size() == 1)
-        return;
-
-    VkExtent2D framebufferExtent = m_renderer->getOffscreenFramebuffer()->getResolution();
-
-    int rowsCount = m_viewRowColumns.size();
-    int lastRowViewsCount = m_viewRowColumns.back();
-
-    for (int i = 0; i < lastRowViewsCount; i++)
-    {
-        std::shared_ptr<View> toRemoveView = m_views[m_views.size() - 1];
-        m_scene->removeView(toRemoveView);
-
-        m_views.erase(m_views.end() - 1);
-    }
-
-    m_viewRowColumns.erase(m_viewRowColumns.end() - 1);
-
-    int newViewHeight = static_cast<float>(framebufferExtent.height) / static_cast<float>(rowsCount - 1);
-    int newViewHeightOffset = 0;
-
-    int viewId = 0;
-    for (int i = 0; i < m_viewRowColumns.size(); i++)
-    {
-        newViewHeightOffset = newViewHeight * i;
-        
-        for (int j = 0; j < m_viewRowColumns[i]; j++)
-        {
-            auto& view = m_views[viewId];
-
-            glm::vec2 viewOffset =  view->getViewportStart();
-            viewOffset.y = newViewHeightOffset;
-
-            glm::vec2 viewResolution = view->getResolution();
-            viewResolution.y = newViewHeight;
-
-            view->setViewportStart(viewOffset);
-            view->setResolution(viewResolution);
-
-            viewId += 1;
-        }
-    }
-}
-
-void Application::resizeAllViews()
-{
-    glm::vec2 windowExtent = m_window->getResolution();
-
-    int rowsCount = m_viewRowColumns.size();
-
-    int newViewHeight = static_cast<float>(windowExtent.y) / static_cast<float>(rowsCount);
-    int newViewHeightOffset = 0;
-
-    int newViewWidth = 0;
-    int newViewWidthOffset = 0;
-
-    int viewId = 0;
-    for (int i = 0; i < rowsCount; i++)
-    {
-        newViewHeightOffset = newViewHeight * i;
-
-        int rowViewsCount = m_viewRowColumns[i];
-        newViewWidth = static_cast<float>(windowExtent.x) / static_cast<float>(rowViewsCount);
-
-        for (int j = 0; j < rowViewsCount; j++)
-        {
-            newViewWidthOffset = newViewWidth * j;
-
-            m_views[viewId]->setResolution(glm::vec2(newViewWidth, newViewHeight));
-            m_views[viewId]->setViewportStart(glm::vec2(newViewWidthOffset, newViewHeightOffset));
-        
-            viewId += 1;
-        }
-    }
-}
-
-*/
 
 void Application::createScene()
 {
@@ -845,7 +613,7 @@ struct IntersectInfo
 
 struct IntervalHit {
     glm::vec2 t;
-    uint idBits[4];
+    unsigned int idBits[4];
 };
 
 glm::vec2 calculateMaskId(float id)
@@ -867,7 +635,7 @@ void Application::mainCameraTestRays()
     FrustumHit frustumHitsIn[128];
     FrustumHit frustumHitsOut[128];
 
-    uint intersectCount = 0;
+    unsigned int intersectCount = 0;
     
     for (int y = 0; y < mainCameraRes.y; y++)
     {
@@ -1019,7 +787,7 @@ void Application::mainCameraTestRays()
             IntervalHit intervals[32];
 
             int currentlyInInterval = 0;
-            uint cameraIndexMask[4];
+            unsigned int cameraIndexMask[4];
             cameraIndexMask[0] = 0;
             cameraIndexMask[1] = 0;
             cameraIndexMask[2] = 0;
@@ -1064,7 +832,7 @@ void Application::mainCameraTestRays()
                             bool newSame = true;
                             for (int k = 0; k < 4; k++)
                             {
-                                uint mask = current.idBits[k] & cameraIndexMask[k];
+                                unsigned int mask = current.idBits[k] & cameraIndexMask[k];
 
                                 if (mask != current.idBits[k])
                                     currentSame = false;
@@ -1133,8 +901,8 @@ void Application::mainCameraTestRays()
                             int prevOuter = int(maskId.x);
                             int prevInner = int(maskId.y);
 
-                            uint prevIdNum = (1 << prevInner);
-                            uint check = cameraIndexMask[prevOuter] & prevIdNum;
+                            unsigned int prevIdNum = (1 << prevInner);
+                            unsigned int check = cameraIndexMask[prevOuter] & prevIdNum;
 
                             if (check == prevIdNum)
                             {
