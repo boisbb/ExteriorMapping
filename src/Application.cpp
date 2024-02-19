@@ -41,7 +41,8 @@ void Application::run()
 
 void Application::init()
 {
-    utils::parseConfig("../res/configs/full_grid/config2grid.json", m_config);
+    // utils::parseConfig("../res/configs/full_grid/config2grid.json", m_config);
+    utils::parseConfig("../res/configs/by_step/config.json", m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
     m_device = std::make_shared<Device>(m_window);
@@ -51,7 +52,7 @@ void Application::init()
 
     createScene();
 
-    addConfigViews();
+    createMainView();
 
     VkExtent2D offscreenRes = m_renderer->getOffscreenFramebuffer()->getResolution();
 
@@ -81,20 +82,24 @@ void Application::draw()
     {
         windowResolution = m_window->getResolution();
 
-        std::vector<std::shared_ptr<View>>& views = m_renderFromViews ? m_views : m_novelViews;
+        std::shared_ptr<ViewGrid> viewGrid = m_renderFromViews ? m_viewGrid : m_novelViewGrid;
         std::shared_ptr<Framebuffer> framebuffer = m_renderFromViews ? m_renderer->getViewMatrixFramebuffer()
             : m_renderer->getOffscreenFramebuffer();
 
-        consumeInput();
-
+        if (consumeInput())
+        {
+            m_renderer->setSceneChanged(0);
+            m_scene->setSceneChanged(true);
+        }
+        
         m_renderer->beginComputePass();
 
         if (!m_renderNovel)
         {
-            m_renderer->cullComputePass(m_scene, views, (!m_renderFromViews));
+            m_renderer->cullComputePass(m_scene, viewGrid, (!m_renderFromViews));
         }
         else
-            m_renderer->rayEvalComputePass(m_novelViews, m_views);
+            m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid);
         
         m_renderer->endComputePass();
         m_renderer->submitCompute();
@@ -106,13 +111,13 @@ void Application::draw()
         if (!m_renderNovel)
         {
             m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
-            m_renderer->renderPass(m_scene, views, m_views);
+            m_renderer->renderPass(m_scene, viewGrid, m_viewGrid);
             m_renderer->endRenderPass();
         }
         else
         {
-            m_novelViews[0]->getCamera()->reconstructMatrices();
-            m_novelViews[0]->updateDescriptorData(m_renderer->getCurrentFrame());
+            m_novelViewGrid->getViews()[0]->getCamera()->reconstructMatrices();
+            m_novelViewGrid->getViews()[0]->updateDescriptorData(m_renderer->getCurrentFrame());
         }
 
         if (m_renderNovel)
@@ -181,34 +186,37 @@ void Application::preRender()
 {
 
     m_renderer->beginComputePass();
-    m_renderer->cullComputePass(m_scene, m_views, false);
+    m_renderer->cullComputePass(m_scene, m_viewGrid, false);
     m_renderer->endComputePass();
     m_renderer->submitCompute();
 
     m_renderer->beginCommandBuffer();
     m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getViewMatrixFramebuffer());
-    m_renderer->renderPass(m_scene, m_views, m_views);
+    m_renderer->renderPass(m_scene, m_viewGrid, m_viewGrid);
     m_renderer->endRenderPass();
     m_renderer->endCommandBuffer();
     m_renderer->submitGraphics();
 
     m_renderer->setSceneChanged(0);
     m_renderer->setLightChanged(0);
+
 }
 
-void Application::consumeInput()
+bool Application::consumeInput()
 {
     glfwPollEvents();
 
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse && !io.WantCaptureKeyboard)
-    {
+    { 
         VkExtent2D fbSize = m_renderer->getOffscreenFramebuffer()->getResolution();
         glm::vec2 windowSize = m_window->getResolution();
 
-        vke::utils::consumeDeviceInput(m_window->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
-            (m_renderFromViews) ? m_views : m_novelViews);
+        return vke::utils::consumeDeviceInput(m_window->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
+            (m_renderFromViews) ? m_viewGrid : m_novelViewGrid, m_manipulateGrid);
     }
+
+    return false;
 }
 
 void Application::initImgui()
@@ -313,7 +321,7 @@ void Application::renderImgui(int lastFps)
             ImGui::InputFloat("FOV", &m_mainViewFov);
             if(ImGui::Button("Apply"))
             {
-                m_novelViews[0]->getCamera()->setFov(m_mainViewFov);
+                m_novelViewGrid->getViews()[0]->getCamera()->setFov(m_mainViewFov);
             }
         }
 
@@ -352,11 +360,16 @@ void Application::renderImgui(int lastFps)
             }
         }
 
+        if (m_renderFromViews)
+        {
+            ImGui::Checkbox("Manipulate whole grid", &m_manipulateGrid);
+        }
+
         if (ImGui::Checkbox("Show camera geometry", &m_showCameraGeometry))
         {
             if (m_showCameraGeometry)
             {
-                m_scene->addDebugCameraGeometry(m_views);
+                m_scene->addDebugCameraGeometry(m_viewGrid->getViews());
                 m_scene->setSceneChanged(true);
                 m_renderer->setSceneChanged(0);
 
@@ -373,14 +386,14 @@ void Application::renderImgui(int lastFps)
 
         if (ImGui::Button("-"))
         {
-            removeViewRow();
+            //removeViewRow();
             m_scene->setReinitializeDebugCameraGeometryFlag(true);
             m_scene->addDebugCameraGeometry(m_views);
         }
         ImGui::SameLine();
         if (ImGui::Button("+"))
         {
-            addViewRow();
+            //addViewRow();
         }
 
         std::vector<ViewColInfo> viewColInfos;
@@ -479,13 +492,13 @@ void Application::renderImgui(int lastFps)
         {
             if (info.remove)
             {
-                removeViewColumn(info.rowId, info.viewId + addViewId);
+                //removeViewColumn(info.rowId, info.viewId + addViewId);
                 addViewId -= 1;
                 remove = true;
             }
             else
             {
-                addViewColumn(info.rowId, info.viewId + addViewId);
+                //addViewColumn(info.rowId, info.viewId + addViewId);
                 addViewId += 1;
             }
         }
@@ -532,45 +545,55 @@ void Application::cleanup()
     
 }
 
-void Application::addConfigViews()
+void Application::createMainView()
 {
-    glm::vec3 viewDir = glm::normalize(glm::vec3(-1,0,0));
+    utils::Config mainViewConfig = {};
+    mainViewConfig.byStep = false;
+    mainViewConfig.views = { m_config.novelView };
 
-    utils::Config::View& mainView = m_config.novelView;
+    VkExtent2D offscreenRes = m_renderer->getOffscreenFramebuffer()->getResolution();
 
-    std::shared_ptr<View> novelView = std::make_shared<View>(glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT),
-        glm::vec2(0.f, 0.f), m_device, m_renderer->getViewDescriptorSetLayout(),
-        m_renderer->getViewDescriptorPool());
-    novelView->setDebugCameraGeometry(m_cameraCube);
-    novelView->setCameraEye(mainView.cameraPos);
-    novelView->getCamera()->setViewDir(viewDir);
-    novelView->getCamera()->setFov(m_mainViewFov);
+    m_novelViewGrid = std::make_shared<ViewGrid>(m_device, glm::vec2(offscreenRes.width, offscreenRes.height), mainViewConfig, 
+        m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool(), m_cameraCube);
 
-    m_novelViews.push_back(novelView);
+    // glm::vec3 viewDir = glm::normalize(glm::vec3(-1,0,0));
+// 
+    // utils::Config::View& mainView = m_config.novelView;
+// 
+    // std::shared_ptr<View> novelView = std::make_shared<View>(glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT),
+    //     glm::vec2(0.f, 0.f), m_device, m_renderer->getViewDescriptorSetLayout(),
+    //     m_renderer->getViewDescriptorPool());
+    // novelView->setDebugCameraGeometry(m_cameraCube);
+    // novelView->setCameraEye(mainView.cameraPos);
+    // novelView->getCamera()->setViewDir(viewDir);
+    // novelView->getCamera()->setFov(m_mainViewFov);
+// 
+    // m_novelViews.push_back(novelView);
 
-    uint32_t row = 0;
-    int currentRowStartId = 0;
-    for (int i = 0; i < m_config.views.size(); i++)
-    {
-        utils::Config::View configView = m_config.views[i];
-        
-        row = configView.row;
-
-        if (m_viewRowColumns.size() == row)
-        {
-            currentRowStartId = m_views.size();
-            addViewRow();
-        }
-        else
-        {
-            addViewColumn(row, currentRowStartId);
-        }
-
-        m_views.back()->setCameraEye(configView.cameraPos);
-        m_views.back()->getCamera()->setViewDir(viewDir);
-    }
+    // uint32_t row = 0;
+    // int currentRowStartId = 0;
+    // for (int i = 0; i < m_config.views.size(); i++)
+    // {
+    //     utils::Config::View configView = m_config.views[i];
+    //     
+    //     row = configView.row;
+// 
+    //     if (m_viewRowColumns.size() == row)
+    //     {
+    //         currentRowStartId = m_views.size();
+    //         addViewRow();
+    //     }
+    //     else
+    //     {
+    //         addViewColumn(row, currentRowStartId);
+    //     }
+// 
+    //     m_views.back()->setCameraEye(configView.cameraPos);
+    //     m_views.back()->getCamera()->setViewDir(viewDir);
+    // }
 }
 
+/*
 void Application::addViewColumn(int rowId, int rowViewStartId)
 {
     if (m_viewRowColumns.size() == 0)
@@ -768,6 +791,8 @@ void Application::resizeAllViews()
     }
 }
 
+*/
+
 void Application::createScene()
 {
     m_scene = std::make_shared<Scene>();
@@ -833,8 +858,8 @@ glm::vec2 calculateMaskId(float id)
 
 void Application::mainCameraTestRays()
 {
-    std::shared_ptr<Camera> mainCamera = m_novelViews[0]->getCamera();
-    glm::vec2 res = m_novelViews[0]->getResolution();
+    std::shared_ptr<Camera> mainCamera = m_novelViewGrid->getViews()[0]->getCamera();
+    glm::vec2 res = m_novelViewGrid->getViews()[0]->getResolution();
     glm::vec2 mainCameraRes = mainCamera->getResolution();
 
     // std::map<int, std::map<std::pair<int, int>, std::vector<IntersectInfo>>> intersectsMap;
@@ -1169,33 +1194,6 @@ void Application::mainCameraTestRays()
 
 
     }
-
-    
-    
-    // for (auto& kvV : intersectsMap)
-    // {
-    //     std::cout << "View: " << kvV.first << std::endl;
-// 
-    //     std::array<int, 6> planesForView{0,0,0,0,0,0};
-    //     for (int y = 0; y < mainCameraRes.y; y++)
-    //     {
-    //         for (int x = 0; x < mainCameraRes.x; x++)
-    //         {                    
-    //             int cnt = 0;
-    //             for (auto& intersect : kvV.second[std::pair<int,int>(x, y)])
-    //             {
-    //                 planesForView[intersect.planeId]++;
-    //             }
-    //         }
-    //     }
-// 
-    //     for (int i = 0; i < 6; i++)
-    //     {
-    //         std::cout << "    plane: " << i << " intersects: " << planesForView[i] << std::endl;
-    //     }
-// 
-    //     std::cout << std::endl;
-    // }
 }
 
 }

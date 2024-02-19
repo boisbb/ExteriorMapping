@@ -9,8 +9,10 @@ ViewGrid::ViewGrid(std::shared_ptr<Device> device, const glm::vec2 &resolution, 
     std::shared_ptr<DescriptorSetLayout> setLayout, std::shared_ptr<DescriptorPool> setPool,
     std::shared_ptr<Model> cameraCube)
     : m_device(device), m_setLayout(setLayout), m_setPool(setPool), m_config(config), m_resolution(resolution),
-    m_cameraCube(cameraCube), m_fov(90.f), m_byStep(false)
+    m_cameraCube(cameraCube), m_fov(90.f), m_byStep(false), m_gridMatrix(1.f), m_position(0.f), m_step(0.f),
+    m_viewDir(0, 0, -1), m_prevViewDir(0, 0, -1)
 {
+    initializeViews();
 }
 
 ViewGrid::~ViewGrid()
@@ -23,13 +25,60 @@ void ViewGrid::viewCalculateEye(std::shared_ptr<View> view)
 
     glm::vec3 worldPos = m_gridMatrix * glm::vec4(gridPos, 0.f, 1.f);
 
+    // std::cout << worldPos.x << " " << worldPos.y << " " << worldPos.z << std::endl;
+
     view->setCameraEye(worldPos);
+
+    glm::vec3 newViewDir = glm::normalize(m_viewDir + view->getCamera()->getViewDir());
+
+    view->getCamera()->setViewDir(newViewDir);
+}
+
+void ViewGrid::reconstructMatrices()
+{
+    calculateGridMatrix();
+
+    for (auto& view : m_views)
+    {
+        if (m_byStep)
+            viewCalculateEye(view);
+        
+        view->getCamera()->reconstructMatrices();
+    }
+}
+
+std::vector<std::shared_ptr<View>> ViewGrid::getViews() const
+{
+    return m_views;
+}
+
+void ViewGrid::getInputInfo(glm::vec3 &position, glm::vec3 &viewDir, float& speed,
+    float& sensitivity)
+{
+    position = m_position;
+    viewDir = m_viewDir;
+    speed = m_speed;
+    sensitivity = m_sensitivity;
+}
+
+void ViewGrid::setInputInfo(const glm::vec3 &position, const glm::vec3 &viewDir,
+    const float &speed)
+{
+    m_position = position;
+    m_viewDir = viewDir;
+    m_speed = speed;
+}
+
+glm::vec2 ViewGrid::getResolution() const
+{
+    return m_resolution;
 }
 
 void ViewGrid::initializeViews()
 {
     if (m_config.byStep)
     {
+        m_byStep = m_config.byStep;
         initializeByStep();
     }
     else
@@ -40,6 +89,12 @@ void ViewGrid::initializeViews()
 
 void ViewGrid::initializeByStep()
 {
+    m_position = m_config.location;
+    m_viewDir = m_config.viewDir;
+    m_step = m_config.step;
+
+    calculateGridMatrix();
+
     glm::vec2 start = glm::vec2(
         -(m_config.gridSize.x * m_config.step.x / 2),
         m_config.gridSize.y * m_config.step.y / 2
@@ -51,7 +106,7 @@ void ViewGrid::initializeByStep()
     {
         for (int x = 0; x < m_config.gridSize.x; x++)
         {
-            glm::vec3 gridPos = glm::vec3(start, 0.f) + glm::vec3(x, y, 0.f) * glm::vec3(m_config.gridSize, 0.f);
+            glm::vec3 gridPos = glm::vec3(start, 0.f) + glm::vec3(x, -y, 0.f) * glm::vec3(m_config.step, 0.f);
 
             std::shared_ptr<View> view = std::make_shared<View>(viewResolution, viewResolution * glm::vec2(x, y), m_device, 
                 m_setLayout, m_setPool);
@@ -62,15 +117,13 @@ void ViewGrid::initializeByStep()
 
             m_viewGridPos[view] = gridPos;
             viewCalculateEye(view);
-            // view->getCamera()->setCameraEye(eyePos);
         }
     }
 }
 
 void ViewGrid::initializeByGrid()
 {
-    glm::vec3 viewDir = glm::normalize(glm::vec3(-1,0,0));
-    calculateGridMatrix();
+    glm::vec3 viewDir = glm::normalize(glm::vec3(0,0,-1));
 
     uint32_t row = 0;
     int currentRowStartId = 0;
@@ -177,14 +230,17 @@ void ViewGrid::addViewColumn(int rowId, int rowViewStartId)
 
 void ViewGrid::calculateGridMatrix()
 {
-    glm::vec3 org = glm::normalize(glm::vec3(0, 0, -1));
-    glm::vec3 target = glm::normalize(m_config.viewDir);
+    glm::vec3 org = glm::normalize(m_prevViewDir);
+    glm::vec3 target = glm::normalize(m_viewDir);
 
     float angle = glm::acos(glm::dot(org, target));
     glm::vec3 axis = glm::normalize(glm::cross(org, target));
 
-    m_gridMatrix = glm::translate(glm::mat4(1.f), m_config.location);
-    m_gridMatrix = glm::rotate(m_gridMatrix, angle, axis);
+    // m_gridMatrix = glm::translate(glm::mat4(1.f), m_position);
+    if (m_prevViewDir != m_viewDir)
+        m_gridMatrix = glm::rotate(glm::mat4(1.f), angle, axis);
+
+    std::cout << m_viewDir.x << " " << m_viewDir.y << " " << m_viewDir.z << std::endl;
 }
 
 }

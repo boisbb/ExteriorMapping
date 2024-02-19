@@ -15,9 +15,9 @@
                 "y": 2
             },
             "viewDir": {
-                "x": -1,
+                "x": 0,
                 "y": 0,
-                "z": 0
+                "z": -1
             },
             "location": {
                 "x": 0,
@@ -32,7 +32,8 @@
     },
     "sceneData": {
         "models": [
-            "../res/models/dabrovic_sponza/sponza.obj"
+            "../res/models/dabrovic_sponza/sponza.obj",
+            "../res/models/basicCube/cube.obj"
         ],
         "lightPos": {
             "x": 0,

@@ -21,89 +21,106 @@
 // glm
 #include "glm_include_unified.h"
 
-#include "View.h"
+#include "ViewGrid.h"
 #include "Camera.h"
 
 namespace vke::utils
 {
 
-void consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::vector<std::shared_ptr<View>> views)
+bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::shared_ptr<ViewGrid> viewGrid,
+    bool manipulateGrid)
 {
+    bool changed = false;
     double mouseX;
     double mouseY;
     glfwGetCursorPos(window, &mouseX, &mouseY);
-
-    std::shared_ptr<Camera> camera = views[0]->getCamera();
-    std::shared_ptr<View> view = views[0];
-
-    glm::vec2 offset;
-    glm::vec2 resolution;
-
-    int testt = 0;
-
-    for (int i = 0; i < views.size(); i++)
-    {
-        auto v = views[i];
-        offset = v->getViewportStart() * framebufferRatio;
-        resolution = v->getResolution() * framebufferRatio;
-
-        if ((mouseX >= offset.x && mouseX < offset.x + resolution.x)
-         && (mouseY >= offset.y && mouseY < offset.y + resolution.y))
-        {
-            camera = v->getCamera();
-            view = v;
-            testt = i;
-        }
-    }
 
     static bool firstClick = true;
     static double prevMouseX = 0;
     static double prevMouseY = 0;
 
-    glm::vec3 eye;
-    glm::vec3 up;
-    glm::vec3 viewDir;
-    float speed;
+    std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
+    std::shared_ptr<Camera> camera = views[0]->getCamera();
 
-    camera->getCameraInfo(eye, up, viewDir, speed);
+    glm::vec3 eye(0.f);
+    glm::vec3 up(0.f, 1.f, 0.f);
+    glm::vec3 viewDir(0.f);
+    float speed = 0.f;
+    float sensitivity = 0.f;
+    glm::vec2 offset(0.f);
+    glm::vec2 resolution(0.f);
+
+    if (!manipulateGrid)
+    {
+        std::shared_ptr<View> view = views[0];
+
+        for (int i = 0; i < views.size(); i++)
+        {
+            auto v = views[i];
+            offset = v->getViewportStart() * framebufferRatio;
+            resolution = v->getResolution() * framebufferRatio;
+
+            if ((mouseX >= offset.x && mouseX < offset.x + resolution.x)
+            && (mouseY >= offset.y && mouseY < offset.y + resolution.y))
+            {
+                camera = v->getCamera();
+                view = v;
+            }
+        }
+
+        camera->getCameraInfo(eye, up, viewDir, speed);
+
+        sensitivity = camera->getSensitivity();
+        offset = view->getViewportStart() * framebufferRatio;
+        resolution = view->getResolution() * framebufferRatio;
+    }
+    else
+    {
+        viewGrid->getInputInfo(eye, viewDir, speed, sensitivity);
+        resolution = viewGrid->getResolution() * framebufferRatio;
+    }
+
+    
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
         eye += speed * viewDir;
+        changed = true;
     }
     
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
         eye += speed * -glm::normalize(glm::cross(viewDir, up));
+        changed = true;
     }
     
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
         eye += speed * -viewDir;
+        changed = true;
     }
     
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
         eye += speed * glm::normalize(glm::cross(viewDir, up));
+        changed = true;
     }
     
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
     {
         eye += speed * up;
+        changed = true;
     }
     
     if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
     {
         eye += speed * -up;
+        changed = true;
     }
 
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
-        float sensitivity = camera->getSensitivity();
-        offset = view->getViewportStart() * framebufferRatio;
-        resolution = view->getResolution() * framebufferRatio;
-        
         if (firstClick)
         {
             glfwSetCursorPos(window, std::round(offset.x + (resolution.x / 2)), std::round(offset.y + (resolution.y / 2)));
@@ -129,6 +146,7 @@ void consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::vec
 
             glfwSetCursorPos(window, std::round(offset.x + (resolution.x / 2)), std::round(offset.y + (resolution.y / 2)));
         }
+        changed = true;
 
     }
     else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE)
@@ -137,26 +155,37 @@ void consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::vec
         firstClick = true;
     }
 
-    if (views.size() > 1)
+    // if (false)
+    // {
+    //     glm::vec4 testEye = glm::vec4(-1.5f + 1.f * testt, 1.f, 0.f, 1.f);
+// 
+    //     glm::vec3 org = glm::normalize(glm::vec3(0, 0, -1));
+    //     glm::vec3 target = glm::normalize(glm::vec3(1, 0, -1));
+// 
+    //     float angle = glm::acos(glm::dot(org, target));
+    //     glm::vec3 axis = glm::normalize(glm::cross(org, target));
+    //     
+    //     glm::mat4 transform = glm::translate(glm::mat4(1.f), glm::vec3(-10.f, 0.f, 0.f));
+// 
+    //     transform = glm::rotate(transform, angle, axis);
+// 
+    //     testEye = transform * glm::vec4(testEye);
+// 
+    //     eye = testEye;
+// 
+    //     changed = true;
+    // }
+
+    if (!manipulateGrid)
     {
-        glm::vec4 testEye = glm::vec4(-1.5f + 1.f * testt, 1.f, 0.f, 1.f);
-
-        glm::vec3 org = glm::normalize(glm::vec3(0, 0, -1));
-        glm::vec3 target = glm::normalize(glm::vec3(1, 0, -1));
-
-        float angle = glm::acos(glm::dot(org, target));
-        glm::vec3 axis = glm::normalize(glm::cross(org, target));
-        
-        glm::mat4 transform = glm::translate(glm::mat4(1.f), glm::vec3(-10.f, 0.f, 0.f));
-
-        transform = glm::rotate(transform, angle, axis);
-
-        testEye = transform * glm::vec4(testEye);
-
-        eye = testEye;
+        camera->setCameraInfo(eye, up, viewDir, speed);
+    }
+    else
+    {
+        viewGrid->setInputInfo(eye, viewDir, speed);
     }
 
-    camera->setCameraInfo(eye, up, viewDir, speed);
+    return changed;
 }
 
 

@@ -3,8 +3,8 @@
 #define FRAMEBUFFER_WIDTH (1920.f * 4)
 #define FRAMEBUFFER_HEIGHT (1016.f * 4)
 
-#define WINDOW_WIDTH (1920.f / 1.f)
-#define WINDOW_HEIGHT (1016.f / 1.f)
+#define WINDOW_WIDTH (1920.f /  2.f)
+#define WINDOW_HEIGHT (1016.f / 2.f)
 
 #define NOVEL_VIEW_WIDTH  ((1920.f / 3.f) * 2.f)
 #define NOVEL_VIEW_HEIGHT ((1016.f / 3.f) * 2.f)

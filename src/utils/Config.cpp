@@ -52,25 +52,25 @@ void parseViewsByStep(nlohmann::json viewData, Config &config)
 	config.byStep = true;
 
 	config.gridSize = glm::ivec2(
-		viewData["gridSize"]["x"].template get<int>(),
-		viewData["gridSize"]["y"].template get<int>()
+		viewData["views"]["gridSize"]["x"].template get<float>(),
+		viewData["views"]["gridSize"]["y"].template get<float>()
 	);
 
 	config.viewDir = glm::vec3(
-		viewData["viewDir"]["x"].template get<float>(),
-		viewData["viewDir"]["y"].template get<float>(),
-		viewData["viewDir"]["z"].template get<float>()
+		viewData["views"]["viewDir"]["x"].template get<float>(),
+		viewData["views"]["viewDir"]["y"].template get<float>(),
+		viewData["views"]["viewDir"]["z"].template get<float>()
 	);
 
 	config.location = glm::vec3(
-		viewData["location"]["x"].template get<float>(),
-		viewData["location"]["y"].template get<float>(),
-		viewData["location"]["z"].template get<float>()
+		viewData["views"]["location"]["x"].template get<float>(),
+		viewData["views"]["location"]["y"].template get<float>(),
+		viewData["views"]["location"]["z"].template get<float>()
 	);
 
 	config.step = glm::vec2(
-		viewData["step"]["x"].template get<float>(),
-		viewData["step"]["y"].template get<float>()
+		viewData["views"]["step"]["x"].template get<float>(),
+		viewData["views"]["step"]["y"].template get<float>()
 	);
 }
 

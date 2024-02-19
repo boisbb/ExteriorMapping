@@ -3,6 +3,7 @@
 #include "Scene.h"
 #include "Camera.h"
 #include "View.h"
+#include "ViewGrid.h"
 #include "Image.h"
 #include "Sampler.h"
 #include "Pipeline.h"
@@ -199,14 +200,17 @@ void Renderer::initDescriptorResources()
     }
 }
 
-void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>>& views,
+void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::shared_ptr<ViewGrid>& viewGrid,
     bool novelViews)
 {
     updateCullComputeDescriptorData(scene);
 
+    viewGrid->reconstructMatrices();
+    std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
+
     for (auto& view : views)
     {
-        view->getCamera()->reconstructMatrices();
+        // view->getCamera()->reconstructMatrices();
         view->updateComputeDescriptorData(m_currentFrame, scene);
 
         if (!scene->viewResourcesExist(view))
@@ -224,9 +228,12 @@ void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::v
     }
 }
 
-void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& novelViews, 
-        const std::vector<std::shared_ptr<View>>& views)
+void Renderer::rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid, 
+        const std::shared_ptr<ViewGrid>& viewGrid)
 {
+    std::vector<std::shared_ptr<View>> novelViews = novelViewGrid->getViews();
+    std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
+
     updateRayEvalComputeDescriptorData(novelViews, views);
 
     glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
@@ -302,16 +309,21 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
 
 }
 
-void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::vector<std::shared_ptr<View>>& views, 
-        const std::vector<std::shared_ptr<View>>& viewMatrix)
+void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared_ptr<ViewGrid>& viewGrid, 
+        const std::shared_ptr<ViewGrid>& viewMatrixGrid)
 {
     bool resizeViews = false;
+
+    viewGrid->reconstructMatrices();
+
+    std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
+    std::vector<std::shared_ptr<View>> viewMatrix = viewMatrixGrid->getViews();
 
     updateDescriptorData(scene, views, viewMatrix);
 
     for (auto& view : views)
     {
-        view->getCamera()->reconstructMatrices();
+        // view->getCamera()->reconstructMatrices();
         view->updateDescriptorData(m_currentFrame);
 
         glm::vec2 viewportStart = view->getViewportStart();

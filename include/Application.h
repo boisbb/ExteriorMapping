@@ -69,17 +69,17 @@ private:
     void init();
     void draw();
     void preRender();
-    void consumeInput();
+    bool consumeInput();
     void initImgui();
     void renderImgui(int lastFps);
     void cleanup();
 
-    void addConfigViews();
-    void addViewColumn(int rowId, int rowViewStartId);
-    void removeViewColumn(int rowId, int rowViewStartId);
-    void addViewRow();
-    void removeViewRow();
-    void resizeAllViews();
+    void createMainView();
+    // void addViewColumn(int rowId, int rowViewStartId);
+    // void removeViewColumn(int rowId, int rowViewStartId);
+    // void addViewRow();
+    // void removeViewRow();
+    // void resizeAllViews();
 
     void createScene();
     void createModels();
@@ -95,8 +95,9 @@ private:
     std::shared_ptr<Model> m_light;
     std::vector<std::shared_ptr<Model>> m_models;
     
-    std::vector<std::shared_ptr<View>> m_novelViews;
+    // std::vector<std::shared_ptr<View>> m_novelViews;
     std::vector<std::shared_ptr<View>> m_views;
+    std::shared_ptr<ViewGrid> m_novelViewGrid;
     std::shared_ptr<ViewGrid> m_viewGrid;
 
     std::shared_ptr<Model> m_cameraCube;
@@ -111,6 +112,7 @@ private:
     bool m_showCameraGeometry;
     bool m_rayEvalOnCpu = false;
     bool m_renderFromViews;
+    bool m_manipulateGrid = false;
     int m_changeOffscreenTarget;
     float m_viewsFov = 90.f;
     float m_mainViewFov = 90.f;

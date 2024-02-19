@@ -16,6 +16,7 @@ class Model;
 class Scene;
 class Camera;
 class View;
+class ViewGrid;
 class DescriptorSetLayout;
 class DescriptorPool;
 class GraphicsPipeline;
@@ -33,12 +34,12 @@ public:
         std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile);
     ~Renderer();
 
-    void cullComputePass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views,
+    void cullComputePass(const std::shared_ptr<Scene>& scene, const std::shared_ptr<ViewGrid>& viewGrid,
         bool novelViews = false);
-    void rayEvalComputePass(const std::vector<std::shared_ptr<View>>& novelViews, 
-        const std::vector<std::shared_ptr<View>>& views);
-    void renderPass(const std::shared_ptr<Scene>& scene, const std::vector<std::shared_ptr<View>>& views, 
-        const std::vector<std::shared_ptr<View>>& viewMatrix);
+    void rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid, 
+        const std::shared_ptr<ViewGrid>& viewGrid);
+    void renderPass(const std::shared_ptr<Scene>& scene, const std::shared_ptr<ViewGrid>& viewGrid, 
+        const std::shared_ptr<ViewGrid>& viewMatrixGrid);
     void quadRenderPass(glm::vec2 windowResolution, bool depthOnly = false);
     void setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
     void setScissor(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);

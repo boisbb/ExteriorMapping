@@ -21,6 +21,13 @@ public:
     ~ViewGrid();
 
     void viewCalculateEye(std::shared_ptr<View> view);
+    void reconstructMatrices();
+
+    std::vector<std::shared_ptr<View>> getViews() const;
+    void getInputInfo(glm::vec3& position, glm::vec3& viewDir, float& speed, 
+        float& sensitivity);
+    void setInputInfo(const glm::vec3& position, const glm::vec3& viewDir, const float& speed);
+    glm::vec2 getResolution() const;
 
 private:
     void initializeViews();
@@ -34,6 +41,12 @@ private:
     float m_fov;
     bool m_byStep;
     glm::mat4 m_gridMatrix;
+    glm::vec3 m_position;
+    glm::vec3 m_prevViewDir;
+    glm::vec3 m_viewDir;
+    glm::vec2 m_step;
+    float m_speed = 0.05f;
+    float m_sensitivity = 100.f;
 
     std::shared_ptr<Device> m_device;
     std::shared_ptr<DescriptorSetLayout> m_setLayout;
