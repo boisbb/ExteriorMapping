@@ -41,7 +41,7 @@ void Application::run()
 
 void Application::init()
 {
-    utils::parseConfig("../res/config6grid.json", m_config);
+    utils::parseConfig("../res/configs/full_grid/config2grid.json", m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
     m_device = std::make_shared<Device>(m_window);
@@ -52,6 +52,11 @@ void Application::init()
     createScene();
 
     addConfigViews();
+
+    VkExtent2D offscreenRes = m_renderer->getOffscreenFramebuffer()->getResolution();
+
+    m_viewGrid = std::make_shared<ViewGrid>(m_device, glm::vec2(offscreenRes.width, offscreenRes.height), m_config, 
+        m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool(), m_cameraCube);
     
     m_renderer->initDescriptorResources();
     initImgui();
@@ -787,6 +792,8 @@ void Application::createModels()
 
         m_models.push_back(model);
     }
+
+    m_models[m_models.size() - 1]->setModelMatrix(glm::scale(glm::mat4(1.f), glm::vec3(0.1f, 0.1f, 0.1f)));
 
     m_cameraCube = vke::utils::importModel(m_config.viewGeometry,
         m_vertices, m_indices);

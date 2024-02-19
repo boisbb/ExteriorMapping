@@ -1,3 +1,5 @@
+#pragma once
+
 #include <iostream>
 #include <vector>
 
@@ -15,6 +17,12 @@ struct Config
 		uint32_t row;
 	};
 
+	bool byStep = false;
+	glm::vec3 viewDir;
+	glm::vec3 location;
+	glm::vec2 step;
+	glm::ivec2 gridSize;
+
 	View novelView;
 	std::vector<View> views;
 	std::string viewGeometry;
@@ -26,6 +34,10 @@ struct Config
 void parseConfig(std::string configFile, Config& config);
 
 void parseViewData(nlohmann::json viewData, Config& config);
+
+void parseViewsByStep(nlohmann::json viewData, Config& config);
+
+void parseViewsByGrid(nlohmann::json viewData, Config& config);
 
 void parseSceneData(nlohmann::json sceneData, Config& config);
 

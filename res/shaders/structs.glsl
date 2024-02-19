@@ -5,7 +5,10 @@ struct ViewDataEvalCompute
     vec4 frustumPlanes[6];
     mat4 view;
     mat4 proj;
+    mat4 invView;
+    mat4 invProj;
     vec4 resOffset;
+    vec2 nearFar;
 };
 
 struct ViewEvalDebugCompute {

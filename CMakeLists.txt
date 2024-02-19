@@ -28,6 +28,7 @@ set ( INCLUDE
     include/Mesh.h
     include/Camera.h
     include/View.h
+    include/ViewGrid.h
     include/Material.h
     include/Image.h
     include/Texture.h
@@ -58,6 +59,7 @@ set( SOURCE
     src/Buffer.cpp
     src/Camera.cpp
     src/View.cpp
+    src/ViewGrid.cpp
     src/Pipeline.cpp
     src/Renderer.cpp
     src/RenderPass.cpp

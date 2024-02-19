@@ -35,6 +35,47 @@ void parseViewData(nlohmann::json viewData, Config& config)
 
 	config.novelView = novelView;
 
+	bool byStep = viewData["byStep"].template get<bool>();
+
+	if (byStep)
+	{
+		parseViewsByStep(viewData, config);
+	}
+	else
+	{
+		parseViewsByGrid(viewData, config);
+	}
+}
+
+void parseViewsByStep(nlohmann::json viewData, Config &config)
+{
+	config.byStep = true;
+
+	config.gridSize = glm::ivec2(
+		viewData["gridSize"]["x"].template get<int>(),
+		viewData["gridSize"]["y"].template get<int>()
+	);
+
+	config.viewDir = glm::vec3(
+		viewData["viewDir"]["x"].template get<float>(),
+		viewData["viewDir"]["y"].template get<float>(),
+		viewData["viewDir"]["z"].template get<float>()
+	);
+
+	config.location = glm::vec3(
+		viewData["location"]["x"].template get<float>(),
+		viewData["location"]["y"].template get<float>(),
+		viewData["location"]["z"].template get<float>()
+	);
+
+	config.step = glm::vec2(
+		viewData["step"]["x"].template get<float>(),
+		viewData["step"]["y"].template get<float>()
+	);
+}
+
+void parseViewsByGrid(nlohmann::json viewData, Config &config)
+{
 	nlohmann::json rows = viewData["views"];
 
 	uint32_t rowCount = 0;
@@ -57,7 +98,7 @@ void parseViewData(nlohmann::json viewData, Config& config)
 	}
 }
 
-void parseSceneData(nlohmann::json sceneData, Config& config)
+void parseSceneData(nlohmann::json sceneData, Config &config)
 {
 	config.models = std::vector<std::string>();
 

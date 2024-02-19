@@ -8,6 +8,7 @@
                 "z": 0
             }
         },
+        "byStep": false,
         "views": [
             [
                 {
@@ -277,7 +278,8 @@
     },
     "sceneData": {
         "models": [
-            "../res/models/dabrovic_sponza/sponza.obj"
+            "../res/models/dabrovic_sponza/sponza.obj",
+            "../res/models/basicCube/cube.obj"
         ],
         "lightPos": {
             "x": 0,

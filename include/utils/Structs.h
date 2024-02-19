@@ -83,7 +83,11 @@ struct ViewEvalDataCompute {
     glm::vec4 frustumPlanes[6];
     glm::mat4 view;
     glm::mat4 proj;
+    glm::mat4 invView;
+    glm::mat4 invProj;
     glm::vec4 resOffset;
+    glm::vec2 nearFar;
+    float __padding[2];
 };
 
 struct ViewEvalDebugCompute {

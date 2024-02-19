@@ -44,6 +44,7 @@
 #include "Scene.h"
 #include "Camera.h"
 #include "View.h"
+#include "ViewGrid.h"
 #include "utils/Config.h"
 
 namespace vke
@@ -96,6 +97,7 @@ private:
     
     std::vector<std::shared_ptr<View>> m_novelViews;
     std::vector<std::shared_ptr<View>> m_views;
+    std::shared_ptr<ViewGrid> m_viewGrid;
 
     std::shared_ptr<Model> m_cameraCube;
     

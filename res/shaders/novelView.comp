@@ -38,8 +38,6 @@ void main()
 
     if (origPixId.x < ubo.res.x && origPixId.y < ubo.res.y)
     {
-        bool evaluateColor = false;
-
         vec2 pixCenter = origPixId + vec2(float(INTERPOLATE_PIXELS_X) / 2, float(INTERPOLATE_PIXELS_Y) / 2);
         vec2 uv = pixCenter / ubo.res;
         vec2 d = uv * 2.0 - 1.0;
@@ -64,20 +62,73 @@ void main()
          
         if (maxInterval.count > 0)
         {
-            vec4 avg = vec4(0);
+            vec4 finalColor = vec4(0);
+            bool evaluateColor = false;
 
             if (evaluateColor)
             {
-                EVALUATE_AND_SAMPLE_COLOR(maxInterval, avg);
+                EVALUATE_AND_SAMPLE_COLOR(maxInterval, finalColor);
             }
             else
             {
-                float dist = 1.0 / 0.0;
+                float sampleDist = (maxInterval.t.y - maxInterval.t.x) / RAY_PIX_SAMPLES;
+                float segmentStart = maxInterval.t.x;
+                
+                vec3 startP = org + dir * maxInterval.t.x;
+                vec3 endP = org + dir * maxInterval.t.y;
 
+                float minDist = 1.0 / 0.0;
+                for (int j = 0; j < RAY_PIX_SAMPLES; j++)
+                {
+                    vec3 p = org + dir * (segmentStart + j * sampleDist);
+                    
+                    vec4 colorAcc = vec4(0.0);
+                    float pointLineDistAcc = 0;
+
+                    for (int k = 0; k < ubo.viewCnt; k++)
+                    {
+                        bool result = false;
+                        IS_IN_MASK(k, maxInterval.idBits, result);
+                        if (result)
+                        {
+                            ViewDataEvalCompute currentView = cssbo.objects[k];
+
+                            vec2 pixId = vec2(0.0);
+                            vec2 dView = vec2(0.0);
+                            CALCULATE_PIX_ID_D(p, currentView.view,  currentView.proj,
+                                currentView.resOffset.xy, currentView.resOffset.zw,
+                                pixId, dView);
+                            
+                            vec2 uvView = pixId / ubo.viewsTotalRes;
+
+                            float n = currentView.nearFar.x;
+                            float f = currentView.nearFar.y;
+                            float z = texture(viewImagesDepthSampler, uvView).r;
+
+                            vec4 clipPoint = vec4(dView, z, 1.0);
+                            vec4 viewPoint = currentView.invProj * clipPoint;
+                            viewPoint /= viewPoint.w;
+
+                            vec3 worldPoint = (currentView.invView * viewPoint).xyz;
+
+                            float pointLineDist = 1.0 / 0.0;
+                            POINT_TO_LINE_DIST(worldPoint, startP, endP, pointLineDist);
+
+                            pointLineDistAcc += pointLineDist;
+                            colorAcc += texture(viewImagesSampler, uvView);
+                        }
+                    }
+
+                    if (pointLineDistAcc < minDist)
+                    {
+                        minDist = pointLineDistAcc;
+                        finalColor = colorAcc / maxInterval.count;
+                    }
+                }
                 // TODO: here continue.
             }
 
-            WRITE_TO_IMAGE(origPixId, novelImageSampler, avg);
+            WRITE_TO_IMAGE(origPixId, novelImageSampler, finalColor);
         }
         else
         {
@@ -93,21 +144,22 @@ void main()
 
         ViewDataEvalCompute currentView = cssbo.objects[0];
 
-        vec2 uv1 = (currentView.resOffset.xy / 2) / ubo.viewsTotalRes;
+        vec2 uv1 = vec2(currentView.resOffset.xy / 2) / ubo.viewsTotalRes;
         vec2 d1 = uv1 * 2.0 - 1.0;
 
-        float n = 0.1f;
-        float f = 100.f;
-        float z = texture(viewImagesDepthSampler, d1).r;
-        float clipDepth = (2.0 * n) / (f + n - z * (f - n));
+        float n = currentView.nearFar.x;
+        float f = currentView.nearFar.y;
+        float z = texture(viewImagesDepthSampler, uv1).r;
+        // z = z * 2.0 - 1.0;
 
-        vec3 clipPoint = vec3(uv1, clipDepth);
+        vec4 clipPoint = vec4(d1, z, 1.0);
+        vec4 viewPoint = currentView.invProj * clipPoint;
+        viewPoint /= viewPoint.w;
 
-        mat4 inverted = inverse(currentView.view);
+        vec4 worldPoint = currentView.invView * viewPoint;
 
-        vec3 point = (inverted * vec4(clipPoint, 1.0)).xyz;
 
-        cssboDebug.objects[linearRes].pointInWSpace = vec4(point, 1.0);
+        cssboDebug.objects[linearRes].pointInWSpace = vec4(worldPoint);
 #endif
         
     }

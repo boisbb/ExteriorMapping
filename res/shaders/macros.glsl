@@ -7,6 +7,13 @@
     \
     pixId = (((ct.xy + 1) / 2) * res) + offset;
 
+#define CALCULATE_PIX_ID_D(t, view, proj, res, offset, pixId, d) \
+    vec4 ct = proj * view * vec4(t, 1.f); \
+    ct /= ct.w; \
+    \
+    d = ct.xy; \
+    pixId = (((ct.xy + 1) / 2) * res) + offset;
+
 // id mask helpers
 #define GET_MASK_ID(id, result) \
     int outerMask = int(floor(id / 32)); \

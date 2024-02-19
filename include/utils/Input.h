@@ -39,6 +39,8 @@ void consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::vec
     glm::vec2 offset;
     glm::vec2 resolution;
 
+    int testt = 0;
+
     for (int i = 0; i < views.size(); i++)
     {
         auto v = views[i];
@@ -50,6 +52,7 @@ void consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::vec
         {
             camera = v->getCamera();
             view = v;
+            testt = i;
         }
     }
 
@@ -132,6 +135,25 @@ void consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::vec
     {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         firstClick = true;
+    }
+
+    if (views.size() > 1)
+    {
+        glm::vec4 testEye = glm::vec4(-1.5f + 1.f * testt, 1.f, 0.f, 1.f);
+
+        glm::vec3 org = glm::normalize(glm::vec3(0, 0, -1));
+        glm::vec3 target = glm::normalize(glm::vec3(1, 0, -1));
+
+        float angle = glm::acos(glm::dot(org, target));
+        glm::vec3 axis = glm::normalize(glm::cross(org, target));
+        
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), glm::vec3(-10.f, 0.f, 0.f));
+
+        transform = glm::rotate(transform, angle, axis);
+
+        testEye = transform * glm::vec4(testEye);
+
+        eye = testEye;
     }
 
     camera->setCameraInfo(eye, up, viewDir, speed);

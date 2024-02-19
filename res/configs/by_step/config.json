@@ -1,0 +1,43 @@
+{
+    "viewData": {
+        "geometry": "../res/models/coloredCube/coloredCube.obj",
+        "novelView": {
+            "cameraPos": {
+                "x": 10,
+                "y": 2,
+                "z": 0
+            }
+        },
+        "byStep": true,
+        "views": {
+            "gridSize": {
+                "x": 2,
+                "y": 2
+            },
+            "viewDir": {
+                "x": -1,
+                "y": 0,
+                "z": 0
+            },
+            "location": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "step": {
+                "x": 1,
+                "y": 1
+            }
+        }
+    },
+    "sceneData": {
+        "models": [
+            "../res/models/dabrovic_sponza/sponza.obj"
+        ],
+        "lightPos": {
+            "x": 0,
+            "y": 10,
+            "z": 0
+        }
+    }
+}

@@ -271,7 +271,8 @@ void Renderer::rayEvalComputePass(const std::vector<std::shared_ptr<View>>& nove
     std::cout << "res: " << evalData[linearResId].viewRes.x << " " << evalData[linearResId].viewRes.y << std::endl;
     std::cout << "p: " << evalData[linearResId].pointInWSpace.x << " " << 
         evalData[linearResId].pointInWSpace.y << " " << 
-        evalData[linearResId].pointInWSpace.z << std::endl;
+        evalData[linearResId].pointInWSpace.z << " " << 
+        evalData[linearResId].pointInWSpace.w << std::endl;
 
     // for (int i = 0; i < evalData[linearResId].numOfFoundIntervals; i++)
     // {
@@ -1294,6 +1295,8 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
         memcpy(cressbo[i].frustumPlanes, planes.data(), sizeof(glm::vec4) * 6);
         cressbo[i].view = views[i]->getCamera()->getView();
         cressbo[i].proj = views[i]->getCamera()->getProjection();
+        cressbo[i].invView = views[i]->getCamera()->getViewInverse();
+        cressbo[i].invProj = views[i]->getCamera()->getProjectionInverse();
 
         glm::vec2 res = views[i]->getResolution();
         glm::vec2 offset = views[i]->getViewportStart();
@@ -1301,6 +1304,7 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
         cressbo[i].resOffset.y = res.y;
         cressbo[i].resOffset.z = offset.x;
         cressbo[i].resOffset.w = offset.y;
+        cressbo[i].nearFar = views[i]->getNearFar();
     }
 
     m_cressbo[m_currentFrame]->copyMapped(cressbo.data(), sizeof(ViewEvalDataCompute) * cressbo.size());

@@ -30,6 +30,7 @@ public:
     std::shared_ptr<DescriptorSet> getViewDescriptorSet(int currentFrame);
     bool getFrustumCull() const;
     bool getDepthOnly() const;
+    glm::vec2 getNearFar() const;
 
     void setResolution(const glm::vec2& resolution);
     void setViewportStart(const glm::vec2& viewPortStart);

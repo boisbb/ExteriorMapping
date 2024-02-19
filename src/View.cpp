@@ -52,6 +52,11 @@ bool View::getDepthOnly() const
     return m_depthOnly;
 }
 
+glm::vec2 View::getNearFar() const
+{
+    return m_camera->getNearFar();
+}
+
 void View::setResolution(const glm::vec2 &resolution)
 {
     m_resolution = resolution;
@@ -123,7 +128,6 @@ void View::updateDescriptorDataRenderDebugCube(std::vector<MeshShaderDataVertex>
         std::shared_ptr<Material> material = meshes[i]->getMaterial();
 
         glm::mat4 matrix = glm::inverse(m_camera->getView());
-        // glm::mat4 matrix = glm::translate(glm::mat4(1.f), m_camera->getEye());
         matrix = glm::scale(matrix, glm::vec3(0.09f, 0.09f, 0.09f));
 
         vertexShaderData.push_back(MeshShaderDataVertex());

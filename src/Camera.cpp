@@ -88,6 +88,11 @@ glm::vec3 Camera::getViewDir() const
     return m_viewDirection;
 }
 
+glm::vec3 Camera::getUp() const
+{
+    return m_up;
+}
+
 float Camera::getSensitivity() const
 {
     return m_sensitivity;

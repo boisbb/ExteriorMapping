@@ -31,6 +31,7 @@ public:
     glm::vec2 getNearFar() const;
     glm::vec2 getResolution() const;
     glm::vec3 getViewDir() const;
+    glm::vec3 getUp() const;
     float getSensitivity() const;
     float getFov() const;
 
