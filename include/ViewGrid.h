@@ -26,8 +26,13 @@ public:
     std::vector<std::shared_ptr<View>> getViews() const;
     void getInputInfo(glm::vec3& position, glm::vec3& viewDir, float& speed, 
         float& sensitivity);
-    void setInputInfo(const glm::vec3& position, const glm::vec3& viewDir, const float& speed);
+    bool getByStep() const;
+    glm::vec3 getViewGridPos(std::shared_ptr<View> view);
     glm::vec2 getResolution() const;
+    glm::mat4 getMatrix() const;
+
+    void setInputInfo(const glm::vec3& position, const glm::vec3& viewDir, const float& speed);
+    void setViewGridPos(std::shared_ptr<View> view, const glm::vec3& gridPos);
 
 private:
     void initializeViews();
@@ -55,7 +60,7 @@ private:
 
     std::vector<std::shared_ptr<View>> m_views;
     std::vector<uint32_t> m_viewRowColumns;
-    std::map<std::shared_ptr<View>, glm::vec2> m_viewGridPos;
+    std::map<std::shared_ptr<View>, glm::vec3> m_viewGridPos;
 
     utils::Config m_config;
 };

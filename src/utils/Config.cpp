@@ -32,6 +32,11 @@ void parseViewData(nlohmann::json viewData, Config& config)
 		mainView["cameraPos"]["y"].template get<float>(),
 		mainView["cameraPos"]["z"].template get<float>()
 	);
+	novelView.viewDir = glm::vec3(
+		mainView["viewDir"]["x"].template get<float>(),
+		mainView["viewDir"]["y"].template get<float>(),
+		mainView["viewDir"]["z"].template get<float>()
+	);
 
 	config.novelView = novelView;
 

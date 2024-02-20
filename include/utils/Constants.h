@@ -1,13 +1,13 @@
 #pragma once
 
-#define FRAMEBUFFER_WIDTH (1920.f)
-#define FRAMEBUFFER_HEIGHT (1016.f)
+#define FRAMEBUFFER_WIDTH  (1920.f * 2.f)
+#define FRAMEBUFFER_HEIGHT (1016.f * 2.f)
 
-#define WINDOW_WIDTH (1920.f /  2.f)
-#define WINDOW_HEIGHT (1016.f / 2.f)
+#define WINDOW_WIDTH (1920.f)
+#define WINDOW_HEIGHT (1016.f)
 
-#define NOVEL_VIEW_WIDTH  ((1920.f / 3.f) * 2.f)
-#define NOVEL_VIEW_HEIGHT ((1016.f / 3.f) * 2.f)
+#define NOVEL_VIEW_WIDTH  (1920.f / 2.f)
+#define NOVEL_VIEW_HEIGHT (1016.f / 2.f)
 
 #define MAX_FRAMES_IN_FLIGHT 2
 #define MAX_VIEWS 64

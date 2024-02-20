@@ -21,9 +21,9 @@ ViewGrid::~ViewGrid()
 
 void ViewGrid::viewCalculateEye(std::shared_ptr<View> view)
 {
-    glm::vec2 gridPos = m_viewGridPos[view];
+    glm::vec3 gridPos = m_viewGridPos[view];
 
-    glm::vec3 worldPos = m_gridMatrix * glm::vec4(gridPos, 0.f, 1.f);
+    glm::vec3 worldPos = m_gridMatrix * glm::vec4(gridPos, 1.f);
 
     // std::cout << worldPos.x << " " << worldPos.y << " " << worldPos.z << std::endl;
 
@@ -56,6 +56,16 @@ void ViewGrid::getInputInfo(glm::vec3 &position, glm::vec3 &viewDir, float& spee
     sensitivity = m_sensitivity;
 }
 
+bool ViewGrid::getByStep() const
+{
+    return m_byStep;
+}
+
+glm::vec3 ViewGrid::getViewGridPos(std::shared_ptr<View> view)
+{   
+    return m_viewGridPos[view];
+}
+
 void ViewGrid::setInputInfo(const glm::vec3 &position, const glm::vec3 &viewDir,
     const float &speed)
 {
@@ -64,9 +74,19 @@ void ViewGrid::setInputInfo(const glm::vec3 &position, const glm::vec3 &viewDir,
     m_speed = speed;
 }
 
+void ViewGrid::setViewGridPos(std::shared_ptr<View> view, const glm::vec3& gridPos)
+{
+    m_viewGridPos[view] = gridPos;
+}
+
 glm::vec2 ViewGrid::getResolution() const
 {
     return m_resolution;
+}
+
+glm::mat4 ViewGrid::getMatrix() const
+{
+    return m_gridMatrix;
 }
 
 void ViewGrid::initializeViews()
@@ -120,7 +140,7 @@ void ViewGrid::initializeByStep()
 
 void ViewGrid::initializeByGrid()
 {
-    glm::vec3 viewDir = glm::normalize(glm::vec3(0,0,-1));
+    glm::vec3 viewDir = glm::normalize(glm::vec3(-1,0,0));
 
     uint32_t row = 0;
     int currentRowStartId = 0;

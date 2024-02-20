@@ -21,7 +21,7 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#define RAY_EVAL_DEBUG
+// #define RAY_EVAL_DEBUG
 
 #define INTERPOLATE_PIXELS_X 1.f
 #define INTERPOLATE_PIXELS_Y 1.f

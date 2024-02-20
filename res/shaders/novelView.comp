@@ -3,7 +3,7 @@
 #include "constants.glsl"
 #include "macros.glsl"
 
-#define WRITE_DEBUG
+// #define WRITE_DEBUG
 
 layout (local_size_x=32, local_size_y=32, local_size_z=1) in;
 
@@ -63,7 +63,7 @@ void main()
         if (maxInterval.count > 0)
         {
             vec4 finalColor = vec4(0);
-            bool evaluateColor = false;
+            bool evaluateColor = true;
 
             if (evaluateColor)
             {

@@ -41,10 +41,12 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
 
     std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
     std::shared_ptr<Camera> camera = views[0]->getCamera();
+    std::shared_ptr<View> view = views[0];
 
     glm::vec3 eye(0.f);
     glm::vec3 up(0.f, 1.f, 0.f);
-    glm::vec3 viewDir(0.f);
+    glm::vec3 moveViewDir(0.f);
+    glm::vec3 rotateViewDir(0.f);
     float speed = 0.f;
     float sensitivity = 0.f;
     glm::vec2 offset(0.f);
@@ -52,7 +54,6 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
 
     if (!manipulateGrid)
     {
-        std::shared_ptr<View> view = views[0];
 
         for (int i = 0; i < views.size(); i++)
         {
@@ -68,7 +69,18 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
             }
         }
 
-        camera->getCameraInfo(eye, up, viewDir, speed);
+        if (viewGrid->getByStep())
+        {
+            viewGrid->getInputInfo(eye, moveViewDir, speed, sensitivity);
+            eye = viewGrid->getViewGridPos(view);
+            moveViewDir = glm::vec4(view->getCamera()->getViewDir(), 1.f);
+            rotateViewDir = view->getCamera()->getViewDir();
+        }
+        else
+        {
+            camera->getCameraInfo(eye, up, moveViewDir, speed);
+            rotateViewDir = moveViewDir;
+        }
 
         sensitivity = camera->getSensitivity();
         offset = view->getViewportStart() * framebufferRatio;
@@ -76,33 +88,34 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
     }
     else
     {
-        viewGrid->getInputInfo(eye, viewDir, speed, sensitivity);
+        viewGrid->getInputInfo(eye, moveViewDir, speed, sensitivity);
         resolution = viewGrid->getResolution() * framebufferRatio;
+        rotateViewDir = moveViewDir;
     }
 
     
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        eye += speed * viewDir;
+        eye += speed * moveViewDir;
         changed = true;
     }
     
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        eye += speed * -glm::normalize(glm::cross(viewDir, up));
+        eye += speed * -glm::normalize(glm::cross(moveViewDir, up));
         changed = true;
     }
     
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        eye += speed * -viewDir;
+        eye += speed * -moveViewDir;
         changed = true;
     }
     
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        eye += speed * glm::normalize(glm::cross(viewDir, up));
+        eye += speed * glm::normalize(glm::cross(moveViewDir, up));
         changed = true;
     }
     
@@ -135,14 +148,14 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
             float t = (float)((offset.y + (resolution.y / 2)));
             float t2 = (float)((offset.x + (resolution.x / 2)));
 
-            glm::vec3 newViewDir = glm::rotate(viewDir, glm::radians(-rotx), glm::normalize(glm::cross(viewDir, up)));
+            glm::vec3 newViewDir = glm::rotate(rotateViewDir, glm::radians(-rotx), glm::normalize(glm::cross(rotateViewDir, up)));
 
             if (!((glm::angle(newViewDir, up) <= glm::radians(0.5f)) || (glm::angle(newViewDir, -up) <= glm::radians(5.0f))))
             {
-                viewDir = newViewDir;
-                }
+                rotateViewDir = newViewDir;
+            }
 
-            viewDir = glm::rotate(viewDir, glm::radians(-roty), up);
+            rotateViewDir = glm::rotate(rotateViewDir, glm::radians(-roty), up);
 
             glfwSetCursorPos(window, std::round(offset.x + (resolution.x / 2)), std::round(offset.y + (resolution.y / 2)));
         }
@@ -178,11 +191,17 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
 
     if (!manipulateGrid)
     {
-        camera->setCameraInfo(eye, up, viewDir, speed);
+        if (viewGrid->getByStep())
+        {
+            viewGrid->setViewGridPos(view, eye);
+            camera->setViewDir(rotateViewDir);
+        }
+        else
+            camera->setCameraInfo(eye, up, rotateViewDir, speed);
     }
     else
     {
-        viewGrid->setInputInfo(eye, viewDir, speed);
+        viewGrid->setInputInfo(eye, rotateViewDir, speed);
     }
 
     return changed;

@@ -14,6 +14,7 @@ struct Config
 	struct View
 	{
 		glm::vec3 cameraPos;
+		glm::vec3 viewDir;
 		uint32_t row;
 	};
 

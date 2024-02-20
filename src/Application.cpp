@@ -41,7 +41,7 @@ void Application::run()
 
 void Application::init()
 {
-    // utils::parseConfig("../res/configs/full_grid/config2grid.json", m_config);
+    // utils::parseConfig("../res/configs/full_grid/config6grid.json", m_config);
     utils::parseConfig("../res/configs/by_step/config.json", m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
@@ -188,6 +188,7 @@ void Application::draw()
 
 void Application::preRender()
 {
+    m_viewGrid->reconstructMatrices();
 
     m_renderer->beginComputePass();
     m_renderer->cullComputePass(m_scene, m_viewGrid, false);
@@ -559,6 +560,7 @@ void Application::createMainView()
 
     m_novelViewGrid = std::make_shared<ViewGrid>(m_device, glm::vec2(offscreenRes.width, offscreenRes.height), mainViewConfig,
         m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool(), m_cameraCube);
+    m_novelViewGrid->getViews()[0]->getCamera()->setViewDir(m_config.novelView.viewDir);
 }
 
 void Application::createScene()

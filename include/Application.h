@@ -95,7 +95,6 @@ private:
     std::shared_ptr<Model> m_light;
     std::vector<std::shared_ptr<Model>> m_models;
     
-    // std::vector<std::shared_ptr<View>> m_novelViews;
     std::vector<std::shared_ptr<View>> m_views;
     std::shared_ptr<ViewGrid> m_novelViewGrid;
     std::shared_ptr<ViewGrid> m_viewGrid;
