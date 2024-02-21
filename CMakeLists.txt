@@ -107,7 +107,8 @@ set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(assimp)
 
 # Vulkan linking
-find_package(Vulkan REQUIRED)
+find_package(Vulkan COMPONENTS glslc)
+find_program(glslc_executable NAMES glslc HINTS Vulkan::glslc)
 
 # ImGui linking
 set(IMGUI_PATH "external/imgui/")
@@ -144,3 +145,31 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/
     ${SOURCE}
     ${INCLUDE}
 )
+
+
+# Compile shaders: https://stackoverflow.com/questions/57478571/why-wont-cmake-build-my-vulkan-spirv-shaders
+set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/res/shaders)
+set(OUTPUT_SHADER_DIR ${CMAKE_CURRENT_BINARY_DIR}/compiled_shaders)
+
+file(GLOB SHADERS ${SHADER_DIR}/*.vert ${SHADER_DIR}/*.frag ${SHADER_DIR}/*.comp)
+
+foreach(SHADER IN LISTS SHADERS)
+    get_filename_component(FILENAME ${SHADER} NAME)
+        add_custom_command(
+        COMMAND
+            glslc 
+            -MD -MF ${OUTPUT_SHADER_DIR}/${FILENAME}.d 
+            -o ${OUTPUT_SHADER_DIR}/${FILENAME}.spv
+            ${SHADER}
+            OUTPUT ${OUTPUT_SHADER_DIR}/${FILENAME}.spv
+            DEPENDS ${SHADER}
+            COMMENT "Compiling ${FILENAME}"
+            DEPFILE ${OUTPUT_SHADER_DIR}/${FILENAME}.d 
+    )
+    list(APPEND SPV_SHADERS ${OUTPUT_SHADER_DIR}/${FILENAME}.spv)
+    
+endforeach()
+
+add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
+
+add_dependencies(VulkanBoilerPlate shaders)
