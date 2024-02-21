@@ -13,74 +13,8 @@ set(FETCHCONTENT_BASE_DIR
 
 set( CMAKE_CXX_STANDARD 17 )
 
-set ( INCLUDE
-    include/Application.h
-    include/Window.h
-    include/Device.h
-    include/SwapChain.h
-    include/Buffer.h
-    include/Pipeline.h
-    include/Renderer.h
-    include/RenderPass.h
-    include/Framebuffer.h
-    include/Scene.h
-    include/Model.h
-    include/Mesh.h
-    include/Camera.h
-    include/View.h
-    include/ViewGrid.h
-    include/Material.h
-    include/Image.h
-    include/Texture.h
-    include/Sampler.h
-    include/glm_include_unified.h
-    include/pipelines/GraphicsPipeline.h
-    include/pipelines/ComputePipeline.h
-    include/descriptors/SetLayout.h
-    include/descriptors/Pool.h
-    include/descriptors/Set.h
-    include/utils/Callbacks.h
-    include/utils/Config.h
-    include/utils/DebugHelpers.h
-    include/utils/Structs.h
-    include/utils/Constants.h
-    include/utils/FileHandling.h
-    include/utils/Import.h
-    include/utils/Input.h
-    include/utils/Math.h
-)
-
-set( SOURCE
-    src/main.cpp
-    src/Application.cpp
-    src/Window.cpp
-    src/Device.cpp
-    src/SwapChain.cpp
-    src/Buffer.cpp
-    src/Camera.cpp
-    src/View.cpp
-    src/ViewGrid.cpp
-    src/Pipeline.cpp
-    src/Renderer.cpp
-    src/RenderPass.cpp
-    src/Framebuffer.cpp
-    src/Scene.cpp
-    src/Model.cpp
-    src/Mesh.cpp
-    src/Material.cpp
-    src/Image.cpp
-    src/Texture.cpp
-    src/Sampler.cpp
-    src/pipelines/GraphicsPipeline.cpp
-    src/pipelines/ComputePipeline.cpp
-    src/descriptors/SetLayout.cpp
-    src/descriptors/Pool.cpp
-    src/descriptors/Set.cpp
-    src/utils/Config.cpp
-    src/utils/FileHandling.cpp
-    src/utils/Import.cpp
-    src/utils/Math.cpp
-)
+file(GLOB_RECURSE INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h ${CMAKE_CURRENT_SOURCE_DIR}/include/utils/*.h)
+file(GLOB_RECURSE SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
 add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE})
 
@@ -151,6 +85,13 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/res/shaders)
 set(OUTPUT_SHADER_DIR ${CMAKE_CURRENT_BINARY_DIR}/compiled_shaders)
 
+add_custom_command(
+  COMMAND
+    ${CMAKE_COMMAND} -E make_directory ${OUTPUT_SHADER_DIR}
+  OUTPUT ${OUTPUT_SHADER_DIR}
+  COMMENT "Creating ${OUTPUT_SHADER_DIR}"
+)
+
 file(GLOB SHADERS ${SHADER_DIR}/*.vert ${SHADER_DIR}/*.frag ${SHADER_DIR}/*.comp)
 
 foreach(SHADER IN LISTS SHADERS)
@@ -162,7 +103,7 @@ foreach(SHADER IN LISTS SHADERS)
             -o ${OUTPUT_SHADER_DIR}/${FILENAME}.spv
             ${SHADER}
             OUTPUT ${OUTPUT_SHADER_DIR}/${FILENAME}.spv
-            DEPENDS ${SHADER}
+            DEPENDS ${SHADER} ${OUTPUT_SHADER_DIR}
             COMMENT "Compiling ${FILENAME}"
             DEPFILE ${OUTPUT_SHADER_DIR}/${FILENAME}.d 
     )
@@ -173,3 +114,5 @@ endforeach()
 add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
 
 add_dependencies(VulkanBoilerPlate shaders)
+
+target_compile_definitions(VulkanBoilerPlate PRIVATE COMPILED_SHADER_LOC=${OUTPUT_SHADER_DIR})

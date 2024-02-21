@@ -28,8 +28,8 @@ void GraphicsPipeline::create(VkRenderPass renderPass, std::string vertFile, std
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
-    std::vector<char> vertShaderCode = utils::readFile(COMPILED_SHADER_LOC + vertFile);
-    std::vector<char> fragShaderCode = utils::readFile(COMPILED_SHADER_LOC + fragFile);
+    std::vector<char> vertShaderCode = utils::readFile(COMPILED_SHADER_LOC + std::string("/") + vertFile);
+    std::vector<char> fragShaderCode = utils::readFile(COMPILED_SHADER_LOC + std::string("/") + fragFile);
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);

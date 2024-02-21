@@ -17,4 +17,4 @@
 
 #define RET_ID_NOT_FOUND -1
 
-#define COMPILED_SHADER_LOC "../res/shaders/compiled/"
+#define COMPILED_SHADER_LOC "../build/compiled_shaders/"

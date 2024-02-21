@@ -46,9 +46,9 @@ void Application::init()
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
     m_device = std::make_shared<Device>(m_window);
-    m_renderer = std::make_shared<Renderer>(m_device, m_window, "offscreen_vert.spv",
-        "offscreen_frag.spv", "cull.spv", "quad_vert.spv",
-        "quad_frag.spv", "novelView.spv");
+    m_renderer = std::make_shared<Renderer>(m_device, m_window, "offscreen.vert.spv",
+        "offscreen.frag.spv", "cull.comp.spv", "quad.vert.spv",
+        "quad.frag.spv", "novelView.comp.spv");
 
     createScene();
 
