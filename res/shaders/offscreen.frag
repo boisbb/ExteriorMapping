@@ -13,7 +13,7 @@ struct FsInput
     vec3 normal;
     vec2 uv;
     mat3 tbn;
-}; 
+};
 
 layout(binding=2) uniform UniformDataFragment {
     vec3 lightPos;
