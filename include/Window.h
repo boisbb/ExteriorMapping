@@ -37,12 +37,14 @@ public:
     Window(int width = 800, int height = 600);
     ~Window();
     
-    void createWindowSurface(VkInstance& instance, VkSurfaceKHR* surface);
+    void createWindowSurface(VkInstance instance, VkSurfaceKHR& surface);
+    void createWindowSurface(VkInstance instance);
 
     VkExtent2D getExtent();
     glm::vec2 getResolution();
     GLFWwindow* getWindow();
     bool resized() const;
+    VkSurfaceKHR getSurface() const;
 
     void setResized(bool resized);
 
@@ -57,6 +59,8 @@ private:
     bool m_windowResized = false;
 
     GLFWwindow* m_window;
+
+    VkSurfaceKHR m_surface;
 };
 
 }

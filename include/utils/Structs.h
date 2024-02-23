@@ -13,6 +13,13 @@
 namespace vke
 {
 
+enum class SamplingType { 
+    COLOR,
+    DEPTH_DIST,
+    DEPTH_ANGLE,
+    END
+};
+
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
@@ -71,12 +78,13 @@ struct MeshShaderDataCompute {
 
 
 // Ray Eval shader data
-struct MainViewDataCompute {
+struct RayEvalUniformBuffer {
     glm::mat4 invView;
     glm::mat4 invProj;
     glm::vec2 res;
     glm::vec2 viewsTotalRes;
     int viewCnt;
+    unsigned int samplingType;
 };
 
 struct ViewEvalDataCompute {

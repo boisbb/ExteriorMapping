@@ -14,9 +14,19 @@ Window::~Window()
 {
 }
 
-void Window::createWindowSurface(VkInstance &instance, VkSurfaceKHR *surface)
+void Window::createWindowSurface(VkInstance instance, VkSurfaceKHR& surface)
 {
-    if (glfwCreateWindowSurface(instance, m_window, nullptr, surface) != VK_SUCCESS)
+    if (glfwCreateWindowSurface(instance, m_window, nullptr, &surface) != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to create window surface.");
+    }
+
+    m_surface = surface;
+}
+
+void Window::createWindowSurface(VkInstance instance)
+{
+    if (glfwCreateWindowSurface(instance, m_window, nullptr, &m_surface) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to create window surface.");
     }
@@ -52,6 +62,11 @@ GLFWwindow *Window::getWindow()
 bool Window::resized() const
 {
     return m_windowResized;
+}
+
+VkSurfaceKHR Window::getSurface() const
+{
+    return m_surface;
 }
 
 void Window::setResized(bool resized)

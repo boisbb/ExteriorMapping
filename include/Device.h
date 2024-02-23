@@ -73,11 +73,9 @@ public:
 
     void beginSingleCommands(VkCommandBuffer& commandBuffer);
     void endSingleCommands(VkCommandBuffer& commandBuffer);
-
-    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 private:
     void createInstance();
-    void createSurface();
+    void createSurface(std::shared_ptr<Window> window);
     void createLogicalDevice();
     void createCommandPool();
     VkFormat findDepthFormat();
@@ -93,17 +91,10 @@ private:
 
     // Check functions
     bool checkValidationLayerSupport();
-    bool checkDeviceSuitable(VkPhysicalDevice device);
-    bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-
-    // Find functions
-    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 
     // Debug functions
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
     void setupDebugMessenger();
-
-    std::shared_ptr<Window> m_window;
 
     VkInstance m_instance;
     VkSurfaceKHR m_surface;

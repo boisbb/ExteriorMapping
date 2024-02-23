@@ -123,7 +123,7 @@ void ViewGrid::initializeByStep()
         {
             glm::vec3 gridPos = glm::vec3(start, 0.f) + glm::vec3(x, -y, 0.f) * glm::vec3(m_config.step, 0.f);
 
-            std::cout << gridPos.x << " " << gridPos.y << " " << gridPos.z << std::endl;
+            // std::cout << gridPos.x << " " << gridPos.y << " " << gridPos.z << std::endl;
 
             std::shared_ptr<View> view = std::make_shared<View>(viewResolution, viewResolution * glm::vec2(x, y), m_device, 
                 m_setLayout, m_setPool);

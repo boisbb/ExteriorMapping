@@ -13,12 +13,13 @@
 namespace vke
 {
 
-SwapChain::SwapChain(std::shared_ptr<Device> device, VkExtent2D windowExtent)
+SwapChain::SwapChain(std::shared_ptr<Device> device, VkExtent2D windowExtent,
+    VkSurfaceKHR surface)
     : m_device(device), m_windowExtent(windowExtent)
 {
     m_depthFormat = m_device->getDepthFormat();
 
-    createSwapChain();
+    createSwapChain(surface);
     createImageViews();
     createSyncObjects();
 }
@@ -46,7 +47,7 @@ void SwapChain::initializeFramebuffers(std::shared_ptr<RenderPass> renderPass)
 //     return m_offscreenRenderPass->getRenderPass();
 // }
 
-void SwapChain::createSwapChain()
+void SwapChain::createSwapChain(VkSurfaceKHR surface)
 {
     SwapChainSupportDetails swapChainSupport = m_device->getSwapChainSupport();
 
@@ -63,7 +64,7 @@ void SwapChain::createSwapChain()
 
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    createInfo.surface = m_device->getSurface();
+    createInfo.surface = surface;
     createInfo.minImageCount = imageCount;
     createInfo.imageFormat = surfaceFormat.format;
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -221,7 +222,7 @@ void SwapChain::recreate(VkExtent2D windowExtent)
 
     cleanup();
 
-    createSwapChain();
+    // createSwapChain();
     // createImageViews();
     // createDepthResources();
     // createFramebuffers();

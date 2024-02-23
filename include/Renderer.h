@@ -83,12 +83,15 @@ public:
     std::shared_ptr<Framebuffer> getQuadFramebuffer(int imageIndex) const;
     std::shared_ptr<Framebuffer> getViewMatrixFramebuffer() const;
     VkDescriptorImageInfo getNovelImageInfo() const;
+    SamplingType getNovelViewSamplingType() const;
 
     void setSceneChanged(int sceneChanged);
     void setLightChanged(int lightChanged);
+    void setNovelViewSamplingType(SamplingType samplingType);
 
     int addTexture(std::shared_ptr<Texture> texture, std::string filename);
     int addBumpTexture(std::shared_ptr<Texture> texture, std::string filename);
+    void addSecondaryWindow(std::shared_ptr<Window> window);
 
     void beginComputePass();
     void endComputePass();
@@ -117,6 +120,7 @@ private:
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
     std::shared_ptr<SwapChain> m_swapChain;
+    std::shared_ptr<SwapChain> m_secondarySwapchain;
     std::shared_ptr<RenderPass> m_quadRenderPass;
     std::shared_ptr<RenderPass> m_offscreenRenderPass;
     std::shared_ptr<Framebuffer> m_mainFramebuffer;
@@ -182,6 +186,7 @@ private:
     int m_currentFrame;
     int m_sceneFramesUpdated;
     int m_lightsFramesUpdated;
+    SamplingType m_novelViewSamplingType;
 };
 
 }

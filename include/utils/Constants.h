@@ -1,7 +1,7 @@
 #pragma once
 
-#define FRAMEBUFFER_WIDTH  (1920.f * 2.f)
-#define FRAMEBUFFER_HEIGHT (1016.f * 2.f)
+#define FRAMEBUFFER_WIDTH  (1920.f * 4.f)
+#define FRAMEBUFFER_HEIGHT (1016.f * 4.f)
 
 #define WINDOW_WIDTH (1920.f)
 #define WINDOW_HEIGHT (1016.f)

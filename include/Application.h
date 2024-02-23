@@ -89,6 +89,7 @@ private:
     //
 
     std::shared_ptr<Window> m_window;
+    std::shared_ptr<Window> m_window2;
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Renderer> m_renderer;
     std::shared_ptr<Scene> m_scene;
@@ -115,6 +116,7 @@ private:
     int m_changeOffscreenTarget;
     float m_viewsFov = 90.f;
     float m_mainViewFov = 90.f;
+    SamplingType m_samplingType;
     
     utils::Config m_config;
 };

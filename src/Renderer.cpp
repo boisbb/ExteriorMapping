@@ -659,6 +659,11 @@ VkDescriptorImageInfo Renderer::getNovelImageInfo() const
     };
 }
 
+SamplingType Renderer::getNovelViewSamplingType() const
+{
+    return m_novelViewSamplingType;
+}
+
 void Renderer::setSceneChanged(int sceneChanged)
 {
     m_sceneFramesUpdated = sceneChanged;
@@ -667,6 +672,11 @@ void Renderer::setSceneChanged(int sceneChanged)
 void Renderer::setLightChanged(int lightChanged)
 {
     m_lightsFramesUpdated = lightChanged;
+}
+
+void Renderer::setNovelViewSamplingType(SamplingType samplingType)
+{
+    m_novelViewSamplingType = samplingType;
 }
 
 int Renderer::addTexture(std::shared_ptr<Texture> texture, std::string filename)
@@ -683,6 +693,11 @@ int Renderer::addBumpTexture(std::shared_ptr<Texture> texture, std::string filen
     m_bumpTextureMap[filename] = m_bumpTextures.size() - 1;
 
     return m_bumpTextures.size() - 1;
+}
+
+void Renderer::addSecondaryWindow(std::shared_ptr<Window> window)
+{
+    
 }
 
 void Renderer::beginComputePass()
@@ -939,7 +954,7 @@ void Renderer::createDescriptors()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cssbos[i]->map();
 
-        m_creubo[i] = std::make_unique<Buffer>(m_device, sizeof(MainViewDataCompute), 
+        m_creubo[i] = std::make_unique<Buffer>(m_device, sizeof(RayEvalUniformBuffer), 
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_creubo[i]->map();
 
@@ -1120,7 +1135,7 @@ void Renderer::createRenderResources()
 {
     VkFormat depthFormat = m_device->getDepthFormat();
 
-    m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent());
+    m_swapChain = std::make_shared<SwapChain>(m_device, m_window->getExtent(), m_window->getSurface());
     m_quadRenderPass = std::make_shared<RenderPass>(m_device, m_swapChain->getImageFormat(), depthFormat);
     m_swapChain->initializeFramebuffers(m_quadRenderPass);
 
@@ -1287,14 +1302,15 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
     glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
     VkExtent2D offscreenFbRes = m_offscreenFramebuffer->getResolution();
 
-    MainViewDataCompute creuData{};
+    RayEvalUniformBuffer creuData{};
     creuData.invProj = mainCamera->getProjectionInverse();
     creuData.invView = mainCamera->getViewInverse();
     creuData.res = res;
     creuData.viewsTotalRes = glm::vec2(offscreenFbRes.width, offscreenFbRes.height);
     creuData.viewCnt = views.size();
+    creuData.samplingType = 1 << static_cast<int>(m_novelViewSamplingType);
 
-    m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(MainViewDataCompute));
+    m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(RayEvalUniformBuffer));
 
     std::vector<ViewEvalDataCompute> cressbo(views.size());
 

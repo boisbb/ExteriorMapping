@@ -15,7 +15,8 @@ class Framebuffer;
 class SwapChain
 {
 public:
-    SwapChain(std::shared_ptr<Device> device, VkExtent2D windowExtent);
+    SwapChain(std::shared_ptr<Device> device, VkExtent2D windowExtent,
+        VkSurfaceKHR surface);
     ~SwapChain();
 
     void initializeFramebuffers(std::shared_ptr<RenderPass> renderPass);
@@ -46,7 +47,7 @@ public:
     std::vector<VkSemaphore> m_computeFinishedSemaphores;
     std::vector<VkFence> m_computeInFlightFences;
 private:
-    void createSwapChain();
+    void createSwapChain(VkSurfaceKHR surface);
     void createImageViews();
     void createSyncObjects();
 

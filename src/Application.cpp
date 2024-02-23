@@ -7,6 +7,7 @@
 #include "utils/Structs.h"
 #include "utils/Input.h"
 #include "utils/FileHandling.h"
+#include "utils/VulkanHelpers.h"
 
 // std
 #include <stdexcept>
@@ -23,13 +24,20 @@
 
 using namespace std::chrono;
 
+std::array<std::string, 3> samplingTypeStrings = {
+    "color",
+    "depth with distance",
+    "depth with angle distance"
+};
+
 namespace vke
 {
 
 Application::Application()
     : m_showCameraGeometry(false),
     m_renderFromViews(false),
-    m_changeOffscreenTarget(MAX_FRAMES_IN_FLIGHT)
+    m_changeOffscreenTarget(MAX_FRAMES_IN_FLIGHT),
+    m_samplingType(SamplingType::COLOR)
 {
     init();
 }
@@ -45,7 +53,10 @@ void Application::init()
     utils::parseConfig("../res/configs/by_step/config.json", m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
+    m_window2 = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
+
     m_device = std::make_shared<Device>(m_window);
+    m_window2->createWindowSurface(m_device->getInstance());
     m_renderer = std::make_shared<Renderer>(m_device, m_window, "offscreen.vert.spv",
         "offscreen.frag.spv", "cull.comp.spv", "quad.vert.spv",
         "quad.frag.spv", "novelView.comp.spv");
@@ -226,7 +237,7 @@ bool Application::consumeInput()
 
 void Application::initImgui()
 {
-    auto indices = m_device->findQueueFamilies(m_device->getPhysicalDevice());
+    auto indices = vke::utils::findQueueFamilies(m_device->getPhysicalDevice(), m_device->getSurface());
 
     VkDescriptorPoolSize pool_sizes[] =
 	{
@@ -318,6 +329,30 @@ void Application::renderImgui(int lastFps)
             {
                 m_changeOffscreenTarget = 0;
             }
+        }
+
+        if (ImGui::BeginCombo("##samplingCombo", samplingTypeStrings[static_cast<int>(m_samplingType)].c_str()))
+        {
+            for (int i = 0; i < static_cast<int>(SamplingType::END); i++)
+            {
+                bool isSelected = static_cast<int>(m_samplingType) == i;
+                if (ImGui::Selectable(samplingTypeStrings[i].c_str(), isSelected))
+                {
+                    m_samplingType = static_cast<SamplingType>(i);
+                }
+
+                if (isSelected)
+                {
+                    ImGui::SetItemDefaultFocus();
+                }
+
+                if (m_renderer->getNovelViewSamplingType() != m_samplingType)
+                {
+                    m_renderer->setNovelViewSamplingType(m_samplingType);
+                }
+            }
+
+            ImGui::EndCombo();
         }
         
         //ImGui::DragFloat("Views FOV", &m_viewsFov, 5.f, 0.f, 120.f);
@@ -632,8 +667,6 @@ void Application::mainCameraTestRays()
     glm::vec2 res = m_novelViewGrid->getViews()[0]->getResolution();
     glm::vec2 mainCameraRes = mainCamera->getResolution();
 
-    // std::map<int, std::map<std::pair<int, int>, std::vector<IntersectInfo>>> intersectsMap;
-
     FrustumHit frustumHitsIn[128];
     FrustumHit frustumHitsOut[128];
 
@@ -653,14 +686,14 @@ void Application::mainCameraTestRays()
 
             glm::vec2 d = uv * 2.f - 1.f;
 
-            glm::vec4 org4f = mainCamera->getViewInverse() * glm::vec4(0.f, 0.f, 0.f, 1.f);
+            glm::vec4 from = mainCamera->getProjectionInverse() * glm::vec4(0.f, 0.f, 0.f, 1.f);
             glm::vec4 target = mainCamera->getProjectionInverse() * glm::vec4(d.x, d.y, 1.f, 1.f);
-            glm::vec4 dir4f = mainCamera->getViewInverse() * glm::vec4(glm::normalize(glm::vec3(target.x, target.y, target.z)), 0.f);
 
-            glm::vec3 org(org4f.x, org4f.y, org4f.z);
-            glm::vec3 dir(dir4f.x, dir4f.y, dir4f.z);
+            from /= from.w;
+            target /= target.w;
 
-            //auto vd = mainCamera->getViewDir();
+            glm::vec3 org = (mainCamera->getViewInverse() * glm::vec4(from)).xyz();
+            glm::vec3 dir = (mainCamera->getViewInverse() * glm::vec4(glm::normalize(target.xyz()), 0.f)).xyz();
 
             for (int i = 0; i < m_views.size(); i++)
             {

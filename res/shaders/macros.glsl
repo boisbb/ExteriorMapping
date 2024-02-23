@@ -58,12 +58,52 @@
     mask[outer] = mask[outer] & (~(1 << inner));
 
 #define IS_POINT_IN_FRUSTUM(t, intersect, frustumPlanes, viewId, valid) \
-    valid = t >= 0; \
-    \
+    valid = true; \
     for (int k = 0; k < 6 && valid; k++) \
     { \
         valid = (dot(frustumPlanes[k].xyz, intersect) + frustumPlanes[k].w >= 0.f); \
         valid = k == viewId || valid; \
+    }
+
+#define FIND_INTERSECTS(frustumHitsIn, frustumHitsOut, ubo, cssbo, org, dir) \
+    for (int i = 0; i < ubo.viewCnt; i++) \
+    { \
+        ViewDataEvalCompute currentView = cssbo.objects[i]; \
+        \
+        float intersects[2]; \
+        int foundIntersects = 0; \
+        \
+        bool valid = true; \
+        for (int j = 0; j < 6; j++) \
+        { \
+            vec4 currentPlane = currentView.frustumPlanes[j]; \
+            \
+            vec3 frustumNormal = currentPlane.xyz; \
+            float frustumDistance = currentPlane.w; \
+            \
+            if (abs(dot(frustumNormal, dir)) > 1e-6) \
+            { \
+                float t = -(dot(frustumNormal, org) + frustumDistance) / dot(frustumNormal, dir); \
+                vec3 intersect = org + t * dir; \
+                \
+                intersects[foundIntersects] = t; \
+                \
+                IS_POINT_IN_FRUSTUM(t, intersect, currentView.frustumPlanes, j, valid); \
+                \
+                foundIntersects += int(valid && foundIntersects < 2) * 1; \
+            } \
+        } \
+        \
+        int idIn = int(intersects[0] >= intersects[1]); \
+        int idOut = int(intersects[0] < intersects[1]); \
+        intersects[idIn] = int(intersects[idIn] >= 0) * intersects[idIn]; \
+        \
+        frustumHitsIn[intersectCount].viewId = i; \
+        frustumHitsOut[intersectCount].viewId = i; \
+        frustumHitsIn[intersectCount].t = intersects[idIn]; \
+        frustumHitsOut[intersectCount].t = intersects[idOut]; \
+        \
+        intersectCount += int(foundIntersects == 2); \
     }
 
 #define INSERT_SORT(hits, intersectCount) \
@@ -144,49 +184,7 @@
         } \
     }
 
-
-#define FIND_INTERSECTS(frustumHitsIn, frustumHitsOut, ubo, cssbo, org, dir) \
-    for (int i = 0; i < ubo.viewCnt; i++) \
-    { \
-        ViewDataEvalCompute currentView = cssbo.objects[i]; \
-        \
-        float intersects[2]; \
-        int foundIntersects = 0; \
-        \
-        bool valid = false; \
-        for (int j = 0; j < 6; j++) \
-        { \
-            vec4 currentPlane = currentView.frustumPlanes[j]; \
-            \
-            vec3 frustumNormal = currentPlane.xyz; \
-            float frustumDistance = currentPlane.w; \
-            \
-            if (abs(dot(frustumNormal, dir)) > 1e-6) \
-            { \
-                float t = -(dot(frustumNormal, org) + frustumDistance) / dot(frustumNormal, dir); \
-                vec3 intersect = org + t * dir; \
-                \
-                intersects[foundIntersects] = t; \
-                \
-                IS_POINT_IN_FRUSTUM(t, intersect, currentView.frustumPlanes, j, valid); \
-                \
-                foundIntersects += int(valid && foundIntersects < 2) * 1; \
-            } \
-        } \
-        \
-        int idIn = int(intersects[0] >= intersects[1]); \
-        int idOut = int(intersects[0] < intersects[1]); \
-        \
-        frustumHitsIn[intersectCount].viewId = i; \
-        frustumHitsOut[intersectCount].viewId = i; \
-        frustumHitsIn[intersectCount].t = intersects[idIn]; \
-        frustumHitsOut[intersectCount].t = intersects[idOut]; \
-        \
-        intersectCount += int(foundIntersects == 2); \
-    }
-
-
-#define EVALUATE_AND_SAMPLE_COLOR(maxInterval, avg) \
+#define EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, avg) \
     float dist = 20; \
     float sampleDist = (maxInterval.t.y - maxInterval.t.x) / RAY_PIX_SAMPLES; \
     float segmentStart = maxInterval.t.x; \
@@ -239,6 +237,69 @@
         } \
     }
 
+#define EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, samplingType) \
+    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / RAY_PIX_SAMPLES; \
+    float segmentStart = maxInterval.t.x; \
+    \
+    vec3 startP = org + dir * maxInterval.t.x; \
+    vec3 endP = org + dir * maxInterval.t.y; \
+    \
+    float minDist = 1.0 / 0.0; \
+    for (int j = 0; j < RAY_PIX_SAMPLES; j++) \
+    { \
+        vec3 p = org + dir * (segmentStart + j * sampleDist); \
+        \
+        vec4 colorAcc = vec4(0.0); \
+        float pointDistAcc = 0; \
+        \
+        for (int k = 0; k < ubo.viewCnt; k++) \
+        { \
+            bool result = false; \
+            IS_IN_MASK(k, maxInterval.idBits, result); \
+            if (result) \
+            { \
+                ViewDataEvalCompute currentView = cssbo.objects[k]; \
+                \
+                vec2 pixId = vec2(0.0); \
+                vec2 dView = vec2(0.0); \
+                CALCULATE_PIX_ID_D(p, currentView.view,  currentView.proj, \
+                    currentView.resOffset.xy, currentView.resOffset.zw, \
+                    pixId, dView); \
+                \
+                vec2 uvView = pixId / ubo.viewsTotalRes; \
+                \
+                float n = currentView.nearFar.x; \
+                float f = currentView.nearFar.y; \
+                float z = texture(viewImagesDepthSampler, uvView).r; \
+                \
+                vec4 clipPoint = vec4(dView, z, 1.0); \
+                vec4 viewPoint = currentView.invProj * clipPoint; \
+                viewPoint /= viewPoint.w; \
+                \
+                vec3 worldPoint = (currentView.invView * viewPoint).xyz; \
+                \
+                float pointDistance = 1.0 / 0.0; \
+                if (samplingType == SAMPLE_DEPTH_NORMAL) \
+                { \
+                    POINT_TO_LINE_DIST(worldPoint, startP, endP, pointDistance); \
+                } \
+                else if (samplingType == SAMPLE_DEPTH_ANGLE) \
+                { \
+                    LINE_TO_LINE_ANGLE_DIST(org, worldPoint, startP, endP, pointDistance); \
+                } \
+                \
+                pointDistAcc += pointDistance; \
+                colorAcc += texture(viewImagesSampler, uvView); \
+            } \
+        } \
+        \
+        if (pointDistAcc < minDist) \
+        { \
+            minDist = pointDistAcc; \
+            finalColor = colorAcc / maxInterval.count; \
+        } \
+    }
+
 #define WRITE_TO_IMAGE(origPixId, novelImageSampler, color) \
     for (int x = 0; x < INTERPOLATE_PIXELS_X; x++) \
     { \
@@ -265,5 +326,12 @@
     else \
     { \
         dist = length(cross(ab, av)) / length(ab); \
-    } 
+    }
+
+// https://stackoverflow.com/questions/43749543/c-calculate-angle-0-to-360-between-two-3d-vectors
+#define LINE_TO_LINE_ANGLE_DIST(c, d, a, b, dist) \
+    vec3 ab = b - a; \
+    vec3 cd = d - c; \
+    \
+    dist = acos(dot(ab, cd) / (length(ab) * length(cd)));
     

@@ -2,6 +2,7 @@
 #include "Buffer.h"
 #include "utils/Callbacks.h"
 #include "utils/DebugHelpers.h"
+#include "utils/VulkanHelpers.h"
 
 #include <stdexcept>
 #include <cstdlib>
@@ -14,11 +15,10 @@ namespace vke
 {
 
 Device::Device(std::shared_ptr<Window> window)
-    : m_window(window)
 {
     createInstance();
     setupDebugMessenger();
-    createSurface();
+    createSurface(window);
     pickPhysicalDevice();
     createLogicalDevice();
     createCommandPool();
@@ -100,14 +100,14 @@ void Device::createInstance()
     }
 }
 
-void Device::createSurface()
+void Device::createSurface(std::shared_ptr<Window> window)
 {
-    m_window->createWindowSurface(m_instance, &m_surface);
+    window->createWindowSurface(m_instance, m_surface);
 }
 
 void Device::createLogicalDevice()
 {
-    QueueFamilyIndices indices = findQueueFamilies(m_physicalDevice);
+    QueueFamilyIndices indices = vke::utils::findQueueFamilies(m_physicalDevice, m_surface);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
@@ -217,7 +217,7 @@ void Device::pickPhysicalDevice()
 
     for (const auto& device : devices)
     {
-        if (checkDeviceSuitable(device))
+        if (vke::utils::checkDeviceSuitable(device, m_surface, m_deviceExtensions))
         {
             m_physicalDevice = device;
 
@@ -257,7 +257,7 @@ std::vector<const char *> Device::getRequiredExtensions()
 
 SwapChainSupportDetails Device::getSwapChainSupport()
 {
-    return querySwapChainSupport(m_physicalDevice);
+    return vke::utils::querySwapChainSupport(m_physicalDevice, m_surface);
 }
 
 VkSurfaceKHR Device::getSurface() const
@@ -312,7 +312,7 @@ VkFormat Device::getDepthFormat() const
 
 QueueFamilyIndices Device::getQueueFamilies()
 {
-    m_familyIndices = findQueueFamilies(m_physicalDevice);
+    m_familyIndices = vke::utils::findQueueFamilies(m_physicalDevice, m_surface);
     return m_familyIndices;
 }
 
@@ -551,105 +551,6 @@ bool Device::checkValidationLayerSupport()
     }
 
     return true;
-}
-
-bool Device::checkDeviceSuitable(VkPhysicalDevice device)
-{
-    QueueFamilyIndices indices = findQueueFamilies(device);
-    
-    bool extensionsSupported = checkDeviceExtensionSupport(device);
-    
-    bool swapChainAdequate = false;
-    if (extensionsSupported)
-    {
-        SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
-        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
-    }
-
-    return indices.isComplete() && extensionsSupported && swapChainAdequate;
-}
-
-bool Device::checkDeviceExtensionSupport(VkPhysicalDevice device)
-{
-    uint32_t extensionCount;
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-    vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-    
-    std::set<std::string> requiredExtensions(m_deviceExtensions.begin(), m_deviceExtensions.end());
-
-    for (const auto& extension : availableExtensions)
-    {
-        requiredExtensions.erase(extension.extensionName);
-    }
-    
-    return requiredExtensions.empty();
-}
-
-QueueFamilyIndices Device::findQueueFamilies(VkPhysicalDevice device)
-{
-    QueueFamilyIndices indices;
-    // Logic to find queue family indices to populate struct with
-
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
-    int i = 0;
-    for (const auto& queueFamily : queueFamilies) {
-        VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_surface, &presentSupport);
-
-        if (presentSupport)
-        {
-            indices.presentFamily = i;
-        }
-
-        if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) &&
-            (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT))
-        {
-            indices.graphicsFamily = i;
-        }
-
-        if (indices.isComplete())
-        {
-            break;
-        }
-
-        i++;
-    }
-
-    return indices;
-}
-
-SwapChainSupportDetails Device::querySwapChainSupport(VkPhysicalDevice device)
-{
-    SwapChainSupportDetails details;
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &details.capabilities);
-
-    uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, nullptr);
-
-    if (formatCount != 0)
-    {
-        details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, details.formats.data());
-    }
-
-    uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, nullptr);
-
-    if (presentModeCount != 0)
-    {
-        details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, details.presentModes.data());
-    }
-
-    return details;
 }
 
 void Device::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo)
