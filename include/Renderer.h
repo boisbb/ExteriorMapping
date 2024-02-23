@@ -46,7 +46,7 @@ public:
 
     void initDescriptorResources();
 
-    uint32_t prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
+    void prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
         std::shared_ptr<Window> window, bool& resizeViews);
     void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
         const std::shared_ptr<View>& view);
@@ -55,7 +55,7 @@ public:
     void submitFrame();
     void submitGraphics();
     void submitCompute();
-    void presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> window, std::shared_ptr<View> view,
+    void presentFrame(std::shared_ptr<Window> window, std::shared_ptr<View> view,
         bool& resizeViews);
 
     void changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo);
@@ -80,7 +80,8 @@ public:
     std::shared_ptr<RenderPass> getOffscreenRenderPass() const;
     std::shared_ptr<RenderPass> getQuadRenderPass() const;
     std::shared_ptr<Framebuffer> getOffscreenFramebuffer() const;
-    std::shared_ptr<Framebuffer> getQuadFramebuffer(int imageIndex) const;
+    std::shared_ptr<Framebuffer> getQuadFramebuffer() const;
+    std::shared_ptr<Framebuffer> getSecondaryQuadFramebuffer() const;
     std::shared_ptr<Framebuffer> getViewMatrixFramebuffer() const;
     VkDescriptorImageInfo getNovelImageInfo() const;
     SamplingType getNovelViewSamplingType() const;
@@ -120,7 +121,9 @@ private:
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
     std::shared_ptr<SwapChain> m_swapChain;
+    std::vector<uint32_t> m_swapChainImageIndices;
     std::shared_ptr<SwapChain> m_secondarySwapchain;
+    std::vector<uint32_t> m_secondarySwapChainImageIndices;
     std::shared_ptr<RenderPass> m_quadRenderPass;
     std::shared_ptr<RenderPass> m_offscreenRenderPass;
     std::shared_ptr<Framebuffer> m_mainFramebuffer;

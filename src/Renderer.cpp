@@ -38,7 +38,8 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     m_creHitsCntssbo(MAX_FRAMES_IN_FLIGHT), m_quadubo(MAX_FRAMES_IN_FLIGHT),
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_computeRayEvalDescriptorSets(MAX_FRAMES_IN_FLIGHT),
-    m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0)
+    m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0),
+    m_swapChainImageIndices(MAX_FRAMES_IN_FLIGHT), m_secondarySwapchain(nullptr)
 {
     createCommandBuffers();
     createComputeCommandBuffers();
@@ -320,7 +321,6 @@ void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared
 
     for (auto& view : views)
     {
-        // view->getCamera()->reconstructMatrices();
         view->updateDescriptorData(m_currentFrame);
 
         glm::vec2 viewportStart = view->getViewportStart();
@@ -331,7 +331,6 @@ void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared
 
         recordCommandBuffer(m_commandBuffers[m_currentFrame], scene, view);
     }
-    // endRenderPass(m_currentFrame);
 }
 
 void Renderer::quadRenderPass(glm::vec2 windowResolution, bool depthOnly)
@@ -369,7 +368,7 @@ void Renderer::setScissor(const glm::vec2& viewportStart, const glm::vec2& viewp
     vkCmdSetScissor(m_commandBuffers[m_currentFrame], 0, 1, &scissor);
 }
 
-uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
+void Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
     std::shared_ptr<Window> window, bool& resizeViews)
 {
     // Graphics part
@@ -377,10 +376,9 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
     vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
     //updateDescriptorData(scene, camera);
 
-    uint32_t imageIndex;
     VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(m_currentFrame);
     VkResult result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_swapChain->getSwapChain(),
-        UINT64_MAX, currentImageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+        UINT64_MAX, currentImageAvailableSemaphore, VK_NULL_HANDLE, &m_swapChainImageIndices[m_currentFrame]);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
@@ -392,13 +390,18 @@ uint32_t Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared
         throw std::runtime_error("Error: failed to acquire swap chain image.");
     }
 
+    if (m_secondarySwapchain != nullptr)
+    {
+        result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_secondarySwapchain->getSwapChain(),
+            UINT64_MAX, m_secondarySwapchain->getImageAvailableSemaphore(m_currentFrame), VK_NULL_HANDLE, 
+            &m_secondarySwapChainImageIndices[m_currentFrame]);
+    }
+
     vkResetFences(m_device->getVkDevice(), 1, &currentFence);
 
     VkCommandBuffer currentCommandBuffer = m_commandBuffers[m_currentFrame];
 
     vkResetCommandBuffer(currentCommandBuffer, 0);
-
-    return imageIndex;
 }
 
 void Renderer::submitFrame()
@@ -410,16 +413,27 @@ void Renderer::submitFrame()
     
     VkSemaphore currentComputeFinishedSemaphore = m_swapChain->getComputeFinishedSemaphore(m_currentFrame);
     
-    VkSemaphore waitSemaphores[] = { currentComputeFinishedSemaphore,
-        currentImageAvailableSemaphore };
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    std::vector<VkSemaphore> waitSemaphores = {
+        currentComputeFinishedSemaphore,
+        currentImageAvailableSemaphore
+    };
+
+    std::vector<VkPipelineStageFlags> waitStages = {
+        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    };
+
+    if (m_secondarySwapchain != nullptr)
+    {
+        waitSemaphores.push_back(m_secondarySwapchain->getImageAvailableSemaphore(m_currentFrame));
+        waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+    }
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.waitSemaphoreCount = 2;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.waitSemaphoreCount = waitSemaphores.size();
+    submitInfo.pWaitSemaphores = waitSemaphores.data();
+    submitInfo.pWaitDstStageMask = waitStages.data();
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &currentCommandBuffer;
 
@@ -484,11 +498,9 @@ void Renderer::submitCompute()
         throw std::runtime_error("failed to submit compute command buffer");
 }
 
-void Renderer::presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> window, std::shared_ptr<View> view,
+void Renderer::presentFrame(std::shared_ptr<Window> window, std::shared_ptr<View> view,
     bool& resizeViews)
 {
-    // std::shared_ptr<Camera> camera = view->getCamera();
-
     VkSemaphore currentRenderFinishedSemaphore = m_swapChain->getRenderFinishedSemaphore(m_currentFrame);
     VkSemaphore signalSemaphores[] = {currentRenderFinishedSemaphore};
 
@@ -497,10 +509,22 @@ void Renderer::presentFrame(const uint32_t& imageIndex, std::shared_ptr<Window> 
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pWaitSemaphores = signalSemaphores;
 
-    VkSwapchainKHR swapChains[] = {m_swapChain->getSwapChain()};
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
+    std::vector<VkSwapchainKHR> swapChains;
+    swapChains.push_back(m_swapChain->getSwapChain());
+
+    std::vector<uint32_t> swapchainIndices = {
+        m_swapChainImageIndices[m_currentFrame]
+    };
+
+    if (m_secondarySwapchain != nullptr)
+    {
+        swapChains.push_back(m_secondarySwapchain->getSwapChain());
+        swapchainIndices.push_back(m_secondarySwapChainImageIndices[m_currentFrame]);
+    }
+
+    presentInfo.swapchainCount = swapChains.size();
+    presentInfo.pSwapchains = swapChains.data();
+    presentInfo.pImageIndices = swapchainIndices.data();
     presentInfo.pResults = nullptr;
 
     VkResult result = vkQueuePresentKHR(m_device->getPresentQueue(), &presentInfo);
@@ -640,9 +664,14 @@ std::shared_ptr<Framebuffer> Renderer::getOffscreenFramebuffer() const
     return m_offscreenFramebuffer;
 }
 
-std::shared_ptr<Framebuffer> Renderer::getQuadFramebuffer(int imageIndex) const
+std::shared_ptr<Framebuffer> Renderer::getQuadFramebuffer() const
 {
-    return m_swapChain->getFramebuffer(imageIndex);
+    return m_swapChain->getFramebuffer(m_swapChainImageIndices[m_currentFrame]);
+}
+
+std::shared_ptr<Framebuffer> Renderer::getSecondaryQuadFramebuffer() const
+{
+    return m_secondarySwapchain->getFramebuffer(m_secondarySwapChainImageIndices[m_currentFrame]);
 }
 
 std::shared_ptr<Framebuffer> Renderer::getViewMatrixFramebuffer() const
@@ -697,7 +726,9 @@ int Renderer::addBumpTexture(std::shared_ptr<Texture> texture, std::string filen
 
 void Renderer::addSecondaryWindow(std::shared_ptr<Window> window)
 {
-    
+    m_secondarySwapChainImageIndices.resize(MAX_FRAMES_IN_FLIGHT);
+    m_secondarySwapchain = std::make_shared<SwapChain>(m_device, window->getExtent(), window->getSurface());
+    m_secondarySwapchain->initializeFramebuffers(m_quadRenderPass);
 }
 
 void Renderer::beginComputePass()

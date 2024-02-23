@@ -61,6 +61,8 @@ void Application::init()
         "offscreen.frag.spv", "cull.comp.spv", "quad.vert.spv",
         "quad.frag.spv", "novelView.comp.spv");
 
+    m_renderer->addSecondaryWindow(m_window2);
+
     createScene();
 
     createMainView();
@@ -119,7 +121,7 @@ void Application::draw()
         m_renderer->endComputePass();
         m_renderer->submitCompute();
         
-        uint32_t imageIndex = m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
+        m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
 
         m_renderer->beginCommandBuffer();
         
@@ -138,15 +140,19 @@ void Application::draw()
         if (m_renderNovel)
             m_renderer->setNovelViewBarrier();
         
-        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer(imageIndex));
+        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer());
         m_renderer->quadRenderPass(windowResolution, m_depthOnly);
         renderImgui(lastFps);
+        m_renderer->endRenderPass();
+
+        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getSecondaryQuadFramebuffer());
+        m_renderer->quadRenderPass(windowResolution, m_depthOnly);
         m_renderer->endRenderPass();
 
         m_renderer->endCommandBuffer();
 
         m_renderer->submitFrame();
-        m_renderer->presentFrame(imageIndex, m_window, nullptr, resizeViews);
+        m_renderer->presentFrame(m_window, nullptr, resizeViews);
 
         if (m_rayEvalOnCpu)
             mainCameraTestRays();
