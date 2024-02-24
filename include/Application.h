@@ -109,6 +109,8 @@ private:
 
     bool m_depthOnly = false;
     bool m_renderNovel = false;
+    bool m_novelSecondWindow = false;
+    bool m_secondWindowChanged = false;
     bool m_showCameraGeometry;
     bool m_rayEvalOnCpu = false;
     bool m_renderFromViews;

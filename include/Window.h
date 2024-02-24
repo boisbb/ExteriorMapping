@@ -34,7 +34,7 @@ namespace vke
 class Window
 {
 public:
-    Window(int width = 800, int height = 600);
+    Window(int width = 800, int height = 600, bool visible = true);
     ~Window();
     
     void createWindowSurface(VkInstance instance, VkSurfaceKHR& surface);
@@ -47,14 +47,12 @@ public:
     VkSurfaceKHR getSurface() const;
 
     void setResized(bool resized);
+    void setVisible(bool visible);
 
 private:
-    void init();
-
-    void createGlfwWindow();
-
     int m_width;
     int m_height;
+    bool m_visible;
 
     bool m_windowResized = false;
 

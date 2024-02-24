@@ -4,10 +4,23 @@
 namespace vke
 {
 
-Window::Window(int width, int height)
-    : m_width(width), m_height(height)
+Window::Window(int width, int height, bool visible)
+    : m_width(width), m_height(height), m_visible(visible)
 {
-    init();
+    if (!glfwInit())
+        throw std::runtime_error("failed to create glfw context!");
+    
+    if (!glfwVulkanSupported())
+        throw std::runtime_error("vulkan not supported!");
+
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_VISIBLE, m_visible);
+
+    m_window = glfwCreateWindow(m_width, m_height, "VulkanApp", nullptr, nullptr);
+    glfwSetWindowUserPointer(m_window, this);
+
+    glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
 }
 
 Window::~Window()
@@ -74,26 +87,14 @@ void Window::setResized(bool resized)
     m_windowResized = resized;
 }
 
-void Window::init()
+void Window::setVisible(bool visible)
 {
-    createGlfwWindow();
-}
+    m_visible = visible;
 
-void Window::createGlfwWindow()
-{
-    if (!glfwInit())
-        throw std::runtime_error("failed to create glfw context!");
-    
-    if (!glfwVulkanSupported())
-        throw std::runtime_error("vulkan not supported!");
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-
-    m_window = glfwCreateWindow(m_width, m_height, "VulkanApp", nullptr, nullptr);
-    glfwSetWindowUserPointer(m_window, this);
-
-    glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
+    if (visible)
+        glfwShowWindow(m_window);
+    else
+        glfwHideWindow(m_window);
 }
 
 }

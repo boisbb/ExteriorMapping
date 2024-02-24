@@ -40,23 +40,23 @@ public:
         const std::shared_ptr<ViewGrid>& viewGrid);
     void renderPass(const std::shared_ptr<Scene>& scene, const std::shared_ptr<ViewGrid>& viewGrid, 
         const std::shared_ptr<ViewGrid>& viewMatrixGrid);
-    void quadRenderPass(glm::vec2 windowResolution, bool depthOnly = false);
+    void quadRenderPass(glm::vec2 windowResolution, bool depthOnly = false, bool secondaryWindow = false);
     void setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
     void setScissor(const glm::vec2& viewportStart, const glm::vec2& viewportResolution);
 
     void initDescriptorResources();
 
     void prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
-        std::shared_ptr<Window> window, bool& resizeViews);
+        std::shared_ptr<Window> window, bool& resizeViews, bool secondarySwapchain = false);
     void recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
         const std::shared_ptr<View>& view);
     void recordComputeCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,
         const std::shared_ptr<View>& view);
-    void submitFrame();
+    void submitFrame(bool secondarySwapchain = false);
     void submitGraphics();
     void submitCompute();
     void presentFrame(std::shared_ptr<Window> window, std::shared_ptr<View> view,
-        bool& resizeViews);
+        bool& resizeViews, bool secondarySwapchain = false);
 
     void changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo);
 
@@ -157,12 +157,14 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_creHitsssbo;
     std::vector<std::unique_ptr<Buffer>> m_creHitsCntssbo;
     std::vector<std::unique_ptr<Buffer>> m_quadubo;
+    std::vector<std::unique_ptr<Buffer>> m_secondaryQuadubo;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_materialDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_computeDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_computeRayEvalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_quadDescriptorSets;
+    std::vector<std::shared_ptr<DescriptorSet>> m_secondaryQuadDescriptorSets;
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_viewSetLayout;
@@ -171,6 +173,7 @@ private:
     std::shared_ptr<DescriptorSetLayout> m_computeSceneSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_computeRayEvalSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_quadSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_secondaryQuadSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
     std::shared_ptr<DescriptorPool> m_viewPool;
@@ -179,6 +182,7 @@ private:
     std::shared_ptr<DescriptorPool> m_computeScenePool;
     std::shared_ptr<DescriptorPool> m_computeRayEvalPool;
     std::shared_ptr<DescriptorPool> m_quadPool;
+    std::shared_ptr<DescriptorPool> m_secondaryQuadPool;
 
     std::shared_ptr<Image> m_novelImage;
     std::shared_ptr<Sampler> m_novelImageSampler;

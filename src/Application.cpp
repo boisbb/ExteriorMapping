@@ -53,14 +53,15 @@ void Application::init()
     utils::parseConfig("../res/configs/by_step/config.json", m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
-    m_window2 = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
 
     m_device = std::make_shared<Device>(m_window);
-    m_window2->createWindowSurface(m_device->getInstance());
     m_renderer = std::make_shared<Renderer>(m_device, m_window, "offscreen.vert.spv",
         "offscreen.frag.spv", "cull.comp.spv", "quad.vert.spv",
         "quad.frag.spv", "novelView.comp.spv");
+    m_renderer->setNovelViewSamplingType(m_samplingType);
 
+    m_window2 = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT, false);
+    m_window2->createWindowSurface(m_device->getInstance());
     m_renderer->addSecondaryWindow(m_window2);
 
     createScene();
@@ -113,7 +114,8 @@ void Application::draw()
         {
             m_renderer->cullComputePass(m_scene, viewGrid, (!m_renderFromViews));
         }
-        else
+        
+        if (m_renderNovel || m_novelSecondWindow)
         {
             m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid);
         }
@@ -121,7 +123,7 @@ void Application::draw()
         m_renderer->endComputePass();
         m_renderer->submitCompute();
         
-        m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews);
+        m_renderer->prepareFrame(m_scene, nullptr, m_window, resizeViews, m_novelSecondWindow);
 
         m_renderer->beginCommandBuffer();
         
@@ -131,13 +133,14 @@ void Application::draw()
             m_renderer->renderPass(m_scene, viewGrid, m_viewGrid);
             m_renderer->endRenderPass();
         }
-        else
+
+        if (m_renderNovel || m_novelSecondWindow)
         {
             m_novelViewGrid->getViews()[0]->getCamera()->reconstructMatrices();
             m_novelViewGrid->getViews()[0]->updateDescriptorData(m_renderer->getCurrentFrame());
         }
 
-        if (m_renderNovel)
+        if (m_renderNovel || m_novelSecondWindow)
             m_renderer->setNovelViewBarrier();
         
         m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer());
@@ -145,14 +148,17 @@ void Application::draw()
         renderImgui(lastFps);
         m_renderer->endRenderPass();
 
-        m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getSecondaryQuadFramebuffer());
-        m_renderer->quadRenderPass(windowResolution, m_depthOnly);
-        m_renderer->endRenderPass();
+        if (m_novelSecondWindow)
+        {
+            m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getSecondaryQuadFramebuffer());
+            m_renderer->quadRenderPass(windowResolution, false, m_novelSecondWindow);
+            m_renderer->endRenderPass();
+        }
 
         m_renderer->endCommandBuffer();
 
-        m_renderer->submitFrame();
-        m_renderer->presentFrame(m_window, nullptr, resizeViews);
+        m_renderer->submitFrame(m_novelSecondWindow);
+        m_renderer->presentFrame(m_window, nullptr, resizeViews, m_novelSecondWindow);
 
         if (m_rayEvalOnCpu)
             mainCameraTestRays();
@@ -198,6 +204,14 @@ void Application::draw()
 
             m_changeOffscreenTarget++;
         }
+
+        if (m_secondWindowChanged)
+        {
+            vkDeviceWaitIdle(m_device->getVkDevice());
+            m_secondWindowChanged = false;
+            m_novelSecondWindow = !m_novelSecondWindow;
+            m_window2->setVisible(m_novelSecondWindow);
+        }
     }
 
     vkDeviceWaitIdle(m_device->getVkDevice());
@@ -234,8 +248,16 @@ bool Application::consumeInput()
         VkExtent2D fbSize = m_renderer->getOffscreenFramebuffer()->getResolution();
         glm::vec2 windowSize = m_window->getResolution();
 
-        return vke::utils::consumeDeviceInput(m_window->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
+        bool changed = false;
+
+        changed = changed || vke::utils::consumeDeviceInput(m_window->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
             (m_renderFromViews) ? m_viewGrid : m_novelViewGrid, m_manipulateGrid);
+        
+        if (m_novelSecondWindow)
+            changed = changed || vke::utils::consumeDeviceInput(m_window2->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
+                m_novelViewGrid, false, true);
+
+        return changed;
     }
 
     return false;
@@ -328,13 +350,21 @@ void Application::renderImgui(int lastFps)
     {
         ImGui::Indent();
         ImGui::PushID(0);
-
-        if (!m_renderFromViews)
+        
+        if (ImGui::Checkbox("Render novel view", &m_renderNovel))
         {
-            if (ImGui::Checkbox("Render novel view", &m_renderNovel))
-            {
+            if (m_renderFromViews || m_novelSecondWindow)
+                m_renderNovel = false;
+            else
                 m_changeOffscreenTarget = 0;
-            }
+        }
+
+        bool val = m_novelSecondWindow;
+        if (ImGui::Checkbox("Render novel in second window", &val))
+        {
+            if (!m_renderNovel)
+                m_secondWindowChanged = true;
+
         }
 
         if (ImGui::BeginCombo("##samplingCombo", samplingTypeStrings[static_cast<int>(m_samplingType)].c_str()))
@@ -379,36 +409,21 @@ void Application::renderImgui(int lastFps)
     {
         ImGui::Indent();
 
-        if (ImGui::CollapsingHeader("Views parameters"))
+        if (ImGui::Checkbox("Render from view matrix", &m_renderFromViews))
         {
-            ImGui::Indent();
-            ImGui::PushID(1);
-            
-            //ImGui::DragFloat("Views FOV", &m_viewsFov, 5.f, 0.f, 120.f);
-            ImGui::InputFloat("FOV", &m_viewsFov);
-            if(ImGui::Button("Apply"))
-            {
-                for (auto& view : m_views)
-                {
-                    view->getCamera()->setFov(m_viewsFov);
-                }
-            }
-
-            ImGui::PopID();
-            ImGui::Unindent();
-        }
-
-        if (!m_renderNovel)
-        {
-            if (ImGui::Checkbox("Render from view matrix", &m_renderFromViews))
-            {
+            if (m_renderNovel)
+                m_renderFromViews = false;
+            else
                 m_changeOffscreenTarget = 0;
-            }
+
+            if (!m_renderFromViews)
+                m_manipulateGrid = false;
         }
 
-        if (m_renderFromViews)
+        if (ImGui::Checkbox("Manipulate whole grid", &m_manipulateGrid))
         {
-            ImGui::Checkbox("Manipulate whole grid", &m_manipulateGrid);
+            if (!m_renderFromViews)
+                m_manipulateGrid = false;
         }
 
         if (ImGui::Checkbox("Show camera geometry", &m_showCameraGeometry))
@@ -429,6 +444,25 @@ void Application::renderImgui(int lastFps)
         }
 
         ImGui::Checkbox("Calculate ray eval on cpu", &m_rayEvalOnCpu);
+        
+        if (ImGui::CollapsingHeader("Views parameters"))
+        {
+            ImGui::Indent();
+            ImGui::PushID(1);
+            
+            //ImGui::DragFloat("Views FOV", &m_viewsFov, 5.f, 0.f, 120.f);
+            ImGui::InputFloat("FOV", &m_viewsFov);
+            if(ImGui::Button("Apply"))
+            {
+                for (auto& view : m_views)
+                {
+                    view->getCamera()->setFov(m_viewsFov);
+                }
+            }
+
+            ImGui::PopID();
+            ImGui::Unindent();
+        }
 
         if (ImGui::Button("-"))
         {

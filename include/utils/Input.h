@@ -28,16 +28,12 @@ namespace vke::utils
 {
 
 bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::shared_ptr<ViewGrid> viewGrid,
-    bool manipulateGrid)
+    bool manipulateGrid, bool secondaryWindow = false)
 {
     bool changed = false;
     double mouseX;
     double mouseY;
     glfwGetCursorPos(window, &mouseX, &mouseY);
-
-    static bool firstClick = true;
-    static double prevMouseX = 0;
-    static double prevMouseY = 0;
 
     std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
     std::shared_ptr<Camera> camera = views[0]->getCamera();
@@ -93,8 +89,6 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
         rotateViewDir = moveViewDir;
     }
 
-    
-
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
         eye += speed * moveViewDir;
@@ -131,14 +125,16 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
         changed = true;
     }
 
+    static bool firstClick[2] = { true, true };
+    int windowId = static_cast<int>(secondaryWindow);
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
-        if (firstClick)
+        if (firstClick[windowId])
         {
             glfwSetCursorPos(window, std::round(offset.x + (resolution.x / 2)), std::round(offset.y + (resolution.y / 2)));
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-            firstClick = false;
+            firstClick[windowId] = false;
         }
         else
         {
@@ -165,29 +161,8 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
     else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE)
     {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        firstClick = true;
+        firstClick[windowId] = true;
     }
-
-    // if (false)
-    // {
-    //     glm::vec4 testEye = glm::vec4(-1.5f + 1.f * testt, 1.f, 0.f, 1.f);
-// 
-    //     glm::vec3 org = glm::normalize(glm::vec3(0, 0, -1));
-    //     glm::vec3 target = glm::normalize(glm::vec3(1, 0, -1));
-// 
-    //     float angle = glm::acos(glm::dot(org, target));
-    //     glm::vec3 axis = glm::normalize(glm::cross(org, target));
-    //     
-    //     glm::mat4 transform = glm::translate(glm::mat4(1.f), glm::vec3(-10.f, 0.f, 0.f));
-// 
-    //     transform = glm::rotate(transform, angle, axis);
-// 
-    //     testEye = transform * glm::vec4(testEye);
-// 
-    //     eye = testEye;
-// 
-    //     changed = true;
-    // }
 
     if (!manipulateGrid)
     {

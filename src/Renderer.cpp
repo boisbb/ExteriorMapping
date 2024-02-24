@@ -39,7 +39,8 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_computeRayEvalDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0),
-    m_swapChainImageIndices(MAX_FRAMES_IN_FLIGHT), m_secondarySwapchain(nullptr)
+    m_swapChainImageIndices(MAX_FRAMES_IN_FLIGHT), m_secondarySwapchain(nullptr), m_secondaryQuadubo(MAX_FRAMES_IN_FLIGHT),
+    m_secondaryQuadDescriptorSets(MAX_FRAMES_IN_FLIGHT)
 {
     createCommandBuffers();
     createComputeCommandBuffers();
@@ -198,6 +199,27 @@ void Renderer::initDescriptorResources()
         };
 
         m_quadDescriptorSets[i]->updateImages(imageBinding, imageInfos, 0);
+
+        // secondary
+        m_secondaryQuadDescriptorSets[i] = std::make_shared<DescriptorSet>(m_device, m_secondaryQuadSetLayout,
+            m_secondaryQuadPool);
+        
+        bufferInfos = {
+            m_secondaryQuadubo[i]->getInfo()
+        };
+
+        m_secondaryQuadDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
+
+        imageInfos = {
+            getNovelImageInfo()
+        };
+
+        m_secondaryQuadDescriptorSets[i]->updateImages(imageBinding, imageInfos, 0);
+
+        QuadUniformBuffer quboData{};
+        quboData.m_depthOnly = false;
+        
+        m_secondaryQuadubo[i]->copyMapped(&quboData, sizeof(QuadUniformBuffer));
     }
 }
 
@@ -333,16 +355,22 @@ void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared
     }
 }
 
-void Renderer::quadRenderPass(glm::vec2 windowResolution, bool depthOnly)
+void Renderer::quadRenderPass(glm::vec2 windowResolution, bool depthOnly, bool secondaryWindow)
 {
-    updateQuadDescriptorData(depthOnly);
+    if (!secondaryWindow)
+        updateQuadDescriptorData(depthOnly);
 
     setViewport(glm::vec2(0, 0), windowResolution);
     setScissor(glm::vec2(0, 0), windowResolution);
 
     m_quadPipeline->bind(m_commandBuffers[m_currentFrame]);
 
-    VkDescriptorSet descriptorSet = m_quadDescriptorSets[m_currentFrame]->getDescriptorSet();
+    VkDescriptorSet descriptorSet;
+    if (!secondaryWindow)
+        descriptorSet = m_quadDescriptorSets[m_currentFrame]->getDescriptorSet();
+    else
+        descriptorSet = m_secondaryQuadDescriptorSets[m_currentFrame]->getDescriptorSet();
+    
     vkCmdBindDescriptorSets(m_commandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_quadPipeline->getPipelineLayout(), 0, 1, &descriptorSet, 0, nullptr);
 
     vkCmdDraw(m_commandBuffers[m_currentFrame], 3, 1, 0, 0);
@@ -369,7 +397,7 @@ void Renderer::setScissor(const glm::vec2& viewportStart, const glm::vec2& viewp
 }
 
 void Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
-    std::shared_ptr<Window> window, bool& resizeViews)
+    std::shared_ptr<Window> window, bool& resizeViews, bool secondarySwapchain)
 {
     // Graphics part
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
@@ -390,7 +418,7 @@ void Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr
         throw std::runtime_error("Error: failed to acquire swap chain image.");
     }
 
-    if (m_secondarySwapchain != nullptr)
+    if (secondarySwapchain)
     {
         result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_secondarySwapchain->getSwapChain(),
             UINT64_MAX, m_secondarySwapchain->getImageAvailableSemaphore(m_currentFrame), VK_NULL_HANDLE, 
@@ -404,7 +432,7 @@ void Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr
     vkResetCommandBuffer(currentCommandBuffer, 0);
 }
 
-void Renderer::submitFrame()
+void Renderer::submitFrame(bool secondarySwapchain)
 {
     VkCommandBuffer currentCommandBuffer = m_commandBuffers[m_currentFrame];
 
@@ -423,7 +451,7 @@ void Renderer::submitFrame()
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
     };
 
-    if (m_secondarySwapchain != nullptr)
+    if (secondarySwapchain)
     {
         waitSemaphores.push_back(m_secondarySwapchain->getImageAvailableSemaphore(m_currentFrame));
         waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
@@ -499,7 +527,7 @@ void Renderer::submitCompute()
 }
 
 void Renderer::presentFrame(std::shared_ptr<Window> window, std::shared_ptr<View> view,
-    bool& resizeViews)
+    bool& resizeViews, bool secondarySwapchain)
 {
     VkSemaphore currentRenderFinishedSemaphore = m_swapChain->getRenderFinishedSemaphore(m_currentFrame);
     VkSemaphore signalSemaphores[] = {currentRenderFinishedSemaphore};
@@ -516,7 +544,7 @@ void Renderer::presentFrame(std::shared_ptr<Window> window, std::shared_ptr<View
         m_swapChainImageIndices[m_currentFrame]
     };
 
-    if (m_secondarySwapchain != nullptr)
+    if (secondarySwapchain)
     {
         swapChains.push_back(m_secondarySwapchain->getSwapChain());
         swapchainIndices.push_back(m_secondarySwapChainImageIndices[m_currentFrame]);
@@ -869,6 +897,10 @@ void Renderer::createDescriptors()
         m_quadubo[i] = std::make_unique<Buffer>(m_device, sizeof(QuadUniformBuffer),
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_quadubo[i]->map();
+
+        m_secondaryQuadubo[i] = std::make_unique<Buffer>(m_device, sizeof(QuadUniformBuffer),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_secondaryQuadubo[i]->map();
     }
 
     VkDescriptorSetLayoutBinding vssboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -1099,10 +1131,6 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize novelFramebRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
-    // VkDescriptorPoolSize frustumHitRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * sizeof(FrustumHit) * (MAX_VIEWS * 2) * MAX_RESOLUTION_LINEAR);
-    // VkDescriptorPoolSize frustumHitCountRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    //     static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * sizeof(int) * MAX_RESOLUTION_LINEAR);
     
 
     std::vector<VkDescriptorPoolSize> computeRayGenSizes = {
@@ -1114,8 +1142,6 @@ void Renderer::createDescriptors()
         viewsFramebRayGenPoolSize,
         viewsFramebDepthRayGenPoolSize,
         novelFramebRayGenPoolSize,
-        // frustumHitRayGenPoolSize,
-        // frustumHitCountRayGenPoolSize
     };
 
     m_computeRayEvalPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
@@ -1159,6 +1185,12 @@ void Renderer::createDescriptors()
     };
 
     m_quadPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, quadPoolSizes);
+
+    // second window
+    m_secondaryQuadSetLayout = std::make_shared<DescriptorSetLayout>(m_device, quadBindings,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, &quadLayoutNext);
+    m_secondaryQuadPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 
         VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, quadPoolSizes);
 }
 
@@ -1205,7 +1237,8 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
     };
 
     std::vector<VkDescriptorSetLayout> quadSetLayout = {
-        m_quadSetLayout->getLayout()
+        m_quadSetLayout->getLayout(),
+        m_secondaryQuadSetLayout->getLayout()
     };
 
     std::vector<VkDescriptorSetLayout> computeRaysEvalSetLayout = {
@@ -1328,9 +1361,8 @@ void Renderer::updateCullComputeDescriptorData(const std::shared_ptr<Scene> &sce
 void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& novelViews,
         const std::vector<std::shared_ptr<View>>& views)
 {
-    // Main view for now is the first one.
     std::shared_ptr<Camera> mainCamera = novelViews[0]->getCamera();
-    glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
+    glm::vec2 res = m_novelImage->getDims();
     VkExtent2D offscreenFbRes = m_offscreenFramebuffer->getResolution();
 
     RayEvalUniformBuffer creuData{};
