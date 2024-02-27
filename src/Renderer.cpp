@@ -332,18 +332,20 @@ void Renderer::rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid
 }
 
 void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared_ptr<ViewGrid>& viewGrid, 
-        const std::shared_ptr<ViewGrid>& viewMatrixGrid)
+        const std::shared_ptr<ViewGrid>& viewMatrixGrid, bool updateData)
 {
     bool resizeViews = false;
 
     std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
     std::vector<std::shared_ptr<View>> viewMatrix = viewMatrixGrid->getViews();
 
-    updateDescriptorData(scene, views, viewMatrix);
+    if (updateData)
+        updateDescriptorData(scene, views, viewMatrix);
 
     for (auto& view : views)
     {
-        view->updateDescriptorData(m_currentFrame);
+        if (updateData)
+            view->updateDescriptorData(m_currentFrame);
 
         glm::vec2 viewportStart = view->getViewportStart();
         glm::vec2 viewResolution = view->getResolution();
@@ -586,6 +588,45 @@ void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo)
     m_quadDescriptorSets[m_currentFrame]->updateImages(imageBinding, imageInfos, 0);
 }
 
+void Renderer::copyOffscreenFrameBufferToSupp()
+{
+    VkCommandBuffer cmdBuff;
+
+    m_device->beginSingleCommands(cmdBuff);
+
+    m_device->createImageBarrier(cmdBuff, VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_offscreenFramebuffer->getColorImage()->getVkImage(),
+        VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    
+    m_device->createImageBarrier(cmdBuff, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        m_offscreenSuppImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    VkImageCopy imageCopyRegion{};
+    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.srcSubresource.layerCount = 1;
+    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.dstSubresource.layerCount = 1;
+    imageCopyRegion.extent.width = FRAMEBUFFER_WIDTH;
+    imageCopyRegion.extent.height = FRAMEBUFFER_HEIGHT;
+    imageCopyRegion.extent.depth = 1;
+
+    // Issue the copy command
+    vkCmdCopyImage(
+        cmdBuff,
+        m_offscreenFramebuffer->getColorImage()->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        m_offscreenSuppImage->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &imageCopyRegion);
+
+    m_device->createImageBarrier(cmdBuff, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_offscreenFramebuffer->getColorImage()->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, 
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    m_device->createImageBarrier(cmdBuff, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL, m_offscreenSuppImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);    
+
+    m_device->endSingleCommands(cmdBuff);
+}
+
 std::shared_ptr<SwapChain> Renderer::getSwapChain() const
 {
     return m_swapChain;
@@ -692,6 +733,11 @@ std::shared_ptr<Framebuffer> Renderer::getOffscreenFramebuffer() const
     return m_offscreenFramebuffer;
 }
 
+std::shared_ptr<Framebuffer> Renderer::getOffscreenSuppFramebuffer() const
+{
+    return m_offscreenSuppFramebuffer;
+}
+
 std::shared_ptr<Framebuffer> Renderer::getQuadFramebuffer() const
 {
     return m_swapChain->getFramebuffer(m_swapChainImageIndices[m_currentFrame]);
@@ -714,6 +760,11 @@ VkDescriptorImageInfo Renderer::getNovelImageInfo() const
         m_novelImageView,
         m_novelImage->getVkImageLayout()
     };
+}
+
+VkDescriptorImageInfo Renderer::getOffscreenSuppImageInfo() const
+{
+    return m_offscreenSuppFramebuffer->getColorImageInfo();
 }
 
 SamplingType Renderer::getNovelViewSamplingType() const
@@ -1207,6 +1258,9 @@ void Renderer::createRenderResources()
 
     m_offscreenFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
         VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
+    
+    m_offscreenSuppFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
+        VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
 
     m_viewMatrixFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
         VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
@@ -1217,6 +1271,13 @@ void Renderer::createRenderResources()
     m_novelImageView = m_novelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
         VK_SAMPLER_MIPMAP_MODE_LINEAR);
+
+    // m_offscreenSuppImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    //     VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    // m_offscreenSuppImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    // m_offscreenSuppView = m_novelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
+    // m_offscreenSuppSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+    //     VK_SAMPLER_MIPMAP_MODE_LINEAR);
     
 }
 

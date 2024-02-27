@@ -132,6 +132,10 @@ void Application::draw()
             m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
             m_renderer->renderPass(m_scene, viewGrid, m_viewGrid);
             m_renderer->endRenderPass();
+
+            m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getOffscreenSuppFramebuffer());
+            m_renderer->renderPass(m_scene, viewGrid, m_viewGrid, false);
+            m_renderer->endRenderPass();
         }
 
         if (m_renderNovel || m_novelSecondWindow)
@@ -177,6 +181,15 @@ void Application::draw()
             frames = 0;
 
             lastTime = glfwGetTime();
+        }
+
+        static int test = 0;
+        if (test < MAX_FRAMES_IN_FLIGHT)
+        {
+            vkDeviceWaitIdle(m_device->getVkDevice());
+
+            m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenSuppFramebuffer()->getColorImageInfo());
+            test++;
         }
 
         if (m_changeOffscreenTarget < MAX_FRAMES_IN_FLIGHT)
