@@ -37,7 +37,7 @@ public:
     void cullComputePass(const std::shared_ptr<Scene>& scene, const std::shared_ptr<ViewGrid>& viewGrid,
         bool novelViews = false);
     void rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid, 
-        const std::shared_ptr<ViewGrid>& viewGrid);
+        const std::shared_ptr<ViewGrid>& viewGrid, const RayEvalParams& params);
     void renderPass(const std::shared_ptr<Scene>& scene, const std::shared_ptr<ViewGrid>& viewGrid, 
         const std::shared_ptr<ViewGrid>& viewMatrixGrid, bool updateData = true);
     void quadRenderPass(glm::vec2 windowResolution, bool depthOnly = false, bool secondaryWindow = false);
@@ -81,12 +81,11 @@ public:
     std::shared_ptr<RenderPass> getOffscreenRenderPass() const;
     std::shared_ptr<RenderPass> getQuadRenderPass() const;
     std::shared_ptr<Framebuffer> getOffscreenFramebuffer() const;
-    std::shared_ptr<Framebuffer> getOffscreenSuppFramebuffer() const;
     std::shared_ptr<Framebuffer> getQuadFramebuffer() const;
     std::shared_ptr<Framebuffer> getSecondaryQuadFramebuffer() const;
     std::shared_ptr<Framebuffer> getViewMatrixFramebuffer() const;
     VkDescriptorImageInfo getNovelImageInfo() const;
-    VkDescriptorImageInfo getOffscreenSuppImageInfo() const;
+    VkDescriptorImageInfo getTestPixelImageInfo() const;
     SamplingType getNovelViewSamplingType() const;
 
     void setSceneChanged(int sceneChanged);
@@ -118,7 +117,7 @@ private:
         const std::vector<std::shared_ptr<View>>& viewMatrix);
     void updateCullComputeDescriptorData(const std::shared_ptr<Scene>& scene);
     void updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& novelViews,
-        const std::vector<std::shared_ptr<View>>& views);
+        const std::vector<std::shared_ptr<View>>& views, const RayEvalParams& params);
     void updateQuadDescriptorData(bool depthOnly);
 
     std::shared_ptr<Device> m_device;
@@ -131,7 +130,6 @@ private:
     std::shared_ptr<RenderPass> m_offscreenRenderPass;
     std::shared_ptr<Framebuffer> m_mainFramebuffer;
     std::shared_ptr<Framebuffer> m_offscreenFramebuffer;
-    std::shared_ptr<Framebuffer> m_offscreenSuppFramebuffer;
     std::shared_ptr<Framebuffer> m_viewMatrixFramebuffer;
 
     std::shared_ptr<GraphicsPipeline> m_offscreenPipeline;
@@ -192,10 +190,9 @@ private:
     std::shared_ptr<Sampler> m_novelImageSampler;
     VkImageView m_novelImageView;
 
-    // debug
-    std::shared_ptr<Image> m_offscreenSuppImage;
-    std::shared_ptr<Sampler> m_offscreenSuppSampler;
-    VkImageView m_offscreenSuppView;
+    std::shared_ptr<Image> m_testPixelImage;
+    std::shared_ptr<Sampler> m_testPixelSampler;
+    VkImageView m_testPixelImageView;
 
     std::vector<int> bufferBindings;
 

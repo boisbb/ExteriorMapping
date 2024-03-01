@@ -27,6 +27,22 @@
 namespace vke::utils
 {
 
+bool consumeDeviceInputTestPixel(GLFWwindow* window, glm::vec2& chosenPixel)
+{
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+    {
+        double mouseX;
+        double mouseY;
+        glfwGetCursorPos(window, &mouseX, &mouseY);
+
+        chosenPixel = glm::vec2(mouseX, mouseY);
+
+        return true;
+    }
+
+    return false;
+}
+
 bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::shared_ptr<ViewGrid> viewGrid,
     bool manipulateGrid, bool secondaryWindow = false)
 {

@@ -37,7 +37,8 @@ Application::Application()
     : m_showCameraGeometry(false),
     m_renderFromViews(false),
     m_changeOffscreenTarget(MAX_FRAMES_IN_FLIGHT),
-    m_samplingType(SamplingType::COLOR)
+    m_samplingType(SamplingType::COLOR),
+    m_testedPixel(0.f, 0.f)
 {
     init();
 }
@@ -117,7 +118,7 @@ void Application::draw()
         
         if (m_renderNovel || m_novelSecondWindow)
         {
-            m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid);
+            m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid, RayEvalParams{m_testPixels, m_testedPixel, m_numberOfRaySamples});
         }
         
         m_renderer->endComputePass();
@@ -131,10 +132,6 @@ void Application::draw()
         {
             m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
             m_renderer->renderPass(m_scene, viewGrid, m_viewGrid);
-            m_renderer->endRenderPass();
-
-            m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getOffscreenSuppFramebuffer());
-            m_renderer->renderPass(m_scene, viewGrid, m_viewGrid, false);
             m_renderer->endRenderPass();
         }
 
@@ -151,6 +148,11 @@ void Application::draw()
         m_renderer->quadRenderPass(windowResolution, m_depthOnly);
         renderImgui(lastFps);
         m_renderer->endRenderPass();
+
+        if (m_testPixels)
+        {
+            m_renderer->copyOffscreenFrameBufferToSupp();
+        }
 
         if (m_novelSecondWindow)
         {
@@ -183,25 +185,20 @@ void Application::draw()
             lastTime = glfwGetTime();
         }
 
-        static int test = 0;
-        if (test < MAX_FRAMES_IN_FLIGHT)
-        {
-            vkDeviceWaitIdle(m_device->getVkDevice());
-
-            m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenSuppFramebuffer()->getColorImageInfo());
-            test++;
-        }
-
         if (m_changeOffscreenTarget < MAX_FRAMES_IN_FLIGHT)
         {
             vkDeviceWaitIdle(m_device->getVkDevice());
             
-            if (m_renderFromViews)
+            if (m_renderFromViews && !m_testPixels)
             {
                 if (!m_depthOnly)
                     m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getColorImageInfo());
                 else
                     m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getDepthImageInfo());
+            }
+            else if (m_renderFromViews && m_testPixels)
+            {
+                m_renderer->changeQuadRenderPassSource(m_renderer->getTestPixelImageInfo());
             }
             else if (m_renderNovel)
             {
@@ -240,11 +237,16 @@ void Application::preRender()
     m_renderer->submitCompute();
 
     m_renderer->beginCommandBuffer();
+    
     m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getViewMatrixFramebuffer());
     m_renderer->renderPass(m_scene, m_viewGrid, m_viewGrid);
     m_renderer->endRenderPass();
+
+    m_renderer->copyOffscreenFrameBufferToSupp();
+
     m_renderer->endCommandBuffer();
     m_renderer->submitGraphics();
+
 
     m_renderer->setSceneChanged(0);
     m_renderer->setLightChanged(0);
@@ -266,9 +268,11 @@ bool Application::consumeInput()
         changed = changed || vke::utils::consumeDeviceInput(m_window->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
             (m_renderFromViews) ? m_viewGrid : m_novelViewGrid, m_manipulateGrid);
         
-        if (m_novelSecondWindow)
+        if (m_novelSecondWindow && !m_testPixels)
             changed = changed || vke::utils::consumeDeviceInput(m_window2->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
                 m_novelViewGrid, false, true);
+        else if (m_novelSecondWindow && m_testPixels)
+            changed = changed || vke::utils::consumeDeviceInputTestPixel(m_window2->getWindow(), m_testedPixel);
 
         return changed;
     }
@@ -347,6 +351,16 @@ void Application::renderImgui(int lastFps)
         ImGui::Indent();
         ImGui::PushID(26);
 
+        if (ImGui::Checkbox("Test pixels", &m_testPixels))
+        {
+            if (m_novelSecondWindow && m_renderFromViews)
+            {
+                m_changeOffscreenTarget = 0;
+            }
+            else
+                m_testPixels = false;
+        }
+
         if (!m_renderNovel)
         {
             if (ImGui::Checkbox("Depth only", &m_depthOnly))
@@ -362,8 +376,8 @@ void Application::renderImgui(int lastFps)
     if(ImGui::CollapsingHeader("Main view"))
     {
         ImGui::Indent();
-        ImGui::PushID(0);
-        
+        ImGui::PushID(0);        
+
         if (ImGui::Checkbox("Render novel view", &m_renderNovel))
         {
             if (m_renderFromViews || m_novelSecondWindow)
@@ -379,6 +393,8 @@ void Application::renderImgui(int lastFps)
                 m_secondWindowChanged = true;
 
         }
+
+        ImGui::SliderInt("Number of ray samples", &m_numberOfRaySamples, 0, 256);
 
         if (ImGui::BeginCombo("##samplingCombo", samplingTypeStrings[static_cast<int>(m_samplingType)].c_str()))
         {

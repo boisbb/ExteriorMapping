@@ -85,6 +85,10 @@ struct RayEvalUniformBuffer {
     glm::vec2 viewsTotalRes;
     int viewCnt;
     unsigned int samplingType;
+    bool testPixel;
+    float __padding;
+    glm::vec2 testedPixel;
+    int numOfRaySamples;
 };
 
 struct ViewEvalDataCompute {
@@ -113,6 +117,13 @@ struct FrustumHit
 {
     float t;
     int viewId;
+};
+
+struct RayEvalParams 
+{
+    bool testPixel;
+    glm::vec2 testedPixel;
+    int numOfRaySamples;
 };
 
 // Quad shaders

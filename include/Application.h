@@ -107,9 +107,12 @@ private:
 
     std::vector<uint32_t> m_viewRowColumns;
 
+    bool m_testPixels = false;
+    glm::vec2 m_testedPixel;
     bool m_depthOnly = false;
     bool m_renderNovel = false;
     bool m_novelSecondWindow = false;
+    int m_numberOfRaySamples = 16;
     bool m_secondWindowChanged = false;
     bool m_showCameraGeometry;
     bool m_rayEvalOnCpu = false;

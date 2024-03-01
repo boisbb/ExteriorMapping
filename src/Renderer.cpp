@@ -155,8 +155,6 @@ void Renderer::initDescriptorResources()
 #ifdef RAY_EVAL_DEBUG
             2
 #endif
-            // 5,
-            // 6
         };
 
         m_computeRayEvalDescriptorSets[i]->updateBuffers(bufferBinding, bufferInfos);
@@ -164,11 +162,12 @@ void Renderer::initDescriptorResources()
         std::vector<VkDescriptorImageInfo> imageInfos = {
             m_viewMatrixFramebuffer->getColorImageInfo(),
             m_viewMatrixFramebuffer->getDepthImageInfo(),
-            VkDescriptorImageInfo{m_novelImageSampler->getVkSampler(), m_novelImageView, m_novelImage->getVkImageLayout()}
+            getNovelImageInfo(),
+            getTestPixelImageInfo()
         };
 
         std::vector<uint32_t> imageBinding = {
-            3, 4, 5
+            3, 4, 5, 6
         };
 
         m_computeRayEvalDescriptorSets[i]->updateImages(imageBinding, imageInfos);
@@ -251,12 +250,12 @@ void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::s
 }
 
 void Renderer::rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid, 
-        const std::shared_ptr<ViewGrid>& viewGrid)
+    const std::shared_ptr<ViewGrid>& viewGrid, const RayEvalParams& params)
 {
     std::vector<std::shared_ptr<View>> novelViews = novelViewGrid->getViews();
     std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
 
-    updateRayEvalComputeDescriptorData(novelViews, views);
+    updateRayEvalComputeDescriptorData(novelViews, views, params);
 
     glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
 
@@ -590,16 +589,12 @@ void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo)
 
 void Renderer::copyOffscreenFrameBufferToSupp()
 {
-    VkCommandBuffer cmdBuff;
-
-    m_device->beginSingleCommands(cmdBuff);
-
-    m_device->createImageBarrier(cmdBuff, VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_offscreenFramebuffer->getColorImage()->getVkImage(),
+    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_viewMatrixFramebuffer->getColorImage()->getVkImage(),
         VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
     
-    m_device->createImageBarrier(cmdBuff, 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        m_offscreenSuppImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        m_testPixelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
     VkImageCopy imageCopyRegion{};
     imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -612,19 +607,17 @@ void Renderer::copyOffscreenFrameBufferToSupp()
 
     // Issue the copy command
     vkCmdCopyImage(
-        cmdBuff,
-        m_offscreenFramebuffer->getColorImage()->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        m_offscreenSuppImage->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        m_commandBuffers[m_currentFrame],
+        m_viewMatrixFramebuffer->getColorImage()->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        m_testPixelImage->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &imageCopyRegion);
 
-    m_device->createImageBarrier(cmdBuff, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_offscreenFramebuffer->getColorImage()->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, 
+    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_viewMatrixFramebuffer->getColorImage()->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, 
         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-    m_device->createImageBarrier(cmdBuff, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_GENERAL, m_offscreenSuppImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);    
-
-    m_device->endSingleCommands(cmdBuff);
+    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL, m_testPixelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);    
 }
 
 std::shared_ptr<SwapChain> Renderer::getSwapChain() const
@@ -733,11 +726,6 @@ std::shared_ptr<Framebuffer> Renderer::getOffscreenFramebuffer() const
     return m_offscreenFramebuffer;
 }
 
-std::shared_ptr<Framebuffer> Renderer::getOffscreenSuppFramebuffer() const
-{
-    return m_offscreenSuppFramebuffer;
-}
-
 std::shared_ptr<Framebuffer> Renderer::getQuadFramebuffer() const
 {
     return m_swapChain->getFramebuffer(m_swapChainImageIndices[m_currentFrame]);
@@ -762,9 +750,13 @@ VkDescriptorImageInfo Renderer::getNovelImageInfo() const
     };
 }
 
-VkDescriptorImageInfo Renderer::getOffscreenSuppImageInfo() const
+VkDescriptorImageInfo Renderer::getTestPixelImageInfo() const
 {
-    return m_offscreenSuppFramebuffer->getColorImageInfo();
+    return VkDescriptorImageInfo{
+        m_testPixelSampler->getVkSampler(),
+        m_testPixelImageView,
+        m_testPixelImage->getVkImageLayout()
+    };
 }
 
 SamplingType Renderer::getNovelViewSamplingType() const
@@ -1146,12 +1138,8 @@ void Renderer::createDescriptors()
         1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding novelFramebRayGenLayoutBinding = createDescriptorSetLayoutBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
-    
-    // VkDescriptorSetLayoutBinding frustumHitRayGenLayoutBinding = createDescriptorSetLayoutBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    //     1, VK_SHADER_STAGE_COMPUTE_BIT);
-    // VkDescriptorSetLayoutBinding frustumHitCountRayGenLayoutBinding = createDescriptorSetLayoutBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-    //     1, VK_SHADER_STAGE_COMPUTE_BIT);
-
+    VkDescriptorSetLayoutBinding testPixelRayGenLayoutBinding = createDescriptorSetLayoutBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
 
     std::vector<VkDescriptorSetLayoutBinding> computeRayGenLayoutBindings = {
         uboRayGenLayoutBinding,
@@ -1162,8 +1150,7 @@ void Renderer::createDescriptors()
         viewsFramebRayGenLayoutBinding,
         viewsFramebDepthRayGenLayoutBinding,
         novelFramebRayGenLayoutBinding,
-        // frustumHitRayGenLayoutBinding,
-        // frustumHitCountRayGenLayoutBinding
+        testPixelRayGenLayoutBinding
     };
 
     m_computeRayEvalSetLayout = std::make_shared<DescriptorSetLayout>(m_device, computeRayGenLayoutBindings);
@@ -1182,6 +1169,8 @@ void Renderer::createDescriptors()
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     VkDescriptorPoolSize novelFramebRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    VkDescriptorPoolSize testPixelbRayGenPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
     
 
     std::vector<VkDescriptorPoolSize> computeRayGenSizes = {
@@ -1193,6 +1182,7 @@ void Renderer::createDescriptors()
         viewsFramebRayGenPoolSize,
         viewsFramebDepthRayGenPoolSize,
         novelFramebRayGenPoolSize,
+        testPixelbRayGenPoolSize
     };
 
     m_computeRayEvalPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
@@ -1258,9 +1248,6 @@ void Renderer::createRenderResources()
 
     m_offscreenFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
         VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
-    
-    m_offscreenSuppFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
-        VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
 
     m_viewMatrixFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
         VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
@@ -1270,6 +1257,13 @@ void Renderer::createRenderResources()
     m_novelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageView = m_novelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR);
+
+    m_testPixelImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    m_testPixelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_testPixelImageView = m_testPixelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
+    m_testPixelSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
         VK_SAMPLER_MIPMAP_MODE_LINEAR);
 
     // m_offscreenSuppImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
@@ -1420,7 +1414,7 @@ void Renderer::updateCullComputeDescriptorData(const std::shared_ptr<Scene> &sce
 }
 
 void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& novelViews,
-        const std::vector<std::shared_ptr<View>>& views)
+        const std::vector<std::shared_ptr<View>>& views, const RayEvalParams& params)
 {
     std::shared_ptr<Camera> mainCamera = novelViews[0]->getCamera();
     glm::vec2 res = m_novelImage->getDims();
@@ -1433,6 +1427,9 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
     creuData.viewsTotalRes = glm::vec2(offscreenFbRes.width, offscreenFbRes.height);
     creuData.viewCnt = views.size();
     creuData.samplingType = 1 << static_cast<int>(m_novelViewSamplingType);
+    creuData.testPixel = params.testPixel;
+    creuData.testedPixel = params.testedPixel;
+    creuData.numOfRaySamples = params.numOfRaySamples;
 
     m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(RayEvalUniformBuffer));
 

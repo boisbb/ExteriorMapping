@@ -1,6 +1,15 @@
 #include "constants.glsl"
 #include "structs.glsl"
 
+#define WRITE_TO_IMAGE(origPixId, novelImage, color) \
+    for (int x = 0; x < INTERPOLATE_PIXELS_X; x++) \
+    { \
+        for (int y = 0; y < INTERPOLATE_PIXELS_Y; y++) \
+        { \
+            imageStore(novelImage, ivec2(origPixId + vec2(x, y)), color); \
+        } \
+    }
+
 #define CALCULATE_PIX_ID(t, view, proj, res, offset, pixId) \
     vec4 ct = proj * view * vec4(t, 1.f); \
     ct /= ct.w; \
@@ -184,12 +193,12 @@
         } \
     }
 
-#define EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, avg) \
+#define EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, avg, rayPixSamples) \
     float dist = 20; \
-    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / RAY_PIX_SAMPLES; \
+    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
     float segmentStart = maxInterval.t.x; \
     \
-    for (int j = 0; j < RAY_PIX_SAMPLES; j++) \
+    for (int j = 0; j < rayPixSamples; j++) \
     { \
         vec3 p = org + dir * (segmentStart + j * sampleDist); \
         \
@@ -237,15 +246,15 @@
         } \
     }
 
-#define EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, samplingType) \
-    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / RAY_PIX_SAMPLES; \
+#define EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, samplingType, rayPixSamples) \
+    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
     float segmentStart = maxInterval.t.x; \
     \
     vec3 startP = org + dir * maxInterval.t.x; \
     vec3 endP = org + dir * maxInterval.t.y; \
     \
     float minDist = 1.0 / 0.0; \
-    for (int j = 0; j < RAY_PIX_SAMPLES; j++) \
+    for (int j = 0; j < rayPixSamples; j++) \
     { \
         vec3 p = org + dir * (segmentStart + j * sampleDist); \
         \
@@ -300,14 +309,251 @@
         } \
     }
 
-#define WRITE_TO_IMAGE(origPixId, novelImageSampler, color) \
-    for (int x = 0; x < INTERPOLATE_PIXELS_X; x++) \
+#define EVALUATE_AND_SAMPLE_DEPTH_DIST_2(org, dir, maxInterval, finalColor, samplingType, rayPixSamples) \
+    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
+    float segmentStart = maxInterval.t.x; \
+    \
+    vec3 startP = org + dir * maxInterval.t.x; \
+    vec3 endP = org + dir * maxInterval.t.y; \
+    \
+    float minDist = 1.0 / 0.0; \
+    \
+    int intervalViewCnt = 0; \
+    vec4 sampleColors[MAX_VIEWS]; \
+    float sampleDistances[MAX_VIEWS]; \
+    for (int j = 0; j < rayPixSamples; j++) \
     { \
-        for (int y = 0; y < INTERPOLATE_PIXELS_Y; y++) \
+        vec3 p = org + dir * (segmentStart + j * sampleDist); \
+        \
+        vec4 colorAcc = vec4(0.0); \
+        float pointDistAcc = 0; \
+        \
+        intervalViewCnt = 0; \
+        for (int k = 0; k < ubo.viewCnt; k++) \
         { \
-            imageStore(novelImageSampler, ivec2(origPixId + vec2(x, y)), color); \
+            bool result = false; \
+            IS_IN_MASK(k, maxInterval.idBits, result); \
+            if (result) \
+            { \
+                ViewDataEvalCompute currentView = cssbo.objects[k]; \
+                \
+                vec2 pixId = vec2(0.0); \
+                vec2 dView = vec2(0.0); \
+                CALCULATE_PIX_ID_D(p, currentView.view,  currentView.proj, \
+                    currentView.resOffset.xy, currentView.resOffset.zw, \
+                    pixId, dView); \
+                \
+                vec2 uvView = pixId / ubo.viewsTotalRes; \
+                \
+                float n = currentView.nearFar.x; \
+                float f = currentView.nearFar.y; \
+                float z = texture(viewImagesDepthSampler, uvView).r; \
+                \
+                vec4 clipPoint = vec4(dView, z, 1.0); \
+                vec4 viewPoint = currentView.invProj * clipPoint; \
+                viewPoint /= viewPoint.w; \
+                \
+                vec3 worldPoint = (currentView.invView * viewPoint).xyz; \
+                \
+                float pointDistance = 1.0 / 0.0; \
+                if (samplingType == SAMPLE_DEPTH_NORMAL) \
+                { \
+                    POINT_TO_LINE_DIST(worldPoint, startP, endP, pointDistance); \
+                } \
+                else if (samplingType == SAMPLE_DEPTH_ANGLE) \
+                { \
+                    LINE_TO_LINE_ANGLE_DIST(org, worldPoint, startP, endP, pointDistance); \
+                } \
+                \
+                if (j == 0 || sampleDistances[intervalViewCnt] > pointDistance) \
+                { \
+                    sampleColors[intervalViewCnt] = texture(viewImagesSampler, uvView); \
+                    sampleDistances[intervalViewCnt] = pointDistance; \
+                } \
+                intervalViewCnt++; \
+            } \
+        } \
+    } \
+    \
+    finalColor = vec4(0); \
+    for (int l = 0; l < intervalViewCnt; l++) \
+    { \
+        finalColor += sampleColors[l]; \
+    } \
+    finalColor /= intervalViewCnt;
+
+#define EVALUATE_AND_SAMPLE_DEPTH_DIST_TEST_PIXEL(org, dir, maxInterval, finalColor, samplingType, testPixelImage, rayPixSamples) \
+    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
+    float segmentStart = maxInterval.t.x; \
+    \
+    vec3 startP = org + dir * maxInterval.t.x; \
+    vec3 endP = org + dir * maxInterval.t.y; \
+    \
+    float minDist = 1.0 / 0.0; \
+    \
+    int intervalViewCnt = 0; \
+    ivec2 sampledPixels[MAX_VIEWS]; \
+    for (int j = 0; j < rayPixSamples; j++) \
+    { \
+        vec3 p = org + dir * (segmentStart + j * sampleDist); \
+        \
+        vec4 colorAcc = vec4(0.0); \
+        float pointDistAcc = 0; \
+        \
+        intervalViewCnt = 0; \
+        ivec2 localSampledPixels[MAX_VIEWS]; \
+        for (int k = 0; k < ubo.viewCnt; k++) \
+        { \
+            bool result = false; \
+            IS_IN_MASK(k, maxInterval.idBits, result); \
+            if (result) \
+            { \
+                ViewDataEvalCompute currentView = cssbo.objects[k]; \
+                \
+                vec2 pixId = vec2(0.0); \
+                vec2 dView = vec2(0.0); \
+                CALCULATE_PIX_ID_D(p, currentView.view,  currentView.proj, \
+                    currentView.resOffset.xy, currentView.resOffset.zw, \
+                    pixId, dView); \
+                \
+                vec2 uvView = pixId / ubo.viewsTotalRes; \
+                localSampledPixels[intervalViewCnt] = ivec2(pixId); \
+                \
+                float n = currentView.nearFar.x; \
+                float f = currentView.nearFar.y; \
+                float z = texture(viewImagesDepthSampler, uvView).r; \
+                \
+                vec4 clipPoint = vec4(dView, z, 1.0); \
+                vec4 viewPoint = currentView.invProj * clipPoint; \
+                viewPoint /= viewPoint.w; \
+                \
+                vec3 worldPoint = (currentView.invView * viewPoint).xyz; \
+                \
+                float pointDistance = 1.0 / 0.0; \
+                if (samplingType == SAMPLE_DEPTH_NORMAL) \
+                { \
+                    POINT_TO_LINE_DIST(worldPoint, startP, endP, pointDistance); \
+                } \
+                else if (samplingType == SAMPLE_DEPTH_ANGLE) \
+                { \
+                    LINE_TO_LINE_ANGLE_DIST(org, worldPoint, startP, endP, pointDistance); \
+                } \
+                \
+                pointDistAcc += pointDistance; \
+                colorAcc += texture(viewImagesSampler, uvView); \
+                intervalViewCnt++; \
+            } \
+        } \
+        \
+        if (pointDistAcc < minDist) \
+        { \
+            minDist = pointDistAcc; \
+            finalColor = colorAcc / maxInterval.count; \
+            sampledPixels = localSampledPixels; \
+        } \
+    } \
+    \
+    for (int l = 0; l < intervalViewCnt; l++) \
+    { \
+        ivec2 pixel = sampledPixels[l]; \
+        int offset = 20; \
+        ivec2 start = pixel - offset; \
+        for (int x = 0; x < offset * 2 + 1; x++) \
+        { \
+            for (int y = 0; y < offset * 2 + 1; y++) \
+            { \
+                ivec2 pixIndex = start + ivec2(x, y); \
+                WRITE_TO_IMAGE(pixIndex, testPixelImage, vec4(1.f, 0.f, 0.f, 1.f)); \
+            } \
         } \
     }
+
+#define EVALUATE_AND_SAMPLE_DEPTH_DIST_TEST_PIXEL_2(org, dir, maxInterval, finalColor, samplingType, testPixelImage, rayPixSamples) \
+    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
+    float segmentStart = maxInterval.t.x; \
+    \
+    vec3 startP = org + dir * maxInterval.t.x; \
+    vec3 endP = org + dir * maxInterval.t.y; \
+    \
+    float minDist = 1.0 / 0.0; \
+    \
+    int intervalViewCnt = 0; \
+    ivec2 sampledPixels[MAX_VIEWS]; \
+    vec4 sampleColors[MAX_VIEWS]; \
+    float sampleDistances[MAX_VIEWS]; \
+    for (int j = 0; j < rayPixSamples; j++) \
+    { \
+        vec3 p = org + dir * (segmentStart + j * sampleDist); \
+        \
+        vec4 colorAcc = vec4(0.0); \
+        float pointDistAcc = 0; \
+        \
+        intervalViewCnt = 0; \
+        ivec2 localSampledPixels[MAX_VIEWS]; \
+        for (int k = 0; k < ubo.viewCnt; k++) \
+        { \
+            bool result = false; \
+            IS_IN_MASK(k, maxInterval.idBits, result); \
+            if (result) \
+            { \
+                ViewDataEvalCompute currentView = cssbo.objects[k]; \
+                \
+                vec2 pixId = vec2(0.0); \
+                vec2 dView = vec2(0.0); \
+                CALCULATE_PIX_ID_D(p, currentView.view,  currentView.proj, \
+                    currentView.resOffset.xy, currentView.resOffset.zw, \
+                    pixId, dView); \
+                \
+                vec2 uvView = pixId / ubo.viewsTotalRes; \
+                \
+                float n = currentView.nearFar.x; \
+                float f = currentView.nearFar.y; \
+                float z = texture(viewImagesDepthSampler, uvView).r; \
+                \
+                vec4 clipPoint = vec4(dView, z, 1.0); \
+                vec4 viewPoint = currentView.invProj * clipPoint; \
+                viewPoint /= viewPoint.w; \
+                \
+                vec3 worldPoint = (currentView.invView * viewPoint).xyz; \
+                \
+                float pointDistance = 1.0 / 0.0; \
+                if (samplingType == SAMPLE_DEPTH_NORMAL) \
+                { \
+                    POINT_TO_LINE_DIST(worldPoint, startP, endP, pointDistance); \
+                } \
+                else if (samplingType == SAMPLE_DEPTH_ANGLE) \
+                { \
+                    LINE_TO_LINE_ANGLE_DIST(org, worldPoint, startP, endP, pointDistance); \
+                } \
+                \
+                if (j == 0 || sampleDistances[intervalViewCnt] > pointDistance) \
+                { \
+                    sampledPixels[intervalViewCnt] = ivec2(pixId); \
+                    sampleColors[intervalViewCnt] = texture(viewImagesSampler, uvView); \
+                    sampleDistances[intervalViewCnt] = pointDistance; \
+                } \
+                intervalViewCnt++; \
+            } \
+        } \
+    } \
+    \
+    finalColor = vec4(0); \
+    for (int l = 0; l < intervalViewCnt; l++) \
+    { \
+        finalColor += sampleColors[l]; \
+        ivec2 pixel = sampledPixels[l]; \
+        int offset = 20; \
+        ivec2 start = pixel - offset; \
+        for (int x = 0; x < offset * 2 + 1; x++) \
+        { \
+            for (int y = 0; y < offset * 2 + 1; y++) \
+            { \
+                ivec2 pixIndex = start + ivec2(x, y); \
+                WRITE_TO_IMAGE(pixIndex, testPixelImage, vec4(1.f, 0.f, 0.f, 1.f)); \
+            } \
+        } \
+    } \
+    finalColor /= intervalViewCnt;
 
 // https://stackoverflow.com/questions/4858264/find-the-distance-from-a-3d-point-to-a-line-segment
 #define POINT_TO_LINE_DIST(v, a, b, dist) \

@@ -14,6 +14,9 @@ layout(set=0, binding=0) uniform RayEvalUniformBuffer {
     vec2 viewsTotalRes;
     int viewCnt;
     uint samplingType;
+    bool testPixel;
+    vec2 testedPixel;
+    int numOfRaySamples;
 } ubo;
 
 layout(std430, set=0, binding=1) readonly buffer ssbo {
@@ -25,7 +28,9 @@ layout(set=0, binding=3) uniform sampler2D viewImagesSampler;
 
 layout(set=0, binding=4) uniform sampler2D viewImagesDepthSampler;
 
-layout(set=0, binding=5) uniform writeonly image2D novelImageSampler;
+layout(set=0, binding=5) uniform writeonly image2D novelImage;
+
+layout(set=0, binding=6) uniform writeonly image2D testPixelImage;
 
 #ifdef WRITE_DEBUG
 layout(std430, set=0, binding=2) writeonly buffer ssbo1 {
@@ -74,18 +79,26 @@ void main()
 
         if (ubo.samplingType == SAMPLE_COLOR)
         {
-            EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, finalColor);
+            EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, finalColor, float(ubo.numOfRaySamples));
         }
         else
         {
-            EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, ubo.samplingType);
+            if (ubo.testPixel == true && ubo.testedPixel.x == origPixId.x && ubo.testedPixel.y == origPixId.y)
+            {
+                EVALUATE_AND_SAMPLE_DEPTH_DIST_TEST_PIXEL(org, dir, maxInterval, finalColor, ubo.samplingType, testPixelImage, float(ubo.numOfRaySamples));
+            }
+            else
+            {
+                EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, ubo.samplingType, float(ubo.numOfRaySamples));
+            }
         }
 
-        WRITE_TO_IMAGE(origPixId, novelImageSampler, finalColor);
+        WRITE_TO_IMAGE(origPixId, novelImage, finalColor);
+
     }
     else
     {
-        WRITE_TO_IMAGE(origPixId, novelImageSampler, vec4(0, 0, 1, 1));
+        WRITE_TO_IMAGE(origPixId, novelImage, vec4(0, 0, 1, 1));
     }
 
 #ifdef WRITE_DEBUG
