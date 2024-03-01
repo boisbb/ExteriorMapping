@@ -89,6 +89,7 @@ struct RayEvalUniformBuffer {
     float __padding;
     glm::vec2 testedPixel;
     int numOfRaySamples;
+    float __padding1;
 };
 
 struct ViewEvalDataCompute {
@@ -100,6 +101,8 @@ struct ViewEvalDataCompute {
     glm::vec4 resOffset;
     glm::vec2 nearFar;
     float __padding[2];
+    glm::vec3 viewDir;
+    float __padding1;
 };
 
 struct ViewEvalDebugCompute {

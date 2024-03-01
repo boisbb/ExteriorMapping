@@ -9,6 +9,7 @@ struct ViewDataEvalCompute
     mat4 invProj;
     vec4 resOffset;
     vec2 nearFar;
+    vec3 viewDir;
 };
 
 struct ViewEvalDebugCompute {

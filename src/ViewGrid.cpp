@@ -25,8 +25,6 @@ void ViewGrid::viewCalculateEye(std::shared_ptr<View> view)
 
     glm::vec3 worldPos = m_gridMatrix * glm::vec4(gridPos, 1.f);
 
-    // std::cout << worldPos.x << " " << worldPos.y << " " << worldPos.z << std::endl;
-
     view->setCameraEye(worldPos);}
 
 void ViewGrid::reconstructMatrices()

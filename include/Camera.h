@@ -34,6 +34,7 @@ public:
     glm::vec3 getUp() const;
     float getSensitivity() const;
     float getFov() const;
+    glm::vec3 getTransfViewDir();
 
     void setCameraInfo(const glm::vec3& eye,
         const glm::vec3& up, const glm::vec3& viewDir, const float& speed);
@@ -52,6 +53,7 @@ private:
     glm::vec3 m_center;
     glm::vec3 m_up;
     glm::vec3 m_viewDirection;
+    glm::vec3 m_transfViewDirection;
     glm::vec4 m_frustum;
     std::vector<glm::vec4> m_frustumPlanes;
 

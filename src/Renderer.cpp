@@ -1451,6 +1451,7 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
         cressbo[i].resOffset.z = offset.x;
         cressbo[i].resOffset.w = offset.y;
         cressbo[i].nearFar = views[i]->getNearFar();
+        cressbo[i].viewDir = views[i]->getCamera()->getTransfViewDir();
     }
 
     m_cressbo[m_currentFrame]->copyMapped(cressbo.data(), sizeof(ViewEvalDataCompute) * cressbo.size());
