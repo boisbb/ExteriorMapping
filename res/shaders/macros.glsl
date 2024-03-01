@@ -10,6 +10,17 @@
         } \
     }
 
+#define WRITE_IMAGE_PIXEL_NEIGHBOURS(image, pixel, offset, color) \
+    ivec2 start = pixel - offset; \
+    for (int x = 0; x < offset * 2 + 1; x++) \
+    { \
+        for (int y = 0; y < offset * 2 + 1; y++) \
+        { \
+            ivec2 pixIndex = start + ivec2(x, y); \
+            WRITE_TO_IMAGE(pixIndex, image, color); \
+        } \
+    }
+
 #define CALCULATE_PIX_ID(t, view, proj, res, offset, pixId) \
     vec4 ct = proj * view * vec4(t, 1.f); \
     ct /= ct.w; \
@@ -393,6 +404,8 @@
     \
     int intervalViewCnt = 0; \
     ivec2 sampledPixels[MAX_VIEWS]; \
+    ivec2 startPixels[MAX_VIEWS]; \
+    ivec2 endPixels[MAX_VIEWS]; \
     for (int j = 0; j < rayPixSamples; j++) \
     { \
         vec3 p = org + dir * (segmentStart + j * sampleDist); \
@@ -419,6 +432,15 @@
                 vec2 uvView = pixId / ubo.viewsTotalRes; \
                 localSampledPixels[intervalViewCnt] = ivec2(pixId); \
                 \
+                if (j == 0) \
+                { \
+                    startPixels[intervalViewCnt] = ivec2(pixId); \
+                } \
+                else if (j == rayPixSamples - 1) \
+                { \
+                    endPixels[intervalViewCnt] = ivec2(pixId); \
+                } \
+                \
                 float n = currentView.nearFar.x; \
                 float f = currentView.nearFar.y; \
                 float z = texture(viewImagesDepthSampler, uvView).r; \
@@ -442,6 +464,7 @@
                 pointDistAcc += pointDistance; \
                 colorAcc += texture(viewImagesSampler, uvView); \
                 intervalViewCnt++; \
+                WRITE_IMAGE_PIXEL_NEIGHBOURS(testPixelImage, ivec2(pixId), 15, vec4(0, float(j) / float(rayPixSamples), 0, 1)); \
             } \
         } \
         \
@@ -458,12 +481,14 @@
         ivec2 pixel = sampledPixels[l]; \
         int offset = 20; \
         ivec2 start = pixel - offset; \
+        ivec2 startStart = startPixels[l] - offset; \
+        ivec2 endStart = endPixels[l] - offset; \
         for (int x = 0; x < offset * 2 + 1; x++) \
         { \
             for (int y = 0; y < offset * 2 + 1; y++) \
             { \
                 ivec2 pixIndex = start + ivec2(x, y); \
-                WRITE_TO_IMAGE(pixIndex, testPixelImage, vec4(1.f, 0.f, 0.f, 1.f)); \
+                WRITE_IMAGE_PIXEL_NEIGHBOURS(testPixelImage, pixel, offset, vec4(1.f, 1.f, 0.f, 1.f)); \
             } \
         } \
     }
@@ -533,6 +558,7 @@
                     sampleDistances[intervalViewCnt] = pointDistance; \
                 } \
                 intervalViewCnt++; \
+                WRITE_IMAGE_PIXEL_NEIGHBOURS(testPixelImage, pixId, 15, vec4(0, 1, 0, 1)); \
             } \
         } \
     } \
@@ -543,15 +569,7 @@
         finalColor += sampleColors[l]; \
         ivec2 pixel = sampledPixels[l]; \
         int offset = 20; \
-        ivec2 start = pixel - offset; \
-        for (int x = 0; x < offset * 2 + 1; x++) \
-        { \
-            for (int y = 0; y < offset * 2 + 1; y++) \
-            { \
-                ivec2 pixIndex = start + ivec2(x, y); \
-                WRITE_TO_IMAGE(pixIndex, testPixelImage, vec4(1.f, 0.f, 0.f, 1.f)); \
-            } \
-        } \
+        WRITE_IMAGE_PIXEL_NEIGHBOURS(testPixelImage, pixel, offset, vec4(1.f, 1.f, 0.f, 1.f)); \
     } \
     finalColor /= intervalViewCnt;
 
