@@ -1,3 +1,13 @@
+/**
+ * @file Model.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "Model.h"
 #include "Mesh.h"
 #include "Material.h"

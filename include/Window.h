@@ -1,3 +1,13 @@
+/**
+ * @file Window.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 // std
@@ -34,18 +44,38 @@ namespace vke
 class Window
 {
 public:
+    /**
+     * @brief Construct a new Window object.
+     * 
+     * @param width 
+     * @param height 
+     * @param visible If the window is visible.
+     */
     Window(int width = 800, int height = 600, bool visible = true);
     ~Window();
     
+    /**
+     * @brief Create a Window Surface and return it.
+     * 
+     * @param instance Vulkan instance. 
+     * @param surface Vulkan surface.
+     */
     void createWindowSurface(VkInstance instance, VkSurfaceKHR& surface);
+
+    /**
+     * @brief Create a Window Surface object.
+     * 
+     * @param instance 
+     */
     void createWindowSurface(VkInstance instance);
 
+    // Getters
     VkExtent2D getExtent();
     glm::vec2 getResolution();
     GLFWwindow* getWindow();
     bool resized() const;
     VkSurfaceKHR getSurface() const;
-
+    
     void setResized(bool resized);
     void setVisible(bool visible);
 

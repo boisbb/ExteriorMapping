@@ -1,3 +1,13 @@
+/**
+ * @file Import.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "utils/Import.h"
 #include "Material.h"
 
@@ -36,8 +46,6 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
     info.firstIndex = indices.size();
     info.vertexOffset = vertices.size();
 
-    // glm::vec3 bbH(-INFINITY);
-    // glm::vec3 bbL(INFINITY);
     glm::vec4 bounds(0.f);
     for (uint32_t j = 0; j < mesh->mNumVertices; j++)
     {

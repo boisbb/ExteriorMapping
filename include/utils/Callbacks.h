@@ -1,3 +1,13 @@
+/**
+ * @file Callbacks.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 // GLFW
@@ -19,12 +29,28 @@
 #include "Application.h"
 #include "Window.h"
 
+/**
+ * @brief Is called whenever window is resized.
+ * 
+ * @param window 
+ * @param width 
+ * @param height 
+ */
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
     auto wind = reinterpret_cast<vke::Window*>(glfwGetWindowUserPointer(window));
     wind->setResized(true);
 }
 
+/**
+ * @brief Validation layer callback.
+ * 
+ * @param messageSeverity 
+ * @param messageType 
+ * @param pCallbackData 
+ * @param pUserData 
+ * @return VKAPI_ATTR 
+ */
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,

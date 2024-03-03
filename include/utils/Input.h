@@ -1,3 +1,13 @@
+/**
+ * @file Input.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include <iostream>
@@ -21,12 +31,21 @@
 // glm
 #include "glm_include_unified.h"
 
+// vke
 #include "ViewGrid.h"
 #include "Camera.h"
 
 namespace vke::utils
 {
 
+/**
+ * @brief Consume input for the test pixel.
+ * 
+ * @param window 
+ * @param chosenPixel 
+ * @return true
+ * @return false 
+ */
 bool consumeDeviceInputTestPixel(GLFWwindow* window, glm::vec2& chosenPixel)
 {
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
@@ -43,6 +62,17 @@ bool consumeDeviceInputTestPixel(GLFWwindow* window, glm::vec2& chosenPixel)
     return false;
 }
 
+/**
+ * @brief Consume device input for camera manipulation.
+ * 
+ * @param window Window.
+ * @param framebufferRatio Ratio of the width and height.
+ * @param viewGrid View grid for manipulation.
+ * @param manipulateGrid Whether a whole grip is manipulated or not.
+ * @param secondaryWindow Whether the window is a secondary window or not.
+ * @return true 
+ * @return false 
+ */
 bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::shared_ptr<ViewGrid> viewGrid,
     bool manipulateGrid, bool secondaryWindow = false)
 {

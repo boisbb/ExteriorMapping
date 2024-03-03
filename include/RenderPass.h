@@ -1,3 +1,13 @@
+/**
+ * @file RenderPass.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include <vulkan/vulkan.h>
@@ -10,6 +20,14 @@ namespace vke
 class RenderPass
 {
 public:
+    /**
+     * @brief Construct a new Render Pass object.
+     * 
+     * @param device Device for the render pass.
+     * @param colorFormat Format of the color attachement.
+     * @param depthFormat Format of the depth attachement.
+     * @param offscreen Whether or not the render pass is offscreen.
+     */
     RenderPass(std::shared_ptr<Device> device, VkFormat colorFormat, VkFormat depthFormat,
         bool offscreen = false);
     ~RenderPass();

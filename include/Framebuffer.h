@@ -14,11 +14,28 @@ class Sampler;
 class Framebuffer
 {
 public:
+    /**
+     * @brief Construct a new Framebuffer object.
+     * 
+     * @param device Device.
+     * @param renderPass Render pass in which the framebuffer will be used.
+     * @param resolution Resolution of the framebuffer
+     */
     Framebuffer(std::shared_ptr<Device> device, std::shared_ptr<RenderPass> renderPass, VkExtent2D resolution);
+    
+    /**
+     * @brief Construct a new Framebuffer object without creating images.
+     * 
+     * @param device 
+     * @param renderPass 
+     * @param resolution 
+     * @param swapchainImageView Image view of the swapchain image.
+     */
     Framebuffer(std::shared_ptr<Device> device, std::shared_ptr<RenderPass> renderPass, VkExtent2D resolution, 
         VkImageView swapchainImageView);
     ~Framebuffer();
 
+    // Getters
     VkFramebuffer getFramebuffer() const;
     std::shared_ptr<Sampler> getSampler() const;
     VkImageView getColorImageView() const;
@@ -28,6 +45,7 @@ public:
     VkExtent2D getResolution() const;
 
 private:
+    // Create methods
     void createImages(std::shared_ptr<RenderPass> renderPass);
     void createFramebuffer(std::shared_ptr<RenderPass> renderPass);
 

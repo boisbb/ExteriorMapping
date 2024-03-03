@@ -1,3 +1,13 @@
+/**
+ * @file Image.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "Image.h"
 #include "Device.h"
 

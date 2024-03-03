@@ -1,8 +1,19 @@
+/**
+ * @file Mesh.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #ifdef _WIN32
 #define NOMINMAX
 #include <Windows.h>
 #endif
 
+// vke
 #include "Mesh.h"
 #include "Buffer.h"
 #include "Device.h"

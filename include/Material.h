@@ -1,7 +1,19 @@
+/**
+ * @file Material.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
+// glm
 #include "glm_include_unified.h"
 
+// std
 #include <memory>
 #include <string>
 
@@ -13,9 +25,14 @@ class Texture;
 class Material
 {
 public:
+    /**
+     * @brief Construct a new Material object
+     * 
+     */
     Material();
     ~Material();
 
+    // Setters
     void setAmbientColor(const glm::vec3& color);
     void setDiffuseColor(const glm::vec3& color);
     void setSpecularColor(const glm::vec3& color);
@@ -26,6 +43,7 @@ public:
     void setBumpTextureId(const int& id);
     void setHasBumpTexture(const bool& hasBumpMap);
 
+    // Getters
     glm::vec3 getAmbientColor() const;
     glm::vec3 getDiffuseColor() const;
     glm::vec3 getSpecularColor() const;

@@ -1,9 +1,21 @@
+/**
+ * @file Device.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
+// vke
 #include "Device.h"
 #include "Buffer.h"
 #include "utils/Callbacks.h"
 #include "utils/DebugHelpers.h"
 #include "utils/VulkanHelpers.h"
 
+// std
 #include <stdexcept>
 #include <cstdlib>
 #include <cstring>

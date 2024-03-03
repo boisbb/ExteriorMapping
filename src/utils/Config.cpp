@@ -1,3 +1,13 @@
+/**
+ * @file Config.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "utils/Config.h"
 
 #include <fstream>

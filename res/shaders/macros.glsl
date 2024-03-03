@@ -598,4 +598,34 @@
     vec3 cd = d - c; \
     \
     dist = acos(dot(ab, cd) / (length(ab) * length(cd)));
+
+#define VEC_TO_VEC_ANGLE_DIST(a, b, dist) \
+    dist = acos(dot(a, b) / (length(a) * length(b)));
+
+#define CHOOSE_SAMPLE_COUNT(ubo, cssbo, org, dir, maxInterval, sampleCount) \
+    vec3 rayStart = org + dir * maxInterval.t.x; \
+    vec3 rayEnd = org + dir * maxInterval.t.y; \
+    vec3 ray = rayEnd - rayStart; \
+    float maxDist = 0.f; \
+    \
+    for (int i = 0; i < ubo.viewCnt; i++) \
+    { \
+        bool result = false; \
+        IS_IN_MASK(i, maxInterval.idBits, result); \
+        if (result) \
+        { \
+            vec3 viewDir = cssbo.objects[i].viewDir.xyz; \
+            float localDist = 0.f; \
+            VEC_TO_VEC_ANGLE_DIST(viewDir, ray, localDist); \
+            \
+            if (localDist > maxDist) \
+            { \
+                maxDist = localDist; \
+            } \
+        } \
+    } \
+    \
+    float ratio = maxDist / MAX_ANGLE; \
+    ratio = (ratio > 1) ? 1.f : ratio; \
+    sampleCount = MIN_PIX_SAMPLES + int(ratio * MAX_PIX_SAMPLES);
     

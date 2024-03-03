@@ -1,3 +1,13 @@
+/**
+ * @file SwapChain.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include <vulkan/vulkan.h>
@@ -15,14 +25,25 @@ class Framebuffer;
 class SwapChain
 {
 public:
+    /**
+     * @brief Construct a new Swap Chain object
+     * 
+     * @param device Device.
+     * @param windowExtent Resolution of the swap chain object. 
+     * @param surface Surface to render to.
+     */
     SwapChain(std::shared_ptr<Device> device, VkExtent2D windowExtent,
         VkSurfaceKHR surface);
     ~SwapChain();
 
+    /**
+     * @brief Initializes frame buffers.
+     * 
+     * @param renderPass 
+     */
     void initializeFramebuffers(std::shared_ptr<RenderPass> renderPass);
 
-    // VkRenderPass getRenderPass() const;
-    // VkRenderPass getOffscreenRenderPass() const;
+    // Getters
     VkFence getFenceId(int id);
     VkFence getComputeFenceId(int id);
     VkSwapchainKHR getSwapChain() const;
@@ -30,12 +51,15 @@ public:
     VkSemaphore getRenderFinishedSemaphore(int id);
     VkSemaphore getComputeFinishedSemaphore(int id);
     std::shared_ptr<Framebuffer> getFramebuffer(int id);
-    // VkFramebuffer getOffscreenFramebuffer() const;
     VkExtent2D getExtent();
     uint32_t getImageCount() const;
-    // VkDescriptorImageInfo getOffscreenImageInfo() const;
     VkFormat getImageFormat() const;
 
+    /**
+     * @brief Recreates the swapchain.
+     * 
+     * @param windowExtent 
+     */
     void recreate(VkExtent2D windowExtent);
 
     // Sync members
@@ -47,12 +71,33 @@ public:
     std::vector<VkSemaphore> m_computeFinishedSemaphores;
     std::vector<VkFence> m_computeInFlightFences;
 private:
+    // Create methods.
     void createSwapChain(VkSurfaceKHR surface);
     void createImageViews();
     void createSyncObjects();
 
+    /**
+     * @brief Chooses appropriatte surface format.
+     * 
+     * @param availableFormats 
+     * @return VkSurfaceFormatKHR 
+     */
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+
+    /**
+     * @brief Chooses present mode.
+     * 
+     * @param availablePresentModes 
+     * @return VkPresentModeKHR 
+     */
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+
+    /**
+     * @brief Chooses swap extent.
+     * 
+     * @param capabilities 
+     * @return VkExtent2D 
+     */
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
     bool hasStencilComponent(VkFormat format);
@@ -62,14 +107,8 @@ private:
     std::shared_ptr<Device> m_device;
     
     VkFormat m_depthFormat;
-
     VkExtent2D m_windowExtent;
-
     VkSwapchainKHR m_swapChain;
-    std::shared_ptr<RenderPass> m_renderPass;
-
-    // std::shared_ptr<RenderPass> m_offscreenRenderPass;
-    // std::shared_ptr<Framebuffer> m_offscreenFramebuffer;
 
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;

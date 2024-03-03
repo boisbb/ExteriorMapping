@@ -1,3 +1,13 @@
+/**
+ * @file FileHandling.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "utils/FileHandling.h"
 
 #define STB_IMAGE_IMPLEMENTATION

@@ -44,6 +44,7 @@ FetchContent_MakeAvailable(assimp)
 find_package(Vulkan COMPONENTS glslc)
 find_program(glslc_executable NAMES glslc HINTS Vulkan::glslc)
 
+
 # ImGui linking
 set(IMGUI_PATH "external/imgui/")
 
@@ -113,6 +114,30 @@ endforeach()
 
 add_custom_target(shaders ALL DEPENDS ${SPV_SHADERS})
 
-add_dependencies(VulkanBoilerPlate shaders)
+if(BUILD_DOC)
+    find_package(Doxygen REQUIRED)
+
+    set(OUTPUT_DOC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/doc)
+
+    add_custom_command(
+    COMMAND
+        ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DOC_DIR}
+    OUTPUT ${OUTPUT_DOC_DIR}
+    COMMENT "Creating ${OUTPUT_DOC_DIR}"
+    )
+
+    add_custom_target(doc ALL
+        COMMAND doxygen ${CMAKE_CURRENT_SOURCE_DIR}/doxyfile
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Generating API documentation with Doxygen"
+        DEPENDS ${OUTPUT_DOC_DIR}
+    )
+
+    add_dependencies(VulkanBoilerPlate shaders doc)
+else()
+    add_dependencies(VulkanBoilerPlate shaders)
+endif()
+
+
 
 target_compile_definitions(VulkanBoilerPlate PRIVATE COMPILED_SHADER_LOC=${OUTPUT_SHADER_DIR})

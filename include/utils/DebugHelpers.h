@@ -1,3 +1,13 @@
+/**
+ * @file DebugHelpers.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include <vulkan/vulkan.h>

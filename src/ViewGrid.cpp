@@ -1,3 +1,13 @@
+/**
+ * @file ViewGrid.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "ViewGrid.h"
 
 #include "utils/Constants.h"
@@ -77,6 +87,14 @@ void ViewGrid::setViewGridPos(std::shared_ptr<View> view, const glm::vec3& gridP
     m_viewGridPos[view] = gridPos;
 }
 
+void ViewGrid::setFov(float fov)
+{
+    for (auto& view : m_views)
+    {
+        view->getCamera()->setFov(fov);
+    }
+}
+
 glm::vec2 ViewGrid::getResolution() const
 {
     return m_resolution;
@@ -85,6 +103,11 @@ glm::vec2 ViewGrid::getResolution() const
 glm::mat4 ViewGrid::getMatrix() const
 {
     return m_gridMatrix;
+}
+
+std::vector<uint32_t> ViewGrid::getViewRowsColumns() const
+{
+    return m_viewRowColumns;
 }
 
 void ViewGrid::initializeViews()
@@ -117,6 +140,7 @@ void ViewGrid::initializeByStep()
 
     for (int y = 0; y < m_config.gridSize.y; y++)
     {
+        m_viewRowColumns.push_back(m_config.gridSize.x);
         for (int x = 0; x < m_config.gridSize.x; x++)
         {
             glm::vec3 gridPos = glm::vec3(start, 0.f) + glm::vec3(x, -y, 0.f) * glm::vec3(m_config.step, 0.f);

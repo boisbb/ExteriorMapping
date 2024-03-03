@@ -1,3 +1,13 @@
+/**
+ * @file Pipeline.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include <vulkan/vulkan.h>
@@ -19,6 +29,12 @@ public:
     virtual void bind(VkCommandBuffer commandBuffer) const = 0;
 
 protected:
+    /**
+     * @brief Create a Vulkan shader module object.
+     * 
+     * @param code Text of the shader.
+     * @return VkShaderModule 
+     */
     VkShaderModule createShaderModule(const std::vector<char>& code);
 
     std::shared_ptr<Device> m_device;

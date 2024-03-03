@@ -38,6 +38,7 @@
     "sceneData": {
         "models": [
             "../res/models/dabrovic_sponza/sponza.obj",
+            "../res/models/porsche/porsche.obj",
             "../res/models/basicCube/cube.obj"
         ],
         "lightPos": {

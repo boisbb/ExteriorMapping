@@ -1,3 +1,13 @@
+/**
+ * @file ViewGrid.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include "glm_include_unified.h"
@@ -15,14 +25,35 @@ namespace vke
 class ViewGrid
 {
 public:
+    /**
+     * @brief Construct a new View Grid object.
+     * 
+     * @param device Device
+     * @param resolution Resolution of the whole grid.
+     * @param config Config parsed from the config file.
+     * @param setLayout Descriptor set layout for the views.
+     * @param setPool Descriptor set pool for the views.
+     * @param cameraCube Camera cube model for visualizing the cameras.
+     */
     ViewGrid(std::shared_ptr<Device> device, const glm::vec2& resolution, const utils::Config &config,
         std::shared_ptr<DescriptorSetLayout> setLayout, std::shared_ptr<DescriptorPool> setPool,
         std::shared_ptr<Model> cameraCube);
     ~ViewGrid();
 
+    /**
+     * @brief Calculates the eye position of the view in grid.
+     * 
+     * @param view 
+     */
     void viewCalculateEye(std::shared_ptr<View> view);
+
+    /**
+     * @brief Reconstructs matrices for each views.
+     * 
+     */
     void reconstructMatrices();
 
+    // Getters
     std::vector<std::shared_ptr<View>> getViews() const;
     void getInputInfo(glm::vec3& position, glm::vec3& viewDir, float& speed, 
         float& sensitivity);
@@ -30,16 +61,25 @@ public:
     glm::vec3 getViewGridPos(std::shared_ptr<View> view);
     glm::vec2 getResolution() const;
     glm::mat4 getMatrix() const;
+    std::vector<uint32_t> getViewRowsColumns() const;
 
+    // Setters
     void setInputInfo(const glm::vec3& position, const glm::vec3& viewDir, const float& speed);
     void setViewGridPos(std::shared_ptr<View> view, const glm::vec3& gridPos);
+    void setFov(float fov);
 
 private:
+    // Create and init methods
     void initializeViews();
     void initializeByStep();
     void initializeByGrid();
     void addViewRow();
     void addViewColumn(int rowId, int rowViewStartId);
+
+    /**
+     * @brief Calculates the "view" matrix for the grid.
+     * 
+     */
     void calculateGridMatrix();
     
     glm::vec2 m_resolution;

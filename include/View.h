@@ -1,3 +1,13 @@
+/**
+ * @file View.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include "glm_include_unified.h"
@@ -20,10 +30,20 @@ class Model;
 class View
 {
 public:
+    /**
+     * @brief Construct a new View object.
+     * 
+     * @param resolution Resolution of the view.
+     * @param viewportStart Starting point of the view within the viewport.
+     * @param device Device.
+     * @param descriptorSetLayout Decriptor set layout for the view. 
+     * @param descriptorPool Descriptor pool for the view.
+     */
     View(const glm::vec2& resolution, const glm::vec2& viewportStart, std::shared_ptr<Device> device,
         std::shared_ptr<DescriptorSetLayout> descriptorSetLayout, std::shared_ptr<DescriptorPool> descriptorPool);
     ~View();
 
+    // Getters
     glm::vec2 getResolution() const;
     glm::vec2 getViewportStart() const;
     std::shared_ptr<Camera> getCamera() const;
@@ -32,6 +52,7 @@ public:
     bool getDepthOnly() const;
     glm::vec2 getNearFar() const;
 
+    // Setters
     void setResolution(const glm::vec2& resolution);
     void setViewportStart(const glm::vec2& viewPortStart);
     void setCamera(std::shared_ptr<Camera> camera);
@@ -39,7 +60,26 @@ public:
     void setFrustumCull(bool frustumCull);
     void setDepthOnly(bool depthOnly);
 
+    /**
+     * @brief Updates the view desriptor data.
+     * 
+     * @param currentFrame 
+     */
     void updateDescriptorData(int currentFrame);
+
+    /**
+     * @brief Updates the compute view descriptor data.
+     * 
+     * @param currentFrame 
+     * @param scene 
+     */
+
+    /**
+     * @brief Update the view descriptor data for the debug camera geometry.
+     * 
+     * @param currentFrame 
+     * @param scene 
+     */
     void updateComputeDescriptorData(int currentFrame, const std::shared_ptr<Scene>& scene);
     void updateDescriptorDataRenderDebugCube(std::vector<MeshShaderDataVertex>& vertexShaderData,
         std::vector<MeshShaderDataFragment>& fragmentShaderData);
@@ -49,6 +89,13 @@ public:
     std::shared_ptr<Model> getDebugCameraModel() const;
 
 private:
+    /**
+     * @brief Create a Descriptor Resources.
+     * 
+     * @param device 
+     * @param descriptorSetLayout 
+     * @param descriptorPool 
+     */
     void createDescriptorResources(std::shared_ptr<Device> device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
     std::shared_ptr<DescriptorPool> descriptorPool);
 

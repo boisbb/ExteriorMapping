@@ -1,3 +1,13 @@
+/**
+ * @file Constants.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #define FRAMEBUFFER_WIDTH  (1920.f * 4.f)
@@ -18,4 +28,6 @@
 #define RET_ID_NOT_FOUND -1
 
 #define COMPILED_SHADER_LOC "../build/compiled_shaders/"
+
+#define DRAW_LIGHT false
 

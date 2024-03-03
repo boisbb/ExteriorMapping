@@ -1,3 +1,13 @@
+/**
+ * @file Texture.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 #include "Device.h"
@@ -16,6 +26,15 @@ class DescriptorSet;
 class Texture
 {
 public:
+    /**
+     * @brief Construct a new Texture object.
+     * 
+     * @param device Device for the texture.
+     * @param pixels Pixel data.
+     * @param dims Dimensions.
+     * @param channels Number of channels.
+     * @param format Format of the texture.
+     */
     Texture(std::shared_ptr<Device> device, unsigned char* pixels, glm::vec2 dims, int channels = 4,
         VkFormat format = VK_FORMAT_R8G8B8A8_SRGB);
     ~Texture();

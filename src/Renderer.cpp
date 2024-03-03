@@ -1,3 +1,14 @@
+/**
+ * @file Renderer.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
+// vke
 #include "Renderer.h"
 #include "Model.h"
 #include "Scene.h"
@@ -16,9 +27,6 @@
 #include "descriptors/Set.h"
 #include "utils/Constants.h"
 
-#include <cstring>
-#include <chrono>
-
 #include <glm/gtc/matrix_transform.hpp>
 
 // #define RAY_EVAL_DEBUG
@@ -29,9 +37,7 @@
 namespace vke
 {
 
-Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, std::string vertexShaderFile,
-        std::string fragmentShaderFile, std::string computeShaderFile, std::string quadVertexShaderFile,
-        std::string quadFragmentShaderFile, std::string computeRaysEvalShaderFile)
+Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, const RendererInitParams& params)
     : m_device(device), m_window(window), m_currentFrame(0), m_fubos(MAX_FRAMES_IN_FLIGHT),
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
     m_creubo(MAX_FRAMES_IN_FLIGHT), m_cressbo(MAX_FRAMES_IN_FLIGHT), m_creDebugSsbo(MAX_FRAMES_IN_FLIGHT), m_creHitsssbo(MAX_FRAMES_IN_FLIGHT),
@@ -46,8 +52,7 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     createComputeCommandBuffers();
     createDescriptors();
     createRenderResources();
-    createPipeline(vertexShaderFile, fragmentShaderFile, computeShaderFile, quadVertexShaderFile, quadFragmentShaderFile, 
-        computeRaysEvalShaderFile);
+    createPipeline(params);
 }
 
 Renderer::~Renderer()
@@ -397,8 +402,8 @@ void Renderer::setScissor(const glm::vec2& viewportStart, const glm::vec2& viewp
     vkCmdSetScissor(m_commandBuffers[m_currentFrame], 0, 1, &scissor);
 }
 
-void Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<View> view,
-    std::shared_ptr<Window> window, bool& resizeViews, bool secondarySwapchain)
+void Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Window> window,
+    bool secondarySwapchain)
 {
     // Graphics part
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
@@ -527,8 +532,7 @@ void Renderer::submitCompute()
         throw std::runtime_error("failed to submit compute command buffer");
 }
 
-void Renderer::presentFrame(std::shared_ptr<Window> window, std::shared_ptr<View> view,
-    bool& resizeViews, bool secondarySwapchain)
+void Renderer::presentFrame(std::shared_ptr<Window> window, bool secondarySwapchain)
 {
     VkSemaphore currentRenderFinishedSemaphore = m_swapChain->getRenderFinishedSemaphore(m_currentFrame);
     VkSemaphore signalSemaphores[] = {currentRenderFinishedSemaphore};
@@ -564,7 +568,6 @@ void Renderer::presentFrame(std::shared_ptr<Window> window, std::shared_ptr<View
         m_swapChain->recreate(ext);
 
         m_window->setResized(false);
-        resizeViews = true;
     }
     else if (result != VK_SUCCESS)
     {
@@ -840,8 +843,7 @@ void Renderer::beginCommandBuffer()
     }
 }
 
-void Renderer::beginRenderPass(std::shared_ptr<RenderPass> renderPass, std::shared_ptr<Framebuffer> framebuffer,
-    bool clear)
+void Renderer::beginRenderPass(std::shared_ptr<RenderPass> renderPass, std::shared_ptr<Framebuffer> framebuffer)
 {
     VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
 
@@ -1275,9 +1277,7 @@ void Renderer::createRenderResources()
     
 }
 
-void Renderer::createPipeline(std::string vertexShaderFile, std::string fragmentShaderFile,
-    std::string computeShaderFile, std::string quadVertexShaderFile, std::string quadFragmentShaderFile,
-    std::string computeRaysEvalShaderFile)
+void Renderer::createPipeline(const RendererInitParams& params)
 {
     std::vector<VkDescriptorSetLayout> offscreenGraphicsSetLayouts = {
         m_descriptorSetLayout->getLayout(),
@@ -1300,15 +1300,15 @@ void Renderer::createPipeline(std::string vertexShaderFile, std::string fragment
         m_computeRayEvalSetLayout->getLayout()
     };
 
-    m_offscreenPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), vertexShaderFile,
-        fragmentShaderFile, offscreenGraphicsSetLayouts);
+    m_offscreenPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), params.vertexShaderFile,
+        params.fragmentShaderFile, offscreenGraphicsSetLayouts);
 
-    m_quadPipeline = std::make_shared<GraphicsPipeline>(m_device, m_quadRenderPass->getRenderPass(), quadVertexShaderFile,
-        quadFragmentShaderFile, quadSetLayout, false, false);
+    m_quadPipeline = std::make_shared<GraphicsPipeline>(m_device, m_quadRenderPass->getRenderPass(), params.quadVertexShaderFile,
+        params.quadFragmentShaderFile, quadSetLayout, false, false);
     
-    m_cullPipeline = std::make_shared<ComputePipeline>(m_device, computeShaderFile, computeSetLayouts);
+    m_cullPipeline = std::make_shared<ComputePipeline>(m_device, params.computeShaderFile, computeSetLayouts);
 
-    m_raysEvalPipeline = std::make_shared<ComputePipeline>(m_device, computeRaysEvalShaderFile, computeRaysEvalSetLayout);
+    m_raysEvalPipeline = std::make_shared<ComputePipeline>(m_device, params.computeRaysEvalShaderFile, computeRaysEvalSetLayout);
 
     // testing
     // m_intersectsPipeline = std::make_shared<ComputePipeline>(m_device, "intersect.spv", computeRaysEvalSetLayout);
@@ -1430,6 +1430,7 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
     creuData.testPixel = params.testPixel;
     creuData.testedPixel = params.testedPixel;
     creuData.numOfRaySamples = params.numOfRaySamples;
+    creuData.automaticSampleCount = params.automaticSampleCount;
 
     m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(RayEvalUniformBuffer));
 
@@ -1451,7 +1452,8 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
         cressbo[i].resOffset.z = offset.x;
         cressbo[i].resOffset.w = offset.y;
         cressbo[i].nearFar = views[i]->getNearFar();
-        cressbo[i].viewDir = views[i]->getCamera()->getTransfViewDir();
+        glm::vec3 viewDir = views[i]->getCamera()->getTransfViewDir();
+        cressbo[i].viewDir = glm::vec4(viewDir.x, viewDir.y, viewDir.z, 0.f);
     }
 
     m_cressbo[m_currentFrame]->copyMapped(cressbo.data(), sizeof(ViewEvalDataCompute) * cressbo.size());

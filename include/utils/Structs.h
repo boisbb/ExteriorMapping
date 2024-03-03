@@ -35,6 +35,16 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct RendererInitParams
+{
+    std::string vertexShaderFile;
+    std::string fragmentShaderFile;
+    std::string computeShaderFile;
+    std::string quadVertexShaderFile;
+    std::string quadFragmentShaderFile;
+    std::string computeRaysEvalShaderFile;
+};
+
 // Regular shader data
 struct ViewDataVertex {
     glm::mat4 view;
@@ -89,7 +99,7 @@ struct RayEvalUniformBuffer {
     float __padding;
     glm::vec2 testedPixel;
     int numOfRaySamples;
-    float __padding1;
+    bool automaticSampleCount;
 };
 
 struct ViewEvalDataCompute {
@@ -101,8 +111,7 @@ struct ViewEvalDataCompute {
     glm::vec4 resOffset;
     glm::vec2 nearFar;
     float __padding[2];
-    glm::vec3 viewDir;
-    float __padding1;
+    glm::vec4 viewDir;
 };
 
 struct ViewEvalDebugCompute {
@@ -127,6 +136,7 @@ struct RayEvalParams
     bool testPixel;
     glm::vec2 testedPixel;
     int numOfRaySamples;
+    bool automaticSampleCount;
 };
 
 // Quad shaders

@@ -1,3 +1,13 @@
+/**
+ * @file Scene.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #include "Scene.h"
 #include "Model.h"
 #include "Mesh.h"
@@ -147,18 +157,6 @@ void Scene::createViewResources(std::shared_ptr<View> view, const std::shared_pt
     m_indirectBuffersMap[view] = drawBufferArray;
 }
 
-void Scene::addView(std::shared_ptr<View> view, std::vector<std::shared_ptr<View>> views, const std::shared_ptr<Device> &device,
-    std::shared_ptr<DescriptorSetLayout> descriptorSetLayout, std::shared_ptr<DescriptorPool> descriptorPool)
-{
-    createViewResources(view, device, descriptorSetLayout, descriptorPool);
-
-    setReinitializeDebugCameraGeometryFlag(true);
-    if (getRenderDebugGeometryFlag())
-    {
-        addDebugCameraGeometry(views);
-    }
-}
-
 void Scene::setLightPos(const glm::vec3& lightPos)
 {
     m_lightPos = lightPos;
@@ -167,15 +165,6 @@ void Scene::setLightPos(const glm::vec3& lightPos)
 glm::vec3 Scene::getLightPos() const
 {
     return m_lightPos;
-}
-
-void Scene::checkModelsVisible(std::shared_ptr<Camera> camera, int currentFrame)
-{
-    int id = 0;
-    for (auto& model : m_models)
-    {
-        // model->checkMeshesVisible(camera, (VkDrawIndexedIndirectCommand*)m_indirectDrawBuffers[currentFrame]->getMapped());
-    }
 }
 
 void Scene::hideModel(std::shared_ptr<Model> model)
@@ -210,12 +199,6 @@ void Scene::hideModel(std::shared_ptr<Model> model)
             std::vector<VkDrawIndexedIndirectCommand> t(commands2, commands2 + 1);
         }
     }
-}
-
-void Scene::removeView(std::shared_ptr<View> view)
-{
-    m_indirectBuffersMap.erase(view);
-    m_computeDescriptorsMap.erase(view);
 }
 
 void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)

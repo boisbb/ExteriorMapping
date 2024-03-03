@@ -1,3 +1,14 @@
+/**
+ * @file Application.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @version 0.1
+ * @date 2024-03-03
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ */
+
 #pragma once
 
 // std
@@ -24,7 +35,6 @@
 #elif _WIN32
 #define GLFW_EXPOSE_NATIVE_WIN32
 #endif
-
 #include <GLFW/glfw3native.h>
 
 // GLM
@@ -35,6 +45,7 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
 
+// vke
 #include "Window.h"
 #include "Device.h"
 #include "SwapChain.h"
@@ -55,67 +66,104 @@ class Application
 public:
     Application();
     
+    /**
+     * @brief Runs the application.
+     * 
+     */
     void run();
 
     bool framebufferResized = false;
 private:
-
-    struct ViewColInfo {
-        int rowId;
-        int viewId;
-        bool remove;
-    };
-
+    /**
+     * @brief Initialize the application and rendering resources.
+     * 
+     */
     void init();
+
+    /**
+     * @brief Draw the frames.
+     * 
+     */
     void draw();
+
+    /**
+     * @brief Render the views before the normal render loop starts.
+     *        so that the novel view can be rendered right away.
+     * 
+     */
     void preRender();
+
+    /**
+     * @brief Consumes the user input.
+     * 
+     * @return true When input came.
+     * @return false Otherwise.
+     */
     bool consumeInput();
+
+    /**
+     * @brief Initialize the ImGui.
+     * 
+     */
     void initImgui();
+
+    /**
+     * @brief Render the ImGui.
+     * 
+     * @param lastFps Last recorded fps value.
+     */
     void renderImgui(int lastFps);
+
+    /**
+     * @brief Performs clean up after managed resources.
+     * 
+     */
     void cleanup();
 
+    /**
+     * @brief Create a Main View object.
+     * 
+     */
     void createMainView();
-    // void addViewColumn(int rowId, int rowViewStartId);
-    // void removeViewColumn(int rowId, int rowViewStartId);
-    // void addViewRow();
-    // void removeViewRow();
-    // void resizeAllViews();
 
+    /**
+     * @brief Create a scene from configuration file.
+     * 
+     */
     void createScene();
+
+    /**
+     * @brief Create a models and put them into scene.
+     * 
+     */
     void createModels();
 
-    // Test
-    void mainCameraTestRays();
-    //
-
     std::shared_ptr<Window> m_window;
-    std::shared_ptr<Window> m_window2;
+    std::shared_ptr<Window> m_secondaryWindow;
+
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Renderer> m_renderer;
     std::shared_ptr<Scene> m_scene;
     std::shared_ptr<Model> m_light;
-    std::vector<std::shared_ptr<Model>> m_models;
-    
-    std::vector<std::shared_ptr<View>> m_views;
-    std::shared_ptr<ViewGrid> m_novelViewGrid;
-    std::shared_ptr<ViewGrid> m_viewGrid;
 
-    std::shared_ptr<Model> m_cameraCube;
-    
+    std::vector<std::shared_ptr<Model>> m_models;
     std::vector<Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
+    
+    std::shared_ptr<ViewGrid> m_novelViewGrid;
+    std::shared_ptr<ViewGrid> m_viewGrid;
+    std::shared_ptr<Model> m_cameraCube;
 
-    std::vector<uint32_t> m_viewRowColumns;
-
+    // Imgui flags and resources.
     bool m_testPixels = false;
     glm::vec2 m_testedPixel;
     bool m_depthOnly = false;
     bool m_renderNovel = false;
     bool m_novelSecondWindow = false;
+    bool m_automaticSampleCount = false;
     int m_numberOfRaySamples = 16;
     bool m_secondWindowChanged = false;
-    bool m_showCameraGeometry;
-    bool m_rayEvalOnCpu = false;
+    bool m_showCameraGeometry = false;
     bool m_renderFromViews;
     bool m_manipulateGrid = false;
     int m_changeOffscreenTarget;
@@ -123,6 +171,7 @@ private:
     float m_mainViewFov = 90.f;
     SamplingType m_samplingType;
     
+    // Parsed config file.
     utils::Config m_config;
 };
 
