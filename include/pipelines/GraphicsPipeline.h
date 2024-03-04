@@ -12,13 +12,14 @@ class GraphicsPipeline : public Pipeline
 {
 public:
     GraphicsPipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std::string vertFile,
-        std::string fragFile, std::vector<VkDescriptorSetLayout> graphicsSetLayouts, bool cullBack = true,
-        bool vertexInput = true);
+        std::string fragFile, std::vector<VkDescriptorSetLayout> graphicsSetLayouts, 
+        VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, bool cullBack = true,
+        bool vertexAttribs = true);
     ~GraphicsPipeline();
 
     void create(VkRenderPass renderPass, std::string vertFile, std::string fragFile,
-        std::vector<VkDescriptorSetLayout> graphicsSetLayouts, bool cullBack = true, 
-        bool vertexInput = true);
+        std::vector<VkDescriptorSetLayout> graphicsSetLayouts, VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        bool cullBack = true, bool vertexAttribs = true);
     
     void bind(VkCommandBuffer commandBuffer) const override;
 

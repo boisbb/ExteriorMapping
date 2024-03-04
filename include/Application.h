@@ -161,7 +161,9 @@ private:
     bool m_renderNovel = false;
     bool m_novelSecondWindow = false;
     bool m_automaticSampleCount = false;
+    bool m_thresholdDepth = false;
     int m_numberOfRaySamples = 16;
+    float m_maxSampleDistance = 1.f;
     bool m_secondWindowChanged = false;
     bool m_showCameraGeometry = false;
     bool m_renderFromViews;

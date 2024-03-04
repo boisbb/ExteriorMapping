@@ -181,7 +181,7 @@ void View::createDescriptorResources(std::shared_ptr<Device> device, std::shared
         std::vector<VkDescriptorBufferInfo> bufferInfos = {
             m_vubos[i]->getInfo(),
             m_cubos[i]->getInfo(),
-            m_fubos[i]->getInfo()
+            m_fubos[i]->getInfo(),
         };
 
         std::vector<uint32_t> bufferBinding = {

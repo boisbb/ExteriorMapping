@@ -1,0 +1,29 @@
+#version 450
+
+#include "constants.glsl"
+#include "macros.glsl"
+
+layout (local_size_x=32, local_size_y=32, local_size_z=1) in;
+
+layout(std430, set=0, binding=1) readonly buffer ssbo {
+    ViewDataEvalCompute objects[];
+} cssbo;
+
+layout(set=0, binding=3) uniform sampler2D viewImagesSampler;
+
+layout(set=0, binding=4) uniform sampler2D viewImagesDepthSampler;
+
+layout(set=1, binding=0) uniform RayEvalUniformBuffer {
+    vec2 viewsTotalRes;
+    int viewCnt;
+} ubo;
+
+layout(std430, set=1, binding=1) readonly buffer pssbo {
+    Point points[];
+} pointSsbo;
+
+
+void main()
+{
+    
+}

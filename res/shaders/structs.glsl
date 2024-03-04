@@ -31,3 +31,9 @@ struct FrustumHit
     float t;
     int viewId;
 };
+
+struct Point
+{
+    vec3 pos;
+    vec3 color;
+};

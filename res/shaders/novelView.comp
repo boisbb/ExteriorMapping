@@ -18,6 +18,8 @@ layout(set=0, binding=0) uniform RayEvalUniformBuffer {
     vec2 testedPixel;
     int numOfRaySamples;
     bool automaticSampleCount;
+    bool thresholdDepth;
+    float maxSampleDistance;
 } ubo;
 
 layout(std430, set=0, binding=1) readonly buffer ssbo {
@@ -97,7 +99,15 @@ void main()
             }
             else
             {
-                EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, ubo.samplingType, float(sampleCount));
+                if (ubo.thresholdDepth == false)
+                {
+                    EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, ubo.samplingType, float(sampleCount));
+                }
+                else
+                {
+                    EVALUATE_AND_SAMPLE_DEPTH_DIST_THRESH(org, dir, maxInterval, finalColor, ubo.samplingType, float(sampleCount),
+                        ubo.maxSampleDistance);
+                }
             }
         }
 

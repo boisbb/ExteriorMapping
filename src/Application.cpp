@@ -67,7 +67,7 @@ void Application::init()
 
     RendererInitParams params{"offscreen.vert.spv",
         "offscreen.frag.spv", "cull.comp.spv", "quad.vert.spv",
-        "quad.frag.spv", "novelView.comp.spv"};
+        "quad.frag.spv", "novelView.comp.spv", "generatePoints.comp.spv"};
     m_renderer = std::make_shared<Renderer>(m_device, m_window, params);
     m_renderer->setNovelViewSamplingType(m_samplingType);
 
@@ -131,7 +131,8 @@ void Application::draw()
         if (m_renderNovel || m_novelSecondWindow)
         {
             m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid, 
-                RayEvalParams{m_testPixels, m_testedPixel, m_numberOfRaySamples, m_automaticSampleCount});
+                RayEvalParams{m_testPixels, m_testedPixel, m_numberOfRaySamples, 
+                m_automaticSampleCount, m_thresholdDepth, m_maxSampleDistance});
         }
         
         // End compute pass and submit it.
@@ -365,7 +366,7 @@ void Application::renderImgui(int lastFps)
     ImGui::Begin("Config");
 
     std::string fpsStr = std::to_string(lastFps) + "fps";
-    ImGui::Text(fpsStr.c_str());
+    ImGui::Text(fpsStr.c_str(), "warning fix");
 
     if (ImGui::CollapsingHeader("General"))
     {
@@ -417,8 +418,18 @@ void Application::renderImgui(int lastFps)
 
         ImGui::Checkbox("Automatic sample count", &m_automaticSampleCount);
 
-        ImGui::SliderInt("Number of ray samples", &m_numberOfRaySamples, 0, 256);
+        ImGui::Text("Number of ray samples:");
+        ImGui::SliderInt("tt", &m_numberOfRaySamples, 0, 256);
 
+        ImGui::Checkbox("Threshold depth", &m_thresholdDepth);
+        
+        if (m_thresholdDepth)
+        {
+            ImGui::Text("Max sample depth distance from gt:");
+            ImGui::SliderFloat("t", &m_maxSampleDistance, 0.f, 1.f);
+        }
+
+        ImGui::Text("Sampling method:");
         if (ImGui::BeginCombo("##samplingCombo", samplingTypeStrings[static_cast<int>(m_samplingType)].c_str()))
         {
             for (int i = 0; i < static_cast<int>(SamplingType::END); i++)
@@ -556,7 +567,7 @@ void Application::renderImgui(int lastFps)
 
                         std::string rm = "Rendered meshes: " + std::to_string(renderedModels);
 
-                        ImGui::Text(rm.c_str());
+                        ImGui::Text(rm.c_str(), "warning fix");
 
                         ImGui::Unindent();
                         ImGui::PopID();

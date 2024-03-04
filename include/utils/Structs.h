@@ -43,6 +43,7 @@ struct RendererInitParams
     std::string quadVertexShaderFile;
     std::string quadFragmentShaderFile;
     std::string computeRaysEvalShaderFile;
+    std::string computePointCloudShaderFile;
 };
 
 // Regular shader data
@@ -100,6 +101,9 @@ struct RayEvalUniformBuffer {
     glm::vec2 testedPixel;
     int numOfRaySamples;
     bool automaticSampleCount;
+    float __padding1;
+    bool thresholdDepth;
+    float maxSampleDistance;
 };
 
 struct ViewEvalDataCompute {
@@ -125,10 +129,11 @@ struct ViewEvalDebugCompute {
     //float __padding[2];
 };
 
-struct FrustumHit
+// pointClouds
+struct PointCloudUniformBuffer
 {
-    float t;
-    int viewId;
+    glm::vec2 viewsTotalRes;
+    int viewCnt;
 };
 
 struct RayEvalParams 
@@ -137,6 +142,8 @@ struct RayEvalParams
     glm::vec2 testedPixel;
     int numOfRaySamples;
     bool automaticSampleCount;
+    bool thresholdDepth;
+    float maxSampleDistance;
 };
 
 // Quad shaders
@@ -145,7 +152,40 @@ struct QuadUniformBuffer
     bool m_depthOnly;
 };
 
-struct Vertex {
+struct Point
+{
+    glm::vec3 pos;
+    glm::vec3 color;
+
+    static VkVertexInputBindingDescription getBindingDescription()
+    {
+        VkVertexInputBindingDescription bindingDescription{};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(Point);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return bindingDescription;
+    }
+
+    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
+    {
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(Point, pos);
+
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Point, color);
+
+        return attributeDescriptions;
+    }
+};
+
+struct Vertex 
+{
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec3 normal;
@@ -163,9 +203,9 @@ struct Vertex {
         return bindingDescription;
     }
 
-    static std::array<VkVertexInputAttributeDescription, 6> getAttributeDescriptions()
+    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions()
     {
-        std::array<VkVertexInputAttributeDescription, 6> attributeDescriptions{};
+        std::vector<VkVertexInputAttributeDescription> attributeDescriptions(6);
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
         attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;

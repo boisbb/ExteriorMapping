@@ -18,7 +18,7 @@ ComputePipeline::~ComputePipeline()
 
 void ComputePipeline::create(std::string compFile, std::vector<VkDescriptorSetLayout> computeSetLayouts)
 {
-    std::vector<char> compShaderCode = utils::readFile(COMPILED_SHADER_LOC + compFile);
+    std::vector<char> compShaderCode = utils::readFile(std::string(COMPILED_SHADER_LOC) + compFile);
 
     VkShaderModule compShaderModule = createShaderModule(compShaderCode);
 

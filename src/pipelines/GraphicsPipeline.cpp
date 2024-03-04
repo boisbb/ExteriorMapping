@@ -6,10 +6,11 @@ namespace vke
 {
 
 GraphicsPipeline::GraphicsPipeline(std::shared_ptr<Device> device, VkRenderPass renderPass, std::string vertFile,
-        std::string fragFile, std::vector<VkDescriptorSetLayout> graphicsSetLayouts, bool cullBack, bool vertexInput)
+        std::string fragFile, std::vector<VkDescriptorSetLayout> graphicsSetLayouts, VkPrimitiveTopology topology,
+        bool cullBack, bool vertexAttribs)
     : Pipeline(device), m_renderPass(renderPass)
 {
-    create(m_renderPass, vertFile, fragFile, graphicsSetLayouts, cullBack, vertexInput);
+    create(m_renderPass, vertFile, fragFile, graphicsSetLayouts, topology, cullBack, vertexAttribs);
 }
 
 GraphicsPipeline::~GraphicsPipeline()
@@ -17,7 +18,7 @@ GraphicsPipeline::~GraphicsPipeline()
 }
 
 void GraphicsPipeline::create(VkRenderPass renderPass, std::string vertFile, std::string fragFile, std::vector<VkDescriptorSetLayout> graphicsSetLayouts,
-    bool cullBack, bool vertexInput)
+    VkPrimitiveTopology topology, bool cullBack, bool vertexAttribs)
 {
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -28,8 +29,8 @@ void GraphicsPipeline::create(VkRenderPass renderPass, std::string vertFile, std
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
-    std::vector<char> vertShaderCode = utils::readFile(COMPILED_SHADER_LOC + std::string("/") + vertFile);
-    std::vector<char> fragShaderCode = utils::readFile(COMPILED_SHADER_LOC + std::string("/") + fragFile);
+    std::vector<char> vertShaderCode = utils::readFile(std::string(COMPILED_SHADER_LOC) + std::string("/") + vertFile);
+    std::vector<char> fragShaderCode = utils::readFile(std::string(COMPILED_SHADER_LOC) + std::string("/") + fragFile);
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -51,15 +52,25 @@ void GraphicsPipeline::create(VkRenderPass renderPass, std::string vertFile, std
         fragShaderStageInfo
     };
 
-
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    if (vertexInput)
+    VkVertexInputBindingDescription bindingDescription;
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+
+    if (vertexAttribs)
     {
+        if (topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        {
+            bindingDescription = Vertex::getBindingDescription();
+            attributeDescriptions = Vertex::getAttributeDescriptions();
+        }
+        else if (topology == VK_PRIMITIVE_TOPOLOGY_POINT_LIST)
+        {
+            bindingDescription = Point::getBindingDescription();
+            attributeDescriptions = Point::getAttributeDescriptions();
+        }
+
         vertexInputInfo.vertexBindingDescriptionCount = 1;
         vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
         vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
@@ -68,7 +79,7 @@ void GraphicsPipeline::create(VkRenderPass renderPass, std::string vertFile, std
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.topology = topology;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
     std::vector<VkDynamicState> dynamicStates = {

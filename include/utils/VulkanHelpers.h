@@ -47,6 +47,14 @@ SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device, VkSurface
  */
 bool checkDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, const std::vector<const char*> deviceExtensions);
 
+/**
+ * @brief Check whether the needed extensions are supported.
+ * 
+ * @param device 
+ * @param deviceExtensions 
+ * @return true 
+ * @return false 
+ */
 bool checkDeviceExtensionSupport(VkPhysicalDevice device, const std::vector<const char*> deviceExtensions);
 
 }

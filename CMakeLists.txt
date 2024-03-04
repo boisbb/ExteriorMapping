@@ -1,6 +1,6 @@
 cmake_minimum_required( VERSION 3.1.0 )
 
-project( VulkanBoilerPlate
+project( ExteriorMapping
     VERSION 3.1.0
     LANGUAGES CXX
 )
@@ -16,7 +16,7 @@ set( CMAKE_CXX_STANDARD 17 )
 file(GLOB_RECURSE INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h ${CMAKE_CURRENT_SOURCE_DIR}/include/utils/*.h)
 file(GLOB_RECURSE SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
-add_executable(VulkanBoilerPlate ${SOURCE} ${INCLUDE})
+add_executable(ExteriorMapping ${SOURCE} ${INCLUDE})
 
 # glfw download and build
 FetchContent_Declare(glfw
@@ -133,11 +133,9 @@ if(BUILD_DOC)
         DEPENDS ${OUTPUT_DOC_DIR}
     )
 
-    add_dependencies(VulkanBoilerPlate shaders doc)
+    add_dependencies(ExteriorMapping shaders doc)
 else()
-    add_dependencies(VulkanBoilerPlate shaders)
+    add_dependencies(ExteriorMapping shaders)
 endif()
 
-
-
-target_compile_definitions(VulkanBoilerPlate PRIVATE COMPILED_SHADER_LOC=${OUTPUT_SHADER_DIR})
+target_compile_definitions(ExteriorMapping PRIVATE COMPILED_SHADER_LOC="${OUTPUT_SHADER_DIR}/")

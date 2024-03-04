@@ -78,6 +78,13 @@ public:
      */
     void rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid, 
         const std::shared_ptr<ViewGrid>& viewGrid, const RayEvalParams& params);
+
+    /**
+     * @brief Generates point cloud vertex buffer.
+     * 
+     * @param viewGrid 
+     */
+    void pointCloudComputePass(std::shared_ptr<ViewGrid>& viewGrid);
     
     /**
      * @brief Renders the scene seen through view grid.
@@ -344,6 +351,8 @@ private:
     std::shared_ptr<ComputePipeline> m_cullPipeline;
     std::shared_ptr<ComputePipeline> m_raysEvalPipeline;
     std::shared_ptr<GraphicsPipeline> m_quadPipeline;
+    std::shared_ptr<GraphicsPipeline> m_pointCloudGraphPipeline;
+    std::shared_ptr<ComputePipeline> m_pointCloudCompPipeline;
     // test
     std::shared_ptr<ComputePipeline> m_intersectsPipeline;
     std::shared_ptr<ComputePipeline> m_intervalsPipeline;
@@ -368,6 +377,8 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_creHitsCntssbo;
     std::vector<std::unique_ptr<Buffer>> m_quadubo;
     std::vector<std::unique_ptr<Buffer>> m_secondaryQuadubo;
+    std::vector<std::unique_ptr<Buffer>> m_pointCloudUbo;
+    std::vector<std::unique_ptr<Buffer>> m_pointClouds;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_materialDescriptorSets;
@@ -375,6 +386,7 @@ private:
     std::vector<std::shared_ptr<DescriptorSet>> m_computeRayEvalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_quadDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_secondaryQuadDescriptorSets;
+    std::vector<std::shared_ptr<DescriptorSet>> m_pointCloudDescriptorsets;
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_viewSetLayout;
@@ -384,6 +396,7 @@ private:
     std::shared_ptr<DescriptorSetLayout> m_computeRayEvalSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_quadSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_secondaryQuadSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_pointCloudSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
     std::shared_ptr<DescriptorPool> m_viewPool;
@@ -393,6 +406,7 @@ private:
     std::shared_ptr<DescriptorPool> m_computeRayEvalPool;
     std::shared_ptr<DescriptorPool> m_quadPool;
     std::shared_ptr<DescriptorPool> m_secondaryQuadPool;
+    std::shared_ptr<DescriptorPool> m_pointCloudPool;
 
     std::shared_ptr<Image> m_novelImage;
     std::shared_ptr<Sampler> m_novelImageSampler;

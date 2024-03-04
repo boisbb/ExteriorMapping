@@ -46,7 +46,8 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_computeRayEvalDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0),
     m_swapChainImageIndices(MAX_FRAMES_IN_FLIGHT), m_secondarySwapchain(nullptr), m_secondaryQuadubo(MAX_FRAMES_IN_FLIGHT),
-    m_secondaryQuadDescriptorSets(MAX_FRAMES_IN_FLIGHT)
+    m_secondaryQuadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_pointCloudDescriptorsets(MAX_FRAMES_IN_FLIGHT),
+    m_pointCloudUbo(MAX_FRAMES_IN_FLIGHT), m_pointClouds(MAX_FRAMES_IN_FLIGHT)
 {
     createCommandBuffers();
     createComputeCommandBuffers();
@@ -150,15 +151,13 @@ void Renderer::initDescriptorResources()
 #ifdef RAY_EVAL_DEBUG
             m_creDebugSsbo[i]->getInfo()
 #endif
-            // m_creHitsssbo[i]->getInfo(),
-            // m_creHitsCntssbo[i]->getInfo()
         };
 
         std::vector<uint32_t> bufferBinding = {
             0,
             1,
 #ifdef RAY_EVAL_DEBUG
-            2
+            2,
 #endif
         };
 
@@ -176,6 +175,20 @@ void Renderer::initDescriptorResources()
         };
 
         m_computeRayEvalDescriptorSets[i]->updateImages(imageBinding, imageInfos);
+
+        m_pointCloudDescriptorsets[i] = std::make_shared<DescriptorSet>(m_device, m_pointCloudSetLayout,
+            m_pointCloudPool);
+        
+        bufferInfos = {
+            m_pointCloudUbo[i]->getInfo(),
+            m_pointClouds[i]->getInfo()
+        };
+
+        bufferBinding = {
+            0, 1
+        };
+
+        m_pointCloudDescriptorsets[i]->updateBuffers(bufferBinding, bufferInfos);
     }
 
     // Quad
@@ -276,24 +289,6 @@ void Renderer::rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid
 
     vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil(((double)res.x / INTERPOLATE_PIXELS_X) / 32.f), std::ceil(((double)res.y / INTERPOLATE_PIXELS_Y) / 32.f), 1);
 
-    // vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_intersectsPipeline->getPipelineLayout(),
-    //     0, 1, &rayEvalSet, 0, nullptr);
-    // m_intersectsPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
-// 
-    // vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], 
-    //     std::ceil(((double)res.x / INTERPOLATE_PIXELS_X) / 32.f), std::ceil(((double)res.y / INTERPOLATE_PIXELS_Y) / 32.f), 1);
-    // 
-    // m_device->createMemoryBarrier(m_computeCommandBuffers[m_currentFrame], VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-    //     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-// 
-    // vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_intervalsPipeline->getPipelineLayout(),
-    //     0, 1, &rayEvalSet, 0, nullptr);
-    // m_intervalsPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
-// 
-    // vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], 
-    //     std::ceil(((double)res.x / INTERPOLATE_PIXELS_X) / 32.f), std::ceil(((double)res.y / INTERPOLATE_PIXELS_Y) / 32.f), 1);
-
-
 #ifdef RAY_EVAL_DEBUG
     ViewEvalDebugCompute* evalData = (ViewEvalDebugCompute*)m_creDebugSsbo[m_currentFrame]->getMapped();
 
@@ -306,33 +301,26 @@ void Renderer::rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid
         evalData[linearResId].pointInWSpace.y << " " << 
         evalData[linearResId].pointInWSpace.z << " " << 
         evalData[linearResId].pointInWSpace.w << std::endl;
-
-    // for (int i = 0; i < evalData[linearResId].numOfFoundIntervals; i++)
-    // {
-    //     std::cout << "interval: " << evalData[linearResId].t[i].x << " " << evalData[linearResId].t[i].y << std::endl;
-// 
-    //     std::cout << "[";
-// 
-    //     for (int j = 0; j < 16; j++)
-    //     {
-    //         int maskId = int(floor(j / 32));
-    //         int innermaskId = int(j) - (maskId * 32);
-// 
-    //         int outer = 4 * i + int(maskId);
-    //         int inner = int(innermaskId);
-// 
-    //         int pre = (1 << inner);
-    //         int check = evalData[linearResId].ids[outer] & (pre);
-// 
-    //         if (check == pre)
-    //         {
-    //             std::cout << j << " ";
-    //         }
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
 #endif
 
+}
+
+void Renderer::pointCloudComputePass(std::shared_ptr<ViewGrid> &viewGrid)
+{
+    std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
+    
+    VkDescriptorSet rayEvalSet = m_computeRayEvalDescriptorSets[m_currentFrame]->getDescriptorSet();
+    VkDescriptorSet pointCloudSet = m_pointCloudDescriptorsets[m_currentFrame]->getDescriptorSet();
+
+    vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_pointCloudCompPipeline->getPipelineLayout(),
+        0, 1, &rayEvalSet, 0, nullptr);
+    
+    vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_pointCloudCompPipeline->getPipelineLayout(),
+        0, 1, &pointCloudSet, 0, nullptr);
+
+    m_pointCloudCompPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
+
+    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil(((double)POINT_CLOUD_WIDTH) / 32.f), std::ceil(((double)POINT_CLOUD_HEIGHT) / 32.f), 1);
 }
 
 void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared_ptr<ViewGrid>& viewGrid, 
@@ -1070,6 +1058,15 @@ void Renderer::createDescriptors()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cressbo[i]->map();
 
+        m_pointCloudUbo[i] = std::make_unique<Buffer>(m_device, sizeof(PointCloudUniformBuffer), 
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_pointCloudUbo[i]->map();
+
+        m_pointClouds[i] = std::make_unique<Buffer>(m_device, MAX_VIEWS * MAX_OFFSCREEN_RESOLUTION_LINEAR * (sizeof(Point)),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_pointClouds[i]->map();
+
 #ifdef RAY_EVAL_DEBUG
         m_creDebugSsbo[i] = std::make_unique<Buffer>(m_device, sizeof(ViewEvalDebugCompute) * MAX_RESOLUTION_LINEAR, 
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -1235,6 +1232,33 @@ void Renderer::createDescriptors()
         VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, &quadLayoutNext);
     m_secondaryQuadPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 
         VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, quadPoolSizes);
+
+    // point clouds
+    VkDescriptorSetLayoutBinding pointCloudUboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT);
+    VkDescriptorSetLayoutBinding pointCloudLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        1, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT);
+
+    std::vector<VkDescriptorSetLayoutBinding> pointCloudLayoutBindings = {
+        pointCloudUboLayoutBinding,
+        pointCloudLayoutBinding
+    };
+
+    m_pointCloudSetLayout = std::make_shared<DescriptorSetLayout>(m_device, pointCloudLayoutBindings);
+
+    VkDescriptorPoolSize pointCloudUboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    VkDescriptorPoolSize pointCloudPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * MAX_VIEWS);
+
+    std::vector<VkDescriptorPoolSize> pointCloudGenSizes = {
+        pointCloudUboPoolSize,
+        pointCloudPoolSize
+    };
+
+    m_pointCloudPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
+        pointCloudGenSizes);
+
 }
 
 void Renderer::createRenderResources()
@@ -1300,15 +1324,24 @@ void Renderer::createPipeline(const RendererInitParams& params)
         m_computeRayEvalSetLayout->getLayout()
     };
 
+    std::vector<VkDescriptorSetLayout> pointCloudComputeSetLayout = {
+        m_computeRayEvalSetLayout->getLayout(),
+        m_pointCloudSetLayout->getLayout()
+    };
+
     m_offscreenPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), params.vertexShaderFile,
         params.fragmentShaderFile, offscreenGraphicsSetLayouts);
 
     m_quadPipeline = std::make_shared<GraphicsPipeline>(m_device, m_quadRenderPass->getRenderPass(), params.quadVertexShaderFile,
-        params.quadFragmentShaderFile, quadSetLayout, false, false);
+        params.quadFragmentShaderFile, quadSetLayout, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false, false);
     
     m_cullPipeline = std::make_shared<ComputePipeline>(m_device, params.computeShaderFile, computeSetLayouts);
 
     m_raysEvalPipeline = std::make_shared<ComputePipeline>(m_device, params.computeRaysEvalShaderFile, computeRaysEvalSetLayout);
+
+    // Point clouds
+    m_pointCloudCompPipeline = std::make_shared<ComputePipeline>(m_device, params.computePointCloudShaderFile, pointCloudComputeSetLayout);
+    // m_pointCloudGraphPipeline = std::make_shared<GraphicsPipeline>
 
     // testing
     // m_intersectsPipeline = std::make_shared<ComputePipeline>(m_device, "intersect.spv", computeRaysEvalSetLayout);
@@ -1431,6 +1464,8 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
     creuData.testedPixel = params.testedPixel;
     creuData.numOfRaySamples = params.numOfRaySamples;
     creuData.automaticSampleCount = params.automaticSampleCount;
+    creuData.thresholdDepth = params.thresholdDepth;
+    creuData.maxSampleDistance = params.maxSampleDistance;
 
     m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(RayEvalUniformBuffer));
 
