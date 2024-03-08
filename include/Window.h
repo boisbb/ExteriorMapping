@@ -75,6 +75,7 @@ public:
     GLFWwindow* getWindow();
     bool resized() const;
     VkSurfaceKHR getSurface() const;
+    bool getVisible() const;
     
     void setResized(bool resized);
     void setVisible(bool visible);

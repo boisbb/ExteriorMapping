@@ -16,6 +16,7 @@
 #include "Sampler.h"
 #include "utils/Structs.h"
 #include "utils/Constants.h"
+#include "utils/VulkanHelpers.h"
 
 #include <limits>
 #include <algorithm>
@@ -59,7 +60,9 @@ void SwapChain::initializeFramebuffers(std::shared_ptr<RenderPass> renderPass)
 
 void SwapChain::createSwapChain(VkSurfaceKHR surface)
 {
-    SwapChainSupportDetails swapChainSupport = m_device->getSwapChainSupport();
+    // SwapChainSupportDetails swapChainSupport = m_device->getSwapChainSupport();
+    SwapChainSupportDetails swapChainSupport = vke::utils::querySwapChainSupport(m_device->getPhysicalDevice(),
+        surface);
 
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
@@ -224,13 +227,17 @@ VkFormat SwapChain::getImageFormat() const
     return m_swapChainImageFormat;
 }
 
-void SwapChain::recreate(VkExtent2D windowExtent)
+void SwapChain::recreate(VkExtent2D windowExtent, VkSurfaceKHR surface)
 {
     vkDeviceWaitIdle(m_device->getVkDevice());
 
     m_windowExtent = windowExtent;
 
     cleanup();
+
+    createSwapChain(surface);
+    createImageViews();
+    
 
     // createSwapChain();
     // createImageViews();
@@ -290,15 +297,13 @@ bool SwapChain::hasStencilComponent(VkFormat format)
 
 void SwapChain::cleanup()
 {
-    // for (int i = 0; i < m_swapChainFramebuffers.size(); i++)
-    // {
-    //     vkDestroyFramebuffer(m_device->getVkDevice(), m_swapChainFramebuffers[i], nullptr);
-    // }
+    for (int i = 0; i < m_swapChainFramebuffers.size(); i++)
+    {
+        m_swapChainFramebuffers[i].reset();
+        vkDestroyImageView(m_device->getVkDevice(), m_swapChainImageViews[i], nullptr);
+    }
 
-    // for (int i = 0; i < m_swapChainImageViews.size(); i++)
-    // {
-    //     vkDestroyImageView(m_device->getVkDevice(), m_swapChainImageViews[i], nullptr);
-    // }
+    m_swapChainFramebuffers.clear();
 
     vkDestroySwapchainKHR(m_device->getVkDevice(), m_swapChain, nullptr);
 }

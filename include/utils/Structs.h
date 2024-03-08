@@ -146,6 +146,13 @@ struct RayEvalParams
     float maxSampleDistance;
 };
 
+struct WindowParams
+{
+    bool secondarySwapchain;
+    VkResult result;
+    VkResult secondaryResult;
+};
+
 // Quad shaders
 struct QuadUniformBuffer
 {

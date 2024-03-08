@@ -60,7 +60,7 @@ public:
      * 
      * @param windowExtent 
      */
-    void recreate(VkExtent2D windowExtent);
+    void recreate(VkExtent2D windowExtent, VkSurfaceKHR surface);
 
     // Sync members
     std::vector<VkSemaphore> m_imageAvailableSemaphores;

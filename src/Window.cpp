@@ -92,6 +92,11 @@ VkSurfaceKHR Window::getSurface() const
     return m_surface;
 }
 
+bool Window::getVisible() const
+{
+    return m_visible;
+}
+
 void Window::setResized(bool resized)
 {
     m_windowResized = resized;

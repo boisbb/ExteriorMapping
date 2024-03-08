@@ -391,33 +391,26 @@ void Renderer::setScissor(const glm::vec2& viewportStart, const glm::vec2& viewp
 }
 
 void Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Window> window,
-    bool secondarySwapchain)
+    WindowParams& params)
 {
     // Graphics part
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
     vkWaitForFences(m_device->getVkDevice(), 1, &currentFence, VK_TRUE, UINT64_MAX);
-    //updateDescriptorData(scene, camera);
 
     VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(m_currentFrame);
-    VkResult result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_swapChain->getSwapChain(),
+    
+    params.result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_swapChain->getSwapChain(),
         UINT64_MAX, currentImageAvailableSemaphore, VK_NULL_HANDLE, &m_swapChainImageIndices[m_currentFrame]);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    if (params.secondarySwapchain && params.result == VK_SUCCESS)
     {
-        VkExtent2D ext = window->getExtent();
-        m_swapChain->recreate(ext);
-    }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-    {
-        throw std::runtime_error("Error: failed to acquire swap chain image.");
-    }
-
-    if (secondarySwapchain)
-    {
-        result = vkAcquireNextImageKHR(m_device->getVkDevice(), m_secondarySwapchain->getSwapChain(),
+        params.secondaryResult = vkAcquireNextImageKHR(m_device->getVkDevice(), m_secondarySwapchain->getSwapChain(),
             UINT64_MAX, m_secondarySwapchain->getImageAvailableSemaphore(m_currentFrame), VK_NULL_HANDLE, 
             &m_secondarySwapChainImageIndices[m_currentFrame]);
     }
+
+    if (params.result != VK_SUCCESS || params.secondaryResult != VK_SUCCESS)
+        return;
 
     vkResetFences(m_device->getVkDevice(), 1, &currentFence);
 
@@ -520,7 +513,7 @@ void Renderer::submitCompute()
         throw std::runtime_error("failed to submit compute command buffer");
 }
 
-void Renderer::presentFrame(std::shared_ptr<Window> window, bool secondarySwapchain)
+void Renderer::presentFrame(std::shared_ptr<Window> window, WindowParams& params)
 {
     VkSemaphore currentRenderFinishedSemaphore = m_swapChain->getRenderFinishedSemaphore(m_currentFrame);
     VkSemaphore signalSemaphores[] = {currentRenderFinishedSemaphore};
@@ -537,7 +530,7 @@ void Renderer::presentFrame(std::shared_ptr<Window> window, bool secondarySwapch
         m_swapChainImageIndices[m_currentFrame]
     };
 
-    if (secondarySwapchain)
+    if (params.secondarySwapchain)
     {
         swapChains.push_back(m_secondarySwapchain->getSwapChain());
         swapchainIndices.push_back(m_secondarySwapChainImageIndices[m_currentFrame]);
@@ -548,19 +541,19 @@ void Renderer::presentFrame(std::shared_ptr<Window> window, bool secondarySwapch
     presentInfo.pImageIndices = swapchainIndices.data();
     presentInfo.pResults = nullptr;
 
-    VkResult result = vkQueuePresentKHR(m_device->getPresentQueue(), &presentInfo);
 
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window->resized())
-    {
-        VkExtent2D ext = window->getExtent();
-        m_swapChain->recreate(ext);
+    params.result = vkQueuePresentKHR(m_device->getPresentQueue(), &presentInfo);
 
-        m_window->setResized(false);
-    }
-    else if (result != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to present swap chain image");
-    }
+    // move this outside!!
+    // if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window->resized())
+    // {
+    //     VkExtent2D ext = window->getExtent();
+    //     handleResizeWindow(ext);
+    // }
+    // else if (result != VK_SUCCESS)
+    // {
+    //     throw std::runtime_error("failed to present swap chain image");
+    // }
 
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -791,6 +784,8 @@ void Renderer::addSecondaryWindow(std::shared_ptr<Window> window)
     m_secondarySwapChainImageIndices.resize(MAX_FRAMES_IN_FLIGHT);
     m_secondarySwapchain = std::make_shared<SwapChain>(m_device, window->getExtent(), window->getSurface());
     m_secondarySwapchain->initializeFramebuffers(m_quadRenderPass);
+
+    m_secondaryWindow = window;
 }
 
 void Renderer::beginComputePass()
@@ -1346,6 +1341,22 @@ void Renderer::createPipeline(const RendererInitParams& params)
     // testing
     // m_intersectsPipeline = std::make_shared<ComputePipeline>(m_device, "intersect.spv", computeRaysEvalSetLayout);
     // m_intervalsPipeline = std::make_shared<ComputePipeline>(m_device, "intervalsInterpolate.spv", computeRaysEvalSetLayout);
+}
+
+void Renderer::handleResizeWindow(bool main)
+{    
+    if (main)
+    {
+        m_swapChain->recreate(m_window->getExtent(), m_window->getSurface());
+        m_window->setResized(false);
+        m_swapChain->initializeFramebuffers(m_quadRenderPass);
+    }
+    else
+    {
+        m_secondarySwapchain->recreate(m_secondaryWindow->getExtent(), m_secondaryWindow->getSurface());
+        m_secondaryWindow->setResized(false);
+        m_secondarySwapchain->initializeFramebuffers(m_quadRenderPass);
+    }
 }
 
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, const std::shared_ptr<Scene>& scene,

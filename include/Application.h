@@ -155,6 +155,9 @@ private:
     std::shared_ptr<Model> m_cameraCube;
 
     // Imgui flags and resources.
+    float m_prevTime;
+    float m_interval = 0.01f;
+    float m_intervalCounter;
     bool m_testPixels = false;
     glm::vec2 m_testedPixel;
     bool m_depthOnly = false;

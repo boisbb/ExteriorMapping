@@ -32,5 +32,9 @@
 #define COMPILED_SHADER_LOC "../build/compiled_shaders/"
 #endif
 
+#ifndef CONFIG_FILES_LOC
+#define CONFIG_FILES_LOC "../res/configs/"
+#endif
+
 #define DRAW_LIGHT false
 

@@ -42,6 +42,13 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
     wind->setResized(true);
 }
 
+static void secondaryWindowCloseCallback(GLFWwindow* window)
+{
+    auto wind = reinterpret_cast<vke::Window*>(glfwGetWindowUserPointer(window));
+    wind->setVisible(false);
+    glfwSetWindowShouldClose(window, GLFW_FALSE);
+}
+
 /**
  * @brief Validation layer callback.
  * 

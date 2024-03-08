@@ -130,7 +130,7 @@ public:
      * @param secondarySwapchain Whether the secondary swapchain will be needed or not.
      */
     void prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr<Window> window,
-        bool secondarySwapchain = false);
+        WindowParams& params);
 
     /**
      * @brief Records the command buffer.
@@ -177,7 +177,7 @@ public:
      * @param window Window for presenting.
      * @param secondarySwapchain Whether to use secondary swapchain.
      */
-    void presentFrame(std::shared_ptr<Window> window, bool secondarySwapchain = false);
+    void presentFrame(std::shared_ptr<Window> window, WindowParams& params);
 
     /**
      * @brief Change the source image for on screen render pass.
@@ -191,6 +191,13 @@ public:
      * 
      */
     void copyOffscreenFrameBufferToSupp();
+
+    /**
+     * @brief Handle the window resizing.
+     * 
+     * @param main Whether to resize main window or not.
+     */
+    void handleResizeWindow(bool main = true);
 
     // Getters
     std::shared_ptr<SwapChain> getSwapChain() const;
@@ -337,6 +344,7 @@ private:
 
     std::shared_ptr<Device> m_device;
     std::shared_ptr<Window> m_window;
+    std::shared_ptr<Window> m_secondaryWindow;
     std::shared_ptr<SwapChain> m_swapChain;
     std::vector<uint32_t> m_swapChainImageIndices;
     std::shared_ptr<SwapChain> m_secondarySwapchain;

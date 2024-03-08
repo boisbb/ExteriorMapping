@@ -8,12 +8,75 @@
  * 
  */
 
+#include "ViewGrid.h"
 #include "utils/Config.h"
+#include "utils/Constants.h"
 
 #include <fstream>
 
 namespace vke::utils
 {
+
+void saveConfig(std::string configFile, const Config& initConfig, std::shared_ptr<ViewGrid> novelView,
+	std::shared_ptr<ViewGrid> viewMatrix)
+{
+	std::ifstream f(std::string(CONFIG_FILES_LOC) + configFile);
+
+	nlohmann::json j;
+
+	j["viewData"]["geometry"] = initConfig.viewGeometry;
+
+	glm::vec3 novelCameraPos = novelView->getViews()[0]->getCamera()->getEye();
+	glm::vec3 novelCameraViewDir = novelView->getViews()[0]->getCamera()->getViewDir();
+
+	j["viewData"]["novelView"]["cameraPos"]["x"] = novelCameraPos.x;
+	j["viewData"]["novelView"]["cameraPos"]["y"] = novelCameraPos.y;
+	j["viewData"]["novelView"]["cameraPos"]["z"] = novelCameraPos.z;
+
+	j["viewData"]["novelView"]["viewDir"]["x"] = novelCameraViewDir.x;
+	j["viewData"]["novelView"]["viewDir"]["y"] = novelCameraViewDir.y;
+	j["viewData"]["novelView"]["viewDir"]["z"] = novelCameraViewDir.z;
+
+	j["viewData"]["byStep"] = false;
+	j["viewData"]["byInGridPos"] = true;
+
+	std::vector<std::shared_ptr<View>> views = viewMatrix->getViews();
+	std::vector<uint32_t> rowCols = viewMatrix->getViewRowsColumns();
+
+	std::vector<nlohmann::json> viewRows;
+	int viewId = 0;
+	for (int i = 0; i < rowCols.size(); i++)
+	{
+		std::vector<nlohmann::json> viewRow;
+		for (int j = 0; j < rowCols[i]; j++)
+		{
+			glm::vec3 gridPos = viewMatrix->getViewGridPos(views[viewId]);
+			glm::vec3 viewDir = views[viewId]->getCamera()->getViewDir();
+
+			nlohmann::json view;
+			view["gridPos"]["x"] = gridPos.x;
+			view["gridPos"]["y"] = gridPos.y;
+			view["gridPos"]["z"] = gridPos.z;
+			
+			view["viewDir"]["x"] = viewDir.x;
+			view["viewDir"]["y"] = viewDir.y;
+			view["viewDir"]["z"] = viewDir.z;
+
+			viewRow.push_back(view);
+
+			viewId++;
+		}
+
+		viewRows.push_back(viewRow);
+	}
+
+	j["viewData"]["views"] = viewRows;
+
+	std::string jdump = j.dump();
+
+	std::cout << jdump << std::endl;
+
+}
 
 void parseConfig(std::string configFile, Config& config)
 {

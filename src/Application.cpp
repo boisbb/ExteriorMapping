@@ -47,7 +47,8 @@ Application::Application()
     m_renderFromViews(false),
     m_changeOffscreenTarget(MAX_FRAMES_IN_FLIGHT),
     m_samplingType(SamplingType::COLOR),
-    m_testedPixel(0.f, 0.f)
+    m_testedPixel(0.f, 0.f),
+    m_intervalCounter(m_interval)
 {
     init();
 }
@@ -55,6 +56,8 @@ Application::Application()
 void Application::run()
 {
     draw();
+
+    vke::utils::saveConfig("test.json", m_config, m_novelViewGrid, m_viewGrid);
 }
 
 void Application::init()
@@ -73,6 +76,8 @@ void Application::init()
 
     m_secondaryWindow = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT, false);
     m_secondaryWindow->createWindowSurface(m_device->getInstance());
+    glfwSetWindowCloseCallback(m_secondaryWindow->getWindow(), secondaryWindowCloseCallback);
+
     m_renderer->addSecondaryWindow(m_secondaryWindow);
 
     createScene();
@@ -87,6 +92,8 @@ void Application::init()
     initImgui();
     preRender();
     vkDeviceWaitIdle(m_device->getVkDevice());
+
+    m_prevTime = glfwGetTime();
 }
 
 void Application::draw()
@@ -98,6 +105,7 @@ void Application::draw()
     int lastFps = 0;
 
     glm::vec2 windowResolution = m_window->getResolution();
+    glm::vec2 secondaryWindowResolution = m_secondaryWindow->getResolution();
     std::shared_ptr<ViewGrid> viewGrid;
     std::shared_ptr<Framebuffer> framebuffer;
 
@@ -113,6 +121,9 @@ void Application::draw()
         {
             m_renderer->setSceneChanged(0);
             m_scene->setSceneChanged(true);
+
+            if (m_novelSecondWindow)
+                m_novelViewGrid->reconstructMatrices();
         }
         
         // Reconstruct matrices for the main views;
@@ -138,9 +149,35 @@ void Application::draw()
         // End compute pass and submit it.
         m_renderer->endComputePass();
         m_renderer->submitCompute();
+
+        WindowParams windowParams{m_novelSecondWindow, VK_SUCCESS, VK_SUCCESS};
+
+        m_renderer->prepareFrame(m_scene, m_window, windowParams);
         
         // Prepare the resources for render pass.
-        m_renderer->prepareFrame(m_scene, m_window, m_novelSecondWindow);
+        if (windowParams.result == VK_ERROR_OUT_OF_DATE_KHR || 
+            windowParams.secondaryResult == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            if (windowParams.result == VK_ERROR_OUT_OF_DATE_KHR)
+                m_renderer->handleResizeWindow();
+            
+            if (windowParams.secondaryResult == VK_ERROR_OUT_OF_DATE_KHR)
+                m_renderer->handleResizeWindow(false);
+            
+            windowResolution = m_window->getResolution();
+            secondaryWindowResolution = m_secondaryWindow->getResolution();
+
+            // recreate swap
+            windowParams.result = VK_SUCCESS;
+            windowParams.secondaryResult = VK_SUCCESS;
+            continue;
+
+        }
+        else if ((windowParams.result != VK_SUCCESS && windowParams.result != VK_SUBOPTIMAL_KHR) || 
+                 (windowParams.secondaryResult != VK_SUCCESS && windowParams.secondaryResult != VK_SUBOPTIMAL_KHR))
+        {
+            throw std::runtime_error("Error: failed to acquire swap chain image.");
+        }
 
         // Begin render command buffer.
         m_renderer->beginCommandBuffer();
@@ -175,20 +212,38 @@ void Application::draw()
         if (m_novelSecondWindow)
         {
             m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getSecondaryQuadFramebuffer());
-            m_renderer->quadRenderPass(windowResolution, false, m_novelSecondWindow);
+            m_renderer->quadRenderPass(secondaryWindowResolution, false, m_novelSecondWindow);
             m_renderer->endRenderPass();
         }
 
         // Ends render command buffer.
         m_renderer->endCommandBuffer();
-
         // Submit the frame and present it.
         m_renderer->submitFrame(m_novelSecondWindow);
-        m_renderer->presentFrame(m_window, m_novelSecondWindow);
 
-        if (resizeViews)
+        m_renderer->presentFrame(m_window, windowParams);
+
+        if (windowParams.result == VK_ERROR_OUT_OF_DATE_KHR || windowParams.result == VK_SUBOPTIMAL_KHR ||
+            m_window->resized() || m_secondaryWindow->resized())
+        {            
+            m_renderer->handleResizeWindow();
+
+            if (m_novelSecondWindow)
+                m_renderer->handleResizeWindow(false);
+            
+            windowResolution = m_window->getResolution();
+            secondaryWindowResolution = m_secondaryWindow->getResolution();
+
+            // recreate swap
+            windowParams.result = VK_SUCCESS;
+            windowParams.secondaryResult = VK_SUCCESS;
+            continue;
+
+            
+        }
+        else if (windowParams.result != VK_SUCCESS)
         {
-            resizeViews = false;
+            throw std::runtime_error("failed to present swap chain image");
         }
 
         // Fps counter.
@@ -231,6 +286,11 @@ void Application::draw()
             }
 
             m_changeOffscreenTarget++;
+        }
+
+        if (m_novelSecondWindow && !m_secondaryWindow->getVisible())
+        {
+            m_secondWindowChanged = true;
         }
 
         // Turns on and off the secondary window rendering.
@@ -279,9 +339,23 @@ bool Application::consumeInput()
 
     ImGuiIO& io = ImGui::GetIO();
     if (!io.WantCaptureMouse && !io.WantCaptureKeyboard)
-    { 
+    {
+        float now = glfwGetTime();
+        float delta = now - m_prevTime;
+        m_prevTime = now;
+
+        // for each timer do this
+        m_intervalCounter -= delta;
+        if (m_intervalCounter > 0.f)
+        {
+            return false;
+        }
+
+        m_intervalCounter = m_interval;
+
         VkExtent2D fbSize = m_renderer->getOffscreenFramebuffer()->getResolution();
         glm::vec2 windowSize = m_window->getResolution();
+        glm::vec2 secondaryWindowSize = m_secondaryWindow->getResolution();
 
         bool changed = false;
 
@@ -291,7 +365,7 @@ bool Application::consumeInput()
         
         // Consume the input from the secondary window based - either regular input or the pixel id for evaluation.
         if (m_novelSecondWindow && !m_testPixels)
-            changed = changed || vke::utils::consumeDeviceInput(m_secondaryWindow->getWindow(), glm::vec2(windowSize.x / fbSize.width, windowSize.y / fbSize.height),
+            changed = changed || vke::utils::consumeDeviceInput(m_secondaryWindow->getWindow(), glm::vec2(secondaryWindowSize.x / fbSize.width, secondaryWindowSize.y / fbSize.height),
                 m_novelViewGrid, false, true);
         else if (m_novelSecondWindow && m_testPixels)
             changed = changed || vke::utils::consumeDeviceInputTestPixel(m_secondaryWindow->getWindow(), m_testedPixel);

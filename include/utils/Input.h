@@ -96,7 +96,6 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
 
     if (!manipulateGrid)
     {
-
         for (int i = 0; i < views.size(); i++)
         {
             auto v = views[i];

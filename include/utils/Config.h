@@ -16,6 +16,11 @@
 #include "glm_include_unified.h"
 #include "nlohmann/json.hpp"
 
+namespace vke
+{
+	class ViewGrid;
+}
+
 namespace vke::utils
 {
 
@@ -41,6 +46,9 @@ struct Config
 	std::vector<std::string> models;
 	glm::vec3 lightPos;
 };
+
+void saveConfig(std::string configFile, const Config& initConfig, std::shared_ptr<vke::ViewGrid> novelView,
+	std::shared_ptr<vke::ViewGrid> viewMatrix);
 
 /**
  * @brief Parses the config file.
