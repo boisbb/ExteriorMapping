@@ -42,7 +42,7 @@ std::array<std::string, 3> samplingTypeStrings = {
 namespace vke
 {
 
-Application::Application()
+Application::Application(std::string configFile)
     : m_showCameraGeometry(false),
     m_renderFromViews(false),
     m_changeOffscreenTarget(MAX_FRAMES_IN_FLIGHT),
@@ -50,19 +50,19 @@ Application::Application()
     m_testedPixel(0.f, 0.f),
     m_intervalCounter(m_interval)
 {
-    init();
+    init(configFile);
 }
 
 void Application::run()
 {
     draw();
 
-    vke::utils::saveConfig("test.json", m_config, m_novelViewGrid, m_viewGrid);
+    vke::utils::saveConfig("last.json", m_config, m_novelViewGrid, m_viewGrid);
 }
 
-void Application::init()
+void Application::init(std::string configFile)
 {
-    utils::parseConfig("../res/configs/by_step/config.json", m_config);
+    utils::parseConfig(std::string(CONFIG_FILES_LOC) + configFile, m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
 

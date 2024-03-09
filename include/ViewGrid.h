@@ -58,10 +58,14 @@ public:
     void getInputInfo(glm::vec3& position, glm::vec3& viewDir, float& speed, 
         float& sensitivity);
     bool getByStep() const;
+    bool getByInGridPos() const;
     glm::vec3 getViewGridPos(std::shared_ptr<View> view);
     glm::vec2 getResolution() const;
     glm::mat4 getMatrix() const;
     std::vector<uint32_t> getViewRowsColumns() const;
+    glm::vec3 getPos() const;
+    glm::vec3 getViewDir() const;
+    glm::vec2 getGridSize() const;
 
     // Setters
     void setInputInfo(const glm::vec3& position, const glm::vec3& viewDir, const float& speed);
@@ -71,6 +75,7 @@ public:
 private:
     // Create and init methods
     void initializeViews();
+    void initializeByInGridPos();
     void initializeByStep();
     void initializeByGrid();
     void addViewRow();
@@ -85,6 +90,8 @@ private:
     glm::vec2 m_resolution;
     float m_fov;
     bool m_byStep;
+    bool m_byInGridPos;
+    glm::vec2 m_gridSize;
     glm::mat4 m_gridMatrix;
     glm::vec3 m_position;
     glm::vec3 m_prevViewDir;

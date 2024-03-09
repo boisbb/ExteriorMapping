@@ -14,6 +14,7 @@
             }
         },
         "byStep": true,
+        "byInGridPos": false,
         "views": {
             "gridSize": {
                 "x": 4,

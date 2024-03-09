@@ -110,7 +110,7 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
             }
         }
 
-        if (viewGrid->getByStep())
+        if (viewGrid->getByStep() || viewGrid->getByInGridPos())
         {
             viewGrid->getInputInfo(eye, moveViewDir, speed, sensitivity);
             eye = viewGrid->getViewGridPos(view);
@@ -211,7 +211,7 @@ bool consumeDeviceInput(GLFWwindow* window, glm::vec2 framebufferRatio, std::sha
 
     if (!manipulateGrid)
     {
-        if (viewGrid->getByStep())
+        if (viewGrid->getByStep() || viewGrid->getByInGridPos())
         {
             viewGrid->setViewGridPos(view, eye);
             camera->setViewDir(rotateViewDir);

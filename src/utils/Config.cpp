@@ -20,8 +20,6 @@ namespace vke::utils
 void saveConfig(std::string configFile, const Config& initConfig, std::shared_ptr<ViewGrid> novelView,
 	std::shared_ptr<ViewGrid> viewMatrix)
 {
-	std::ifstream f(std::string(CONFIG_FILES_LOC) + configFile);
-
 	nlohmann::json j;
 
 	j["viewData"]["geometry"] = initConfig.viewGeometry;
@@ -72,10 +70,29 @@ void saveConfig(std::string configFile, const Config& initConfig, std::shared_pt
 
 	j["viewData"]["views"] = viewRows;
 
-	std::string jdump = j.dump();
+	glm::vec3 viewGridPos = viewMatrix->getPos();
+	glm::vec3 viewGridDir = viewMatrix->getViewDir();
 
-	std::cout << jdump << std::endl;
+	j["viewData"]["viewGrid"]["pos"]["x"] = viewGridPos.x;
+	j["viewData"]["viewGrid"]["pos"]["y"] = viewGridPos.y;
+	j["viewData"]["viewGrid"]["pos"]["z"] = viewGridPos.z;
 
+	j["viewData"]["viewGrid"]["viewDir"]["x"] = viewGridDir.x;
+	j["viewData"]["viewGrid"]["viewDir"]["y"] = viewGridDir.y;
+	j["viewData"]["viewGrid"]["viewDir"]["z"] = viewGridDir.z;
+
+	j["sceneData"]["models"] = initConfig.models;
+
+	j["sceneData"]["lightPos"]["x"] = initConfig.lightPos.x;
+	j["sceneData"]["lightPos"]["y"] = initConfig.lightPos.y;
+	j["sceneData"]["lightPos"]["z"] = initConfig.lightPos.z;
+
+	std::string jdump = j.dump(4, ' ');
+
+	std::ofstream f(std::string(CONFIG_FILES_LOC) + configFile, std::ios::out);
+	f.write(jdump.data(), jdump.length());
+
+	f.close();
 }
 
 void parseConfig(std::string configFile, Config& config)
@@ -121,8 +138,59 @@ void parseViewData(nlohmann::json viewData, Config& config)
 	}
 	else
 	{
-		parseViewsByGrid(viewData, config);
+		bool byInGridPos = viewData["byInGridPos"].template get<bool>();
+		if (byInGridPos)
+			parseViewsByGridPos(viewData, config);
+		else	
+			parseViewsByGrid(viewData, config);
 	}
+}
+
+void parseViewsByGridPos(nlohmann::json viewData, Config& config)
+{
+	config.byInGridPos = true;
+
+	nlohmann::json rows = viewData["views"];
+
+	uint32_t rowCount = 0;
+	uint32_t maxCol = 0;
+	for (auto& row : rows)
+	{
+		maxCol = (rows.size() > maxCol) ? rows.size() : maxCol;
+		for (auto& col : row)
+		{
+			Config::View view;
+			view.row = rowCount;
+
+			view.cameraPos = glm::vec3(
+				col["gridPos"]["x"].template get<float>(),
+				col["gridPos"]["y"].template get<float>(),
+				col["gridPos"]["z"].template get<float>()
+			);
+
+			view.viewDir = glm::vec3(
+				col["viewDir"]["x"].template get<float>(),
+				col["viewDir"]["y"].template get<float>(),
+				col["viewDir"]["z"].template get<float>()
+			);
+
+			config.views.push_back(view);
+		}
+		rowCount++;
+	}
+	config.gridSize = glm::vec2(maxCol, rowCount);
+
+	config.location = glm::vec3(
+		viewData["viewGrid"]["pos"]["x"].template get<float>(),
+		viewData["viewGrid"]["pos"]["y"].template get<float>(),
+		viewData["viewGrid"]["pos"]["z"].template get<float>()
+	);
+
+	config.viewDir = glm::vec3(
+		viewData["viewGrid"]["viewDir"]["x"].template get<float>(),
+		viewData["viewGrid"]["viewDir"]["y"].template get<float>(),
+		viewData["viewGrid"]["viewDir"]["z"].template get<float>()
+	);
 }
 
 void parseViewsByStep(nlohmann::json viewData, Config &config)
@@ -179,6 +247,8 @@ void parseViewsByGrid(nlohmann::json viewData, Config &config)
 void parseSceneData(nlohmann::json sceneData, Config &config)
 {
 	config.models = std::vector<std::string>();
+
+	std::cout << "huh" << std::endl;
 
 	config.lightPos = glm::vec3(
 		sceneData["lightPos"]["x"],

@@ -34,10 +34,14 @@ struct Config
 	};
 
 	bool byStep = false;
+
 	glm::vec3 viewDir;
 	glm::vec3 location;
+	
 	glm::vec2 step;
 	glm::ivec2 gridSize;
+
+	bool byInGridPos = false;
 
 	View novelView;
 	std::vector<View> views;
@@ -65,6 +69,15 @@ void parseConfig(std::string configFile, Config& config);
  * @param config 
  */
 void parseViewData(nlohmann::json viewData, Config& config);
+
+/**
+ * @brief Parse config where data is defined by position within
+ * 		  the grid.
+ * 
+ * @param viewData 
+ * @param config 
+ */
+void parseViewsByGridPos(nlohmann::json viewData, Config& config);
 
 /**
  * @brief Parses config where view data is specified by step.

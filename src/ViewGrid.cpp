@@ -20,7 +20,7 @@ ViewGrid::ViewGrid(std::shared_ptr<Device> device, const glm::vec2 &resolution, 
     std::shared_ptr<Model> cameraCube)
     : m_device(device), m_setLayout(setLayout), m_setPool(setPool), m_config(config), m_resolution(resolution),
     m_cameraCube(cameraCube), m_fov(90.f), m_byStep(false), m_gridMatrix(1.f), m_position(0.f), m_step(0.f),
-    m_viewDir(0, 0, -1), m_prevViewDir(0, 0, -1)
+    m_viewDir(0, 0, -1), m_prevViewDir(0, 0, -1), m_byInGridPos(false)
 {
     initializeViews();
 }
@@ -43,7 +43,7 @@ void ViewGrid::reconstructMatrices()
 
     for (auto& view : m_views)
     {
-        if (m_byStep)
+        if (m_byStep || m_byInGridPos)
             viewCalculateEye(view);
         
         view->getCamera()->reconstructMatrices(m_gridMatrix);
@@ -67,6 +67,11 @@ void ViewGrid::getInputInfo(glm::vec3 &position, glm::vec3 &viewDir, float& spee
 bool ViewGrid::getByStep() const
 {
     return m_byStep;
+}
+
+bool ViewGrid::getByInGridPos() const
+{
+    return m_byInGridPos;
 }
 
 glm::vec3 ViewGrid::getViewGridPos(std::shared_ptr<View> view)
@@ -110,6 +115,21 @@ std::vector<uint32_t> ViewGrid::getViewRowsColumns() const
     return m_viewRowColumns;
 }
 
+glm::vec3 ViewGrid::getPos() const
+{
+    return m_position;
+}
+
+glm::vec3 ViewGrid::getViewDir() const
+{
+    return m_viewDir;
+}
+
+glm::vec2 ViewGrid::getGridSize() const
+{
+    return m_gridSize;
+}
+
 void ViewGrid::initializeViews()
 {
     if (m_config.byStep)
@@ -119,7 +139,47 @@ void ViewGrid::initializeViews()
     }
     else
     {
-        initializeByGrid();
+        if (m_config.byInGridPos)
+            initializeByInGridPos();
+        else
+            initializeByGrid();
+    }
+}
+
+void ViewGrid::initializeByInGridPos()
+{
+    m_byInGridPos = m_config.byInGridPos;
+    m_byStep = true;
+    m_position = m_config.location;
+    m_viewDir = m_config.viewDir;
+    m_gridSize = m_config.gridSize;
+
+    calculateGridMatrix();
+
+    glm::vec2 viewResolution = m_resolution / glm::vec2(m_config.gridSize);
+
+    std::cout << viewResolution.x << std::endl;
+
+    for (int y = 0; y < m_config.gridSize.y; y++)
+    {
+        m_viewRowColumns.push_back(m_config.gridSize.x);
+        for (int x = 0; x < m_config.gridSize.x; x++)
+        {
+            int viewId = (y * m_gridSize.x) + x;
+
+            vke::utils::Config::View configView = m_config.views[viewId];
+
+            std::shared_ptr<View> view = std::make_shared<View>(viewResolution, viewResolution * glm::vec2(x, y), m_device, 
+                m_setLayout, m_setPool);
+            view->setDebugCameraGeometry(m_cameraCube);
+            view->getCamera()->setFov(m_fov);
+            view->getCamera()->setViewDir(configView.viewDir);
+            m_views.push_back(view);
+
+            m_viewGridPos[view] = configView.cameraPos;
+
+            viewCalculateEye(view);
+        }
     }
 }
 
@@ -128,6 +188,7 @@ void ViewGrid::initializeByStep()
     m_position = m_config.location;
     m_viewDir = m_config.viewDir;
     m_step = m_config.step;
+    m_gridSize = m_config.gridSize;
 
     calculateGridMatrix();
 

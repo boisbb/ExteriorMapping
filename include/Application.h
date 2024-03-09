@@ -64,7 +64,7 @@ namespace vke
 class Application
 {
 public:
-    Application();
+    Application(std::string configFile);
     
     /**
      * @brief Runs the application.
@@ -78,7 +78,7 @@ private:
      * @brief Initialize the application and rendering resources.
      * 
      */
-    void init();
+    void init(std::string configFile);
 
     /**
      * @brief Draw the frames.

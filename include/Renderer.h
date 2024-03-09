@@ -226,6 +226,7 @@ public:
     VkDescriptorImageInfo getNovelImageInfo() const;
     VkDescriptorImageInfo getTestPixelImageInfo() const;
     SamplingType getNovelViewSamplingType() const;
+    int getInt() const;
 
     // Setters
     void setSceneChanged(int sceneChanged);
