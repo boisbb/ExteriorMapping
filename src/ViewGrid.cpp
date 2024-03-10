@@ -94,6 +94,8 @@ void ViewGrid::setViewGridPos(std::shared_ptr<View> view, const glm::vec3& gridP
 
 void ViewGrid::setFov(float fov)
 {
+    m_fov = fov;
+    
     for (auto& view : m_views)
     {
         view->getCamera()->setFov(fov);
@@ -130,6 +132,11 @@ glm::vec2 ViewGrid::getGridSize() const
     return m_gridSize;
 }
 
+float ViewGrid::getFov() const
+{
+    return m_fov;
+}
+
 void ViewGrid::initializeViews()
 {
     if (m_config.byStep)
@@ -153,6 +160,7 @@ void ViewGrid::initializeByInGridPos()
     m_position = m_config.location;
     m_viewDir = m_config.viewDir;
     m_gridSize = m_config.gridSize;
+    m_fov = m_config.gridFov;
 
     calculateGridMatrix();
 
@@ -189,6 +197,7 @@ void ViewGrid::initializeByStep()
     m_viewDir = m_config.viewDir;
     m_step = m_config.step;
     m_gridSize = m_config.gridSize;
+    m_fov = m_config.gridFov;
 
     calculateGridMatrix();
 
@@ -245,6 +254,7 @@ void ViewGrid::initializeByGrid()
 
         m_views.back()->setCameraEye(configView.cameraPos);
         m_views.back()->getCamera()->setViewDir(viewDir);
+        m_views.back()->getCamera()->setFov(m_config.gridFov);
     }
 }
 

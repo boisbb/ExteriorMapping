@@ -42,6 +42,12 @@ int main(int argc, char* argv[])
         return 0;
     }
 
+    if (!std::filesystem::exists(std::string(CONFIG_FILES_LOC) + configFile))
+    {
+        std::cout << "Error: the config file does not exist." << std::endl;
+        return 1;
+    }
+
     auto app = vke::Application(configFile);
     app.run();
 }

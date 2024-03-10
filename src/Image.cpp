@@ -70,6 +70,16 @@ VkImageView Image::createImageView(VkImageAspectFlags aspectMask)
     return m_device->createImageView(m_image, m_format, aspectMask);
 }
 
+void Image::map()
+{
+    vkMapMemory(m_device->getVkDevice(), m_imageMemory, 0, VK_WHOLE_SIZE, 0, &m_memoryMapped);
+}
+
+void Image::unmap()
+{
+    vkUnmapMemory(m_device->getVkDevice(), m_imageMemory);
+}
+
 VkImage Image::getVkImage() const
 {
     return m_image;
@@ -88,5 +98,9 @@ VkFormat Image::getVkFormat() const
 glm::vec2 Image::getDims() const
 {
     return m_dims;
+}
+void *Image::getMapped()
+{
+    return m_memoryMapped;
 }
 }

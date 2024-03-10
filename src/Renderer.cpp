@@ -249,7 +249,6 @@ void Renderer::cullComputePass(const std::shared_ptr<Scene> &scene, const std::s
 
     for (auto& view : views)
     {
-        // view->getCamera()->reconstructMatrices();
         view->updateComputeDescriptorData(m_currentFrame, scene);
 
         if (!scene->viewResourcesExist(view))
@@ -573,35 +572,7 @@ void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo)
 
 void Renderer::copyOffscreenFrameBufferToSupp()
 {
-    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_viewMatrixFramebuffer->getColorImage()->getVkImage(),
-        VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-    
-    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], 0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        m_testPixelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-
-    VkImageCopy imageCopyRegion{};
-    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopyRegion.srcSubresource.layerCount = 1;
-    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopyRegion.dstSubresource.layerCount = 1;
-    imageCopyRegion.extent.width = FRAMEBUFFER_WIDTH;
-    imageCopyRegion.extent.height = FRAMEBUFFER_HEIGHT;
-    imageCopyRegion.extent.depth = 1;
-
-    // Issue the copy command
-    vkCmdCopyImage(
-        m_commandBuffers[m_currentFrame],
-        m_viewMatrixFramebuffer->getColorImage()->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        m_testPixelImage->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1,
-        &imageCopyRegion);
-
-    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_viewMatrixFramebuffer->getColorImage()->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, 
-        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
-    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_GENERAL, m_testPixelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);    
+    m_device->copyImageToImage(m_viewMatrixFramebuffer->getColorImage(), m_testPixelImage, m_commandBuffers[m_currentFrame]);
 }
 
 std::shared_ptr<SwapChain> Renderer::getSwapChain() const

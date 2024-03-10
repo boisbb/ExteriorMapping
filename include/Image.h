@@ -59,11 +59,16 @@ public:
      */
     VkImageView createImageView(VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
 
+    void map();
+
+    void unmap();
+
     // Getters
     VkImage getVkImage() const;
     VkImageLayout getVkImageLayout() const;
     VkFormat getVkFormat() const;
     glm::vec2 getDims() const;
+    void* getMapped();
 
 private:
     glm::vec2 m_dims;

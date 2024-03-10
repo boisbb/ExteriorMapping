@@ -35,6 +35,8 @@ void saveConfig(std::string configFile, const Config& initConfig, std::shared_pt
 	j["viewData"]["novelView"]["viewDir"]["y"] = novelCameraViewDir.y;
 	j["viewData"]["novelView"]["viewDir"]["z"] = novelCameraViewDir.z;
 
+	j["viewData"]["novelView"]["fov"] = novelView->getFov();
+
 	j["viewData"]["byStep"] = false;
 	j["viewData"]["byInGridPos"] = true;
 
@@ -80,6 +82,8 @@ void saveConfig(std::string configFile, const Config& initConfig, std::shared_pt
 	j["viewData"]["viewGrid"]["viewDir"]["x"] = viewGridDir.x;
 	j["viewData"]["viewGrid"]["viewDir"]["y"] = viewGridDir.y;
 	j["viewData"]["viewGrid"]["viewDir"]["z"] = viewGridDir.z;
+
+	j["viewData"]["viewGrid"]["fov"] = viewMatrix->getFov();
 
 	j["sceneData"]["models"] = initConfig.models;
 
@@ -127,6 +131,7 @@ void parseViewData(nlohmann::json viewData, Config& config)
 		mainView["viewDir"]["y"].template get<float>(),
 		mainView["viewDir"]["z"].template get<float>()
 	);
+	config.novelFov = mainView["fov"].template get<float>();
 
 	config.novelView = novelView;
 
@@ -191,6 +196,8 @@ void parseViewsByGridPos(nlohmann::json viewData, Config& config)
 		viewData["viewGrid"]["viewDir"]["y"].template get<float>(),
 		viewData["viewGrid"]["viewDir"]["z"].template get<float>()
 	);
+
+	config.gridFov = viewData["viewGrid"]["fov"].template get<float>();
 }
 
 void parseViewsByStep(nlohmann::json viewData, Config &config)
@@ -218,6 +225,8 @@ void parseViewsByStep(nlohmann::json viewData, Config &config)
 		viewData["views"]["step"]["x"].template get<float>(),
 		viewData["views"]["step"]["y"].template get<float>()
 	);
+
+	config.gridFov = viewData["fov"].template get<float>();
 }
 
 void parseViewsByGrid(nlohmann::json viewData, Config &config)

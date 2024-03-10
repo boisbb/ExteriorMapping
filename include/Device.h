@@ -44,6 +44,7 @@ namespace vke
 {
 
 class Buffer;
+class Image;
 
 class Device
 {
@@ -99,6 +100,9 @@ public:
      */
     void copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims,
         VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT);
+
+    void copyImageToImage(std::shared_ptr<Image> src, std::shared_ptr<Image> dst,
+        VkCommandBuffer commandBuffer);
     
     /**
      * @brief Transitions image from one layout to another.

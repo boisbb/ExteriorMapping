@@ -46,6 +46,8 @@ struct Config
 	View novelView;
 	std::vector<View> views;
 	std::string viewGeometry;
+	float novelFov;
+	float gridFov;
 
 	std::vector<std::string> models;
 	glm::vec3 lightPos;

@@ -87,11 +87,17 @@ void Application::init(std::string configFile)
     m_viewGrid = std::make_shared<ViewGrid>(m_device, glm::vec2(offscreenRes.width, offscreenRes.height), m_config, 
         m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool(), m_cameraCube);
     
+    m_viewsFov = m_config.gridFov;
+
     m_renderer->initDescriptorResources();
     
     initImgui();
-    preRender();
+    renderViewMatrix();
     vkDeviceWaitIdle(m_device->getVkDevice());
+
+    m_screenshotImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    m_screenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     m_prevTime = glfwGetTime();
 }
@@ -154,35 +160,13 @@ void Application::draw()
 
         m_renderer->prepareFrame(m_scene, m_window, windowParams);
         
-        // Prepare the resources for render pass.
-        if (windowParams.result == VK_ERROR_OUT_OF_DATE_KHR || 
-            windowParams.secondaryResult == VK_ERROR_OUT_OF_DATE_KHR)
-        {
-            if (windowParams.result == VK_ERROR_OUT_OF_DATE_KHR)
-                m_renderer->handleResizeWindow();
-            
-            if (windowParams.secondaryResult == VK_ERROR_OUT_OF_DATE_KHR)
-                m_renderer->handleResizeWindow(false);
-            
-            windowResolution = m_window->getResolution();
-            secondaryWindowResolution = m_secondaryWindow->getResolution();
-
-            // recreate swap
-            windowParams.result = VK_SUCCESS;
-            windowParams.secondaryResult = VK_SUCCESS;
+        if (!handlePrepareResult(windowParams, windowResolution, secondaryWindowResolution))
             continue;
-
-        }
-        else if ((windowParams.result != VK_SUCCESS && windowParams.result != VK_SUBOPTIMAL_KHR) || 
-                 (windowParams.secondaryResult != VK_SUCCESS && windowParams.secondaryResult != VK_SUBOPTIMAL_KHR))
-        {
-            throw std::runtime_error("Error: failed to acquire swap chain image.");
-        }
 
         // Begin render command buffer.
         m_renderer->beginCommandBuffer();
         
-        // Render triangular sceen into a offscreen framebuffer.
+        // Render triangular scene into a offscreen framebuffer.
         if (!m_renderNovel)
         {
             m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
@@ -223,90 +207,19 @@ void Application::draw()
 
         m_renderer->presentFrame(m_window, windowParams);
 
-        if (windowParams.result == VK_ERROR_OUT_OF_DATE_KHR || windowParams.result == VK_SUBOPTIMAL_KHR ||
-            m_window->resized() || m_secondaryWindow->resized())
-        {            
-            m_renderer->handleResizeWindow();
-
-            if (m_novelSecondWindow)
-                m_renderer->handleResizeWindow(false);
-            
-            windowResolution = m_window->getResolution();
-            secondaryWindowResolution = m_secondaryWindow->getResolution();
-
-            // recreate swap
-            windowParams.result = VK_SUCCESS;
-            windowParams.secondaryResult = VK_SUCCESS;
+        if (!handlePresentResult(windowParams, windowResolution, secondaryWindowResolution))
             continue;
 
-            
-        }
-        else if (windowParams.result != VK_SUCCESS)
-        {
-            throw std::runtime_error("failed to present swap chain image");
-        }
-
         // Fps counter.
-        double currentTime = glfwGetTime();
-        frames++;
-        if (currentTime - lastTime >= 1.f)
-        {
-            lastFps = frames;
-            frames = 0;
+        countFps(frames, lastFps, lastTime);
 
-            lastTime = glfwGetTime();
-        }
-
-        // Switches the source image for the on screen render pass.
-        if (m_changeOffscreenTarget < MAX_FRAMES_IN_FLIGHT)
-        {
-            vkDeviceWaitIdle(m_device->getVkDevice());
-            
-            if (m_renderFromViews && !m_testPixels)
-            {
-                if (!m_depthOnly)
-                    m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getColorImageInfo());
-                else
-                    m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getDepthImageInfo());
-            }
-            else if (m_renderFromViews && m_testPixels)
-            {
-                m_renderer->changeQuadRenderPassSource(m_renderer->getTestPixelImageInfo());
-            }
-            else if (m_renderNovel)
-            {
-                m_renderer->changeQuadRenderPassSource(m_renderer->getNovelImageInfo());
-            }
-            else
-            {
-                if (!m_depthOnly)
-                    m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenFramebuffer()->getColorImageInfo());
-                else
-                    m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenFramebuffer()->getDepthImageInfo());
-            }
-
-            m_changeOffscreenTarget++;
-        }
-
-        if (m_novelSecondWindow && !m_secondaryWindow->getVisible())
-        {
-            m_secondWindowChanged = true;
-        }
-
-        // Turns on and off the secondary window rendering.
-        if (m_secondWindowChanged)
-        {
-            vkDeviceWaitIdle(m_device->getVkDevice());
-            m_secondWindowChanged = false;
-            m_novelSecondWindow = !m_novelSecondWindow;
-            m_secondaryWindow->setVisible(m_novelSecondWindow);
-        }
+        handleGuiInputChanges();
     }
 
     vkDeviceWaitIdle(m_device->getVkDevice());
 }
 
-void Application::preRender()
+void Application::renderViewMatrix()
 {
     m_viewGrid->reconstructMatrices();
 
@@ -442,6 +355,11 @@ void Application::renderImgui(int lastFps)
     std::string fpsStr = std::to_string(lastFps) + "fps";
     ImGui::Text(fpsStr.c_str(), "warning fix");
 
+    if (ImGui::Button("Screenshot"))
+    {
+        m_screenshot = true;
+    }
+
     if (ImGui::CollapsingHeader("General"))
     {
         ImGui::Indent();
@@ -495,14 +413,6 @@ void Application::renderImgui(int lastFps)
         ImGui::Text("Number of ray samples:");
         ImGui::SliderInt("tt", &m_numberOfRaySamples, 0, 256);
 
-        ImGui::Checkbox("Threshold depth", &m_thresholdDepth);
-        
-        if (m_thresholdDepth)
-        {
-            ImGui::Text("Max sample depth distance from gt:");
-            ImGui::SliderFloat("t", &m_maxSampleDistance, 0.f, 1.f);
-        }
-
         ImGui::Text("Sampling method:");
         if (ImGui::BeginCombo("##samplingCombo", samplingTypeStrings[static_cast<int>(m_samplingType)].c_str()))
         {
@@ -530,8 +440,7 @@ void Application::renderImgui(int lastFps)
         
         if(ImGui::CollapsingHeader("Parameters"))
         {
-            ImGui::InputFloat("FOV", &m_mainViewFov);
-            if(ImGui::Button("Apply"))
+            if (ImGui::DragFloat("FOV", &m_mainViewFov, 1.f, 30.f, 120.f))
             {
                 m_novelViewGrid->getViews()[0]->getCamera()->setFov(m_mainViewFov);
             }
@@ -583,12 +492,13 @@ void Application::renderImgui(int lastFps)
         {
             ImGui::Indent();
             ImGui::PushID(1);
-            
-            //ImGui::DragFloat("Views FOV", &m_viewsFov, 5.f, 0.f, 120.f);
-            ImGui::InputFloat("FOV", &m_viewsFov);
-            if(ImGui::Button("Apply"))
+
+            if (ImGui::DragFloat("FOV", &m_viewsFov, 1.f, 30.f, 120.f))
             {
                 m_viewGrid->setFov(m_viewsFov);
+                
+                if (!m_renderFromViews && (m_renderNovel || m_novelSecondWindow))
+                    m_reRenderViewMatrix = true;
             }
 
             ImGui::PopID();
@@ -693,6 +603,9 @@ void Application::createMainView()
     utils::Config mainViewConfig = {};
     mainViewConfig.byStep = false;
     mainViewConfig.views = { m_config.novelView };
+    mainViewConfig.gridFov = m_config.novelFov;
+
+    m_mainViewFov = m_config.novelFov;
 
     VkExtent2D offscreenRes = m_renderer->getOffscreenFramebuffer()->getResolution();
 
@@ -740,6 +653,156 @@ void Application::createModels()
     lightMatrix = glm::scale(lightMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
     m_light->setModelMatrix(lightMatrix);
 #endif
+}
+
+void Application::countFps(int& frames, int& lastFps, double& lastTime)
+{
+    double currentTime = glfwGetTime();
+    frames++;
+    if (currentTime - lastTime >= 1.f)
+    {
+        lastFps = frames;
+        frames = 0;
+
+        lastTime = glfwGetTime();
+    }
+}
+
+void Application::handleGuiInputChanges()
+{
+    // Switches the source image for the on screen render pass.
+    if (m_changeOffscreenTarget < MAX_FRAMES_IN_FLIGHT)
+    {
+        vkDeviceWaitIdle(m_device->getVkDevice());
+        
+        if (m_renderFromViews && !m_testPixels)
+        {
+            if (!m_depthOnly)
+                m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getColorImageInfo());
+            else
+                m_renderer->changeQuadRenderPassSource(m_renderer->getViewMatrixFramebuffer()->getDepthImageInfo());
+        }
+        else if (m_renderFromViews && m_testPixels)
+        {
+            m_renderer->changeQuadRenderPassSource(m_renderer->getTestPixelImageInfo());
+        }
+        else if (m_renderNovel)
+        {
+            m_renderer->changeQuadRenderPassSource(m_renderer->getNovelImageInfo());
+        }
+        else
+        {
+            if (!m_depthOnly)
+                m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenFramebuffer()->getColorImageInfo());
+            else
+                m_renderer->changeQuadRenderPassSource(m_renderer->getOffscreenFramebuffer()->getDepthImageInfo());
+        }
+
+        m_changeOffscreenTarget++;
+    }
+
+    if (m_novelSecondWindow && !m_secondaryWindow->getVisible())
+    {
+        m_secondWindowChanged = true;
+    }
+
+    // Turns on and off the secondary window rendering.
+    if (m_secondWindowChanged)
+    {
+        vkDeviceWaitIdle(m_device->getVkDevice());
+        m_secondWindowChanged = false;
+        m_novelSecondWindow = !m_novelSecondWindow;
+        m_secondaryWindow->setVisible(m_novelSecondWindow);
+    }
+
+    if (m_reRenderViewMatrix)
+    {
+        vkDeviceWaitIdle(m_device->getVkDevice());
+        renderViewMatrix();
+        m_reRenderViewMatrix = false;
+        vkDeviceWaitIdle(m_device->getVkDevice());
+    }
+
+    if (m_screenshot)
+    {
+        VkCommandBuffer commandBuffer;
+
+        m_device->beginSingleCommands(commandBuffer);
+
+        m_device->copyImageToImage(m_renderer->getViewMatrixFramebuffer()->getColorImage(), m_screenshotImage,
+            commandBuffer);
+
+        m_device->endSingleCommands(commandBuffer);
+
+        m_screenshotImage->map();
+
+        void* data = m_screenshotImage->getMapped();
+
+        glm::ivec3 dims = glm::ivec3(m_screenshotImage->getDims(), 4);
+
+        utils::saveImage("test.png", dims, (uint8_t*)data);
+
+        m_screenshotImage->unmap();
+
+        m_screenshot = false;
+    }
+}
+
+bool Application::handlePrepareResult(WindowParams& params, glm::vec2& windowResolution,
+    glm::vec2& secondaryWindowResolution)
+{
+    if (params.result == VK_ERROR_OUT_OF_DATE_KHR || 
+        params.secondaryResult == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        if (params.result == VK_ERROR_OUT_OF_DATE_KHR)
+            m_renderer->handleResizeWindow();
+        
+        if (params.secondaryResult == VK_ERROR_OUT_OF_DATE_KHR)
+            m_renderer->handleResizeWindow(false);
+        
+        windowResolution = m_window->getResolution();
+        secondaryWindowResolution = m_secondaryWindow->getResolution();
+
+        // recreate swap
+        params.result = VK_SUCCESS;
+        params.secondaryResult = VK_SUCCESS;
+
+        return false;
+    }
+    else if ((params.result != VK_SUCCESS && params.result != VK_SUBOPTIMAL_KHR) || 
+                (params.secondaryResult != VK_SUCCESS && params.secondaryResult != VK_SUBOPTIMAL_KHR))
+    {
+        throw std::runtime_error("Error: failed to acquire swap chain image.");
+    }
+
+    return true;
+}
+
+bool Application::handlePresentResult(WindowParams &params, glm::vec2& windowResolution,
+    glm::vec2& secondaryWindowResolution)
+{
+    if (params.result == VK_ERROR_OUT_OF_DATE_KHR || params.result == VK_SUBOPTIMAL_KHR ||
+        m_window->resized() || m_secondaryWindow->resized())
+    {            
+        m_renderer->handleResizeWindow();
+
+        if (m_novelSecondWindow)
+            m_renderer->handleResizeWindow(false);
+        
+        windowResolution = m_window->getResolution();
+        secondaryWindowResolution = m_secondaryWindow->getResolution();
+
+        // recreate swap
+        params.result = VK_SUCCESS;
+        params.secondaryResult = VK_SUCCESS;
+        return false;
+    }
+    else if (params.result != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to present swap chain image");
+    }
+
+    return true;
 }
 
 }

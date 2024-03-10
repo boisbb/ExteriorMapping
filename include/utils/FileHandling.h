@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "glm_include_unified.h"
+
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -35,6 +37,15 @@ std::vector<char> readFile(const std::string& filename);
  * @return unsigned* 
  */
 unsigned char* loadImage(std::string& filename, int& width, int& height, int& channels);
+
+/**
+ * @brief Saves image using the stb image library.
+ * 
+ * @param filename 
+ * @param dims W * H data, z coordinate is the number of channels.
+ * @param data 
+ */
+void saveImage(const std::string& filename, const glm::ivec3& dims, uint8_t* data);
 
 /**
  * @brief Transform image of three channels to one channel image.

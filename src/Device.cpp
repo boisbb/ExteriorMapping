@@ -11,6 +11,7 @@
 // vke
 #include "Device.h"
 #include "Buffer.h"
+#include "Image.h"
 #include "utils/Callbacks.h"
 #include "utils/DebugHelpers.h"
 #include "utils/VulkanHelpers.h"
@@ -393,6 +394,40 @@ void Device::copyBufferToImage(VkBuffer buffer, VkImage image, glm::vec2 dims, V
         1, &region);
 
     endSingleCommands(commandBuffer);
+}
+
+void Device::copyImageToImage(std::shared_ptr<Image> src, std::shared_ptr<Image> dst,
+    VkCommandBuffer commandBuffer)
+{
+    createImageBarrier(commandBuffer, VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+        src->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, src->getVkImage(),
+        VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    
+    createImageBarrier(commandBuffer, 0, VK_ACCESS_TRANSFER_WRITE_BIT, dst->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        dst->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+    VkImageCopy imageCopyRegion{};
+    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.srcSubresource.layerCount = 1;
+    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.dstSubresource.layerCount = 1;
+    imageCopyRegion.extent.width = src->getDims().x;
+    imageCopyRegion.extent.height = src->getDims().y;
+    imageCopyRegion.extent.depth = 1;
+
+    // Issue the copy command
+    vkCmdCopyImage(
+        commandBuffer,
+        src->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        dst->getVkImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &imageCopyRegion);
+
+    createImageBarrier(commandBuffer, VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        src->getVkImageLayout(), src->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, 
+        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+    createImageBarrier(commandBuffer, VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        dst->getVkImageLayout(), dst->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);    
 }
 
 void Device::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldL, VkImageLayout newL, VkImageAspectFlags aspectMask)

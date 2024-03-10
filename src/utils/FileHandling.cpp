@@ -18,9 +18,6 @@
 
 #include <algorithm>
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-
 namespace vke::utils
 {
 
@@ -60,8 +57,13 @@ unsigned char* loadImage(std::string& filename, int& width, int& height, int& ch
     return pixels;
 }
 
-std::vector<unsigned char> threeChannelsToOne(unsigned char* pixels, const int& width,
-    const int& height)
+void saveImage(const std::string &filename, const glm::ivec3 &dims, uint8_t *data)
+{
+    stbi_write_png("test.png", dims.x, dims.y, dims.z, data, dims.x * dims.z);
+}
+
+std::vector<unsigned char> threeChannelsToOne(unsigned char *pixels, const int &width,
+                                              const int &height)
 {
     std::vector<unsigned char> newValues(width * height);
 

@@ -91,7 +91,7 @@ private:
      *        so that the novel view can be rendered right away.
      * 
      */
-    void preRender();
+    void renderViewMatrix();
 
     /**
      * @brief Consumes the user input.
@@ -138,6 +138,16 @@ private:
      */
     void createModels();
 
+    void countFps(int& frames, int& lastFps, double& lastTime);
+
+    void handleGuiInputChanges();
+
+    bool handlePrepareResult(WindowParams &params, glm::vec2& windowResolution,
+        glm::vec2& secondaryWindowResolution);
+
+    bool handlePresentResult(WindowParams &params, glm::vec2& windowResolution,
+        glm::vec2& secondaryWindowResolution);
+
     std::shared_ptr<Window> m_window;
     std::shared_ptr<Window> m_secondaryWindow;
 
@@ -153,6 +163,8 @@ private:
     std::shared_ptr<ViewGrid> m_novelViewGrid;
     std::shared_ptr<ViewGrid> m_viewGrid;
     std::shared_ptr<Model> m_cameraCube;
+
+    std::shared_ptr<Image> m_screenshotImage;
 
     // Imgui flags and resources.
     float m_prevTime;
@@ -172,9 +184,11 @@ private:
     bool m_renderFromViews;
     bool m_manipulateGrid = false;
     int m_changeOffscreenTarget;
-    float m_viewsFov = 90.f;
-    float m_mainViewFov = 90.f;
+    float m_viewsFov;
+    float m_mainViewFov;
     SamplingType m_samplingType;
+    bool m_reRenderViewMatrix = false;
+    bool m_screenshot = false;
     
     // Parsed config file.
     utils::Config m_config;

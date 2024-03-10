@@ -2,6 +2,7 @@
     "viewData": {
         "geometry": "../res/models/coloredCube/coloredCube.obj",
         "novelView": {
+            "fov": 45,
             "cameraPos": {
                 "x": 10,
                 "y": 2,
@@ -13,6 +14,7 @@
                 "z": 0
             }
         },
+        "fov" : 30,
         "byStep": true,
         "byInGridPos": false,
         "views": {
@@ -39,7 +41,6 @@
     "sceneData": {
         "models": [
             "../res/models/dabrovic_sponza/sponza.obj",
-            "../res/models/porsche/porsche.obj",
             "../res/models/basicCube/cube.obj"
         ],
         "lightPos": {

@@ -66,6 +66,7 @@ public:
     glm::vec3 getPos() const;
     glm::vec3 getViewDir() const;
     glm::vec2 getGridSize() const;
+    float getFov() const;
 
     // Setters
     void setInputInfo(const glm::vec3& position, const glm::vec3& viewDir, const float& speed);
