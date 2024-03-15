@@ -2,7 +2,6 @@
  * @file Application.h
  * @author Boris Burkalo (xburka00)
  * @brief 
- * @version 0.1
  * @date 2024-03-03
  * 
  * @copyright Copyright (c) 2024
@@ -18,6 +17,7 @@
 #include <fstream>
 #include <array>
 #include <memory>
+#include <thread>
 
 // Vulkan
 #include <vulkan/vulkan.h>
@@ -164,7 +164,7 @@ private:
     std::shared_ptr<ViewGrid> m_viewGrid;
     std::shared_ptr<Model> m_cameraCube;
 
-    std::shared_ptr<Image> m_screenshotImage;
+    std::shared_ptr<Image> m_viewMatrixScreenshotImage;
 
     // Imgui flags and resources.
     float m_prevTime;
@@ -189,6 +189,11 @@ private:
     SamplingType m_samplingType;
     bool m_reRenderViewMatrix = false;
     bool m_screenshot = false;
+
+    // threads
+    std::thread m_saveImageThread;
+    bool m_imagesSaved = true;
+    bool m_threadStarted = false;
     
     // Parsed config file.
     utils::Config m_config;

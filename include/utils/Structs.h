@@ -153,6 +153,13 @@ struct WindowParams
     VkResult secondaryResult;
 };
 
+struct SaveImageInfo
+{
+    std::string filename;
+    glm::ivec3 dims;
+    uint8_t* data;
+};
+
 // Quad shaders
 struct QuadUniformBuffer
 {

@@ -40,17 +40,9 @@ set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(assimp)
 
-#libpng download and build
-# FetchContent_Declare(png
-# GIT_REPOSITORY https://github.com/pnggroup/libpng.git
-# GIT_TAG master)
-# 
-# FetchContent_MakeAvailable(png)
-
 # Vulkan linking
 find_package(Vulkan COMPONENTS glslc)
 find_program(glslc_executable NAMES glslc HINTS Vulkan::glslc)
-
 
 # ImGui linking
 set(IMGUI_PATH "external/imgui/")
@@ -70,13 +62,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${Vulkan_INCLUDE_DIR}
     ${FETCHCONTENT_BASE_DIR}/glfw-src/include
     ${FETCHCONTENT_BASE_DIR}/assimp-src/include
-#    ${FETCHCONTENT_BASE_DIR}/png-src/
 )
 
 target_link_libraries(${PROJECT_NAME}
     glfw
     assimp
-#     png
     ${Vulkan_LIBRARIES}
     ImGui
 )

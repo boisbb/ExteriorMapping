@@ -95,9 +95,9 @@ void Application::init(std::string configFile)
     renderViewMatrix();
     vkDeviceWaitIdle(m_device->getVkDevice());
 
-    m_screenshotImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_viewMatrixScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    m_screenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    m_viewMatrixScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     m_prevTime = glfwGetTime();
 }
@@ -723,26 +723,35 @@ void Application::handleGuiInputChanges()
         vkDeviceWaitIdle(m_device->getVkDevice());
     }
 
-    if (m_screenshot)
+    if (m_imagesSaved && m_threadStarted)
+    {
+        std::cout << "images saved, joining thread" << std::endl;
+        m_saveImageThread.join();
+        m_threadStarted = false;
+        m_viewMatrixScreenshotImage->unmap();
+    }
+
+    if (m_screenshot && !m_threadStarted)
     {
         VkCommandBuffer commandBuffer;
-
         m_device->beginSingleCommands(commandBuffer);
 
-        m_device->copyImageToImage(m_renderer->getViewMatrixFramebuffer()->getColorImage(), m_screenshotImage,
+        m_device->copyImageToImage(m_renderer->getViewMatrixFramebuffer()->getColorImage(), m_viewMatrixScreenshotImage,
             commandBuffer);
 
         m_device->endSingleCommands(commandBuffer);
 
-        m_screenshotImage->map();
+        m_viewMatrixScreenshotImage->map();
+        void* data = m_viewMatrixScreenshotImage->getMapped();
+        glm::ivec3 dims = glm::ivec3(m_viewMatrixScreenshotImage->getDims(), 4);
 
-        void* data = m_screenshotImage->getMapped();
+        std::vector<SaveImageInfo> saveImageInfos = {
+            SaveImageInfo{"test.ppm", dims, (uint8_t*)data}
+        };
 
-        glm::ivec3 dims = glm::ivec3(m_screenshotImage->getDims(), 4);
-
-        utils::saveImage("test.png", dims, (uint8_t*)data);
-
-        m_screenshotImage->unmap();
+        m_imagesSaved = false;
+        m_threadStarted = true;
+        m_saveImageThread = std::thread(vke::utils::saveImagesThread, saveImageInfos, std::ref(m_imagesSaved));
 
         m_screenshot = false;
     }

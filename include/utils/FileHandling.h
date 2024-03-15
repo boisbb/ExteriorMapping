@@ -16,6 +16,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "Structs.h"
+
 namespace vke::utils
 {
 
@@ -46,6 +48,21 @@ unsigned char* loadImage(std::string& filename, int& width, int& height, int& ch
  * @param data 
  */
 void saveImage(const std::string& filename, const glm::ivec3& dims, uint8_t* data);
+
+/**
+ * @brief Saves multiple images in one go.
+ * 
+ * @param saveInfos 
+ */
+void saveImages(const std::vector<SaveImageInfo>& saveInfos);
+
+/**
+ * @brief Save images and notify when done.
+ * 
+ * @param saveInfos 
+ * @param imagesSaved 
+ */
+void saveImagesThread(const std::vector<SaveImageInfo> &saveInfos, bool& imagesSaved);
 
 /**
  * @brief Transform image of three channels to one channel image.

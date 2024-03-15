@@ -16,6 +16,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image/stb_image_write.h>
 
+#include <libpng/png.h>
+
 #include <algorithm>
 
 namespace vke::utils
@@ -59,7 +61,56 @@ unsigned char* loadImage(std::string& filename, int& width, int& height, int& ch
 
 void saveImage(const std::string &filename, const glm::ivec3 &dims, uint8_t *data)
 {
-    stbi_write_png("test.png", dims.x, dims.y, dims.z, data, dims.x * dims.z);
+    if (filename.substr(filename.find_last_of(".") + 1) == "jpg")
+    {
+        stbi_write_jpg("test.jpg",dims.x, dims.y, dims.z, data, 50);
+    }
+    else if (filename.substr(filename.find_last_of(".") + 1) == "png")
+    {
+        stbi_write_png("test.png", dims.x, dims.y, dims.z, data, dims.x * dims.z);
+    }
+    else if (filename.substr(filename.find_last_of(".") + 1) == "ppm")
+    {
+        std::ofstream file(filename, std::ios::out | std::ios::binary);
+
+        std::cout << "Saving image: " << filename << std::endl <<
+                     "dims: " << dims.x << " " << dims.y << " " << dims.z << std::endl;
+
+        file << "P6\n" << dims.x << "\n" << dims.y << "\n" << 255 << "\n";
+
+        for (uint32_t y = 0; y < dims.y; y++)
+        {
+            uint32_t *row = (uint32_t*)data;
+            for (uint32_t x = 0; x < dims.x; x++)
+            {
+                file.write((char*)row, 3);
+                row++;
+            }
+
+            data += (dims.x * dims.z);
+        }
+
+        file.close();
+    }
+    else
+    {
+        std::cerr << "Error: Unsupported image format." << std::endl;
+    }
+}
+
+void saveImages(const std::vector<SaveImageInfo> &saveInfos)
+{
+    std::cout << "save images pls" << std::endl;
+    for (auto& info : saveInfos)
+    {
+        saveImage(info.filename, info.dims, info.data);
+    }
+}
+
+void saveImagesThread(const std::vector<SaveImageInfo> &saveInfos, bool& imagesSaved)
+{
+    saveImages(saveInfos);
+    imagesSaved = true;
 }
 
 std::vector<unsigned char> threeChannelsToOne(unsigned char *pixels, const int &width,
