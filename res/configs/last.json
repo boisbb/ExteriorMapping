@@ -6,21 +6,21 @@
             "z": 0.0
         },
         "models": [
-            "../res/models/dabrovic_sponza/sponza.obj",
-            "../res/models/basicCube/cube.obj"
+            "dabrovic_sponza/sponza.obj",
+            "basicCube/cube.obj"
         ]
     },
     "viewData": {
         "byInGridPos": true,
         "byStep": false,
-        "geometry": "../res/models/coloredCube/coloredCube.obj",
+        "geometry": "coloredCube/coloredCube.obj",
         "novelView": {
             "cameraPos": {
                 "x": 10.0,
                 "y": 2.0,
                 "z": 0.0
             },
-            "fov": 90.0,
+            "fov": 45.0,
             "viewDir": {
                 "x": -1.0,
                 "y": 0.0,

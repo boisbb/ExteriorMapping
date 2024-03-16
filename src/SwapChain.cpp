@@ -39,6 +39,21 @@ SwapChain::~SwapChain()
 {
 }
 
+void SwapChain::destroyVkResources()
+{
+    cleanup();
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        vkDestroySemaphore(m_device->getVkDevice(), m_renderFinishedSemaphores[i], nullptr);
+        vkDestroySemaphore(m_device->getVkDevice(), m_imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(m_device->getVkDevice(), m_computeFinishedSemaphores[i], nullptr);
+
+        vkDestroyFence(m_device->getVkDevice(), m_computeInFlightFences[i], nullptr);
+        vkDestroyFence(m_device->getVkDevice(), m_inFlightFences[i], nullptr);
+    }
+}
+
 void SwapChain::initializeFramebuffers(std::shared_ptr<RenderPass> renderPass)
 {
     for (int i = 0; i < m_imageCount; i++)
@@ -47,16 +62,6 @@ void SwapChain::initializeFramebuffers(std::shared_ptr<RenderPass> renderPass)
             m_swapChainImageViews[i]));
     }
 }
-
-// VkRenderPass SwapChain::getRenderPass() const
-// {
-//     return m_renderPass->getRenderPass();
-// }
-
-// VkRenderPass SwapChain::getOffscreenRenderPass() const
-// {
-//     return m_offscreenRenderPass->getRenderPass();
-// }
 
 void SwapChain::createSwapChain(VkSurfaceKHR surface)
 {
@@ -299,7 +304,7 @@ void SwapChain::cleanup()
 {
     for (int i = 0; i < m_swapChainFramebuffers.size(); i++)
     {
-        m_swapChainFramebuffers[i].reset();
+        m_swapChainFramebuffers[i]->destroyVkResources();
         vkDestroyImageView(m_device->getVkDevice(), m_swapChainImageViews[i], nullptr);
     }
 

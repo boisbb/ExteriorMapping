@@ -29,6 +29,11 @@ DescriptorSetLayout::~DescriptorSetLayout()
 {
 }
 
+void DescriptorSetLayout::destroyVkResources()
+{
+    vkDestroyDescriptorSetLayout(m_device->getVkDevice(), m_descriptorSetLayout, nullptr);
+}
+
 VkDescriptorSetLayoutBinding DescriptorSetLayout::getBinding(uint32_t binding)
 {
     return m_vkbindings[binding];

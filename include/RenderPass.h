@@ -32,6 +32,8 @@ public:
         bool offscreen = false);
     ~RenderPass();
 
+    void destroyVkResources();
+
     VkRenderPass getRenderPass() const;
     bool isOffscreen() const;
 

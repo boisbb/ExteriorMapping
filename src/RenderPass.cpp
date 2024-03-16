@@ -24,6 +24,11 @@ RenderPass::~RenderPass()
 {
 }
 
+void RenderPass::destroyVkResources()
+{
+    vkDestroyRenderPass(m_device->getVkDevice(), m_renderPass, nullptr);
+}
+
 VkRenderPass RenderPass::getRenderPass() const
 {
     return m_renderPass;

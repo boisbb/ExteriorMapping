@@ -40,6 +40,8 @@ public:
     Scene();
     ~Scene();
 
+    void destroyVkResources();
+
     /**
      * @brief Set the Models.
      * 

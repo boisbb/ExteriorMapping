@@ -137,4 +137,9 @@ else()
     add_dependencies(ExteriorMapping shaders)
 endif()
 
-target_compile_definitions(ExteriorMapping PRIVATE COMPILED_SHADER_LOC="${OUTPUT_SHADER_DIR}/")
+target_compile_definitions(ExteriorMapping PRIVATE 
+    COMPILED_SHADER_LOC="${OUTPUT_SHADER_DIR}/"
+    CONFIG_FILES_LOC="${CMAKE_CURRENT_SOURCE_DIR}/res/configs/"
+    SCREENSHOT_FILES_LOC="${CMAKE_CURRENT_SOURCE_DIR}/screenshots/"
+    MODELS_FILES_LOC="${CMAKE_CURRENT_SOURCE_DIR}/res/models/"
+)

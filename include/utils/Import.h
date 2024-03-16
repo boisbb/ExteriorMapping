@@ -74,7 +74,7 @@ void processNode(const std::shared_ptr<Model>& model, aiNode* node, const aiScen
  * @param indices All indices parsed.
  * @return std::shared_ptr<Model> 
  */
-std::shared_ptr<Model> importModel(const std::string& filename, std::vector<Vertex>& vertices,
+std::shared_ptr<Model> importModel(std::string filename, std::vector<Vertex>& vertices,
     std::vector<uint32_t>& indices);
 
 }

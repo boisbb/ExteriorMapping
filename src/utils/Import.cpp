@@ -143,8 +143,6 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
     // TODO: Materials
     if (mesh->mMaterialIndex >= 0)
     {
-        // std::cout << "Model has material!" << std::endl;
-
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
         aiString textureFile;
 
@@ -153,45 +151,30 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
         {
             material->GetTexture(aiTextureType_AMBIENT, 0, &textureFile);
             myMaterial->setTextureFile(directory + "/" + textureFile.C_Str());
-
-            // std::cout << "Info: mesh has ambient textures: " << textureFile.C_Str() << std::endl;
         }
         else if (material->GetTextureCount(aiTextureType_SPECULAR))
         {
             material->GetTexture(aiTextureType_SPECULAR, 0, &textureFile);
-            // std::cerr << "Warning: Specular textures not implemented." << std::endl;
         }
         else if (material->GetTextureCount(aiTextureType_DIFFUSE))
         {
             material->GetTexture(aiTextureType_DIFFUSE, 0, &textureFile);
             myMaterial->setTextureFile(directory + "/" + textureFile.C_Str());
-
-            // std::cout << "Info: mesh has diffuse textures: " << textureFile.C_Str() << std::endl;
         }
         else if (material->GetTextureCount(aiTextureType_UNKNOWN))
         {
             material->GetTexture(aiTextureType_UNKNOWN, 0, &textureFile);
-
-            // std::cerr << "Warning: Unknown textures not implemented." << std::endl;
         }
 
         if (material->GetTextureCount(aiTextureType_NORMALS))
         {
             material->GetTexture(aiTextureType_NORMALS, 0, &textureFile);
-
-            // std::cout << "Info: mesh has normal textures: " << textureFile.C_Str() << std::endl;
-            // std::cerr << "Warning: Normal textures not implemented." << std::endl;
-            // throw std::runtime_error("Error: unknown textures not implemented.");
         }
         else if (material->GetTextureCount(aiTextureType_HEIGHT))
         {
             // https://stackoverflow.com/questions/5281261/generating-a-normal-map-from-a-height-map
             material->GetTexture(aiTextureType_HEIGHT, 0, &textureFile);
-
-            // std::cout << "Info: mesh has height textures: " << textureFile.C_Str() << std::endl;
-            // std::cerr << "Warning: Height textures not implemented." << std::endl;
             myMaterial->setBumpTextureFile(directory + "/" + textureFile.C_Str());
-            // throw std::runtime_error("Error: unknown textures not implemented.");
         }
 
         // Get colors
@@ -234,10 +217,6 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
     }
 
     myMesh->setBbProperties(glm::vec3(bounds.x, bounds.y, bounds.z), bounds.w);
-    // // std::cout << "Mesh info:" << std::endl;
-    // // std::cout << "vertices: " << vertices.size() << std::endl;
-    // // std::cout << "indices: " << indices.size() << std::endl;
-    // // std::cout << "has vertex colors: " << (bool)(mesh->HasVertexColors(0) == true) << std::endl;
 
     return myMesh;
 }
@@ -261,9 +240,11 @@ void processNode(const std::shared_ptr<Model>& model, aiNode* node, const aiScen
     }
 }
 
-std::shared_ptr<Model> importModel(const std::string& filename, std::vector<Vertex>& vertices,
+std::shared_ptr<Model> importModel(std::string filename, std::vector<Vertex>& vertices,
     std::vector<uint32_t>& indices)
 {
+    filename = std::string(MODELS_FILES_LOC) + filename;
+
     std::string directory;
     const size_t last_slash_idx = filename.rfind('/');
     if (std::string::npos != last_slash_idx)
@@ -274,6 +255,7 @@ std::shared_ptr<Model> importModel(const std::string& filename, std::vector<Vert
     fs::path dirPath = directory;
 
     Assimp::Importer import;
+
     const aiScene * scene = import.ReadFile(filename.c_str(), aiProcess_Triangulate | aiProcess_CalcTangentSpace);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)

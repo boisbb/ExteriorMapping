@@ -24,8 +24,13 @@ DescriptorPool::~DescriptorPool()
 {
 }
 
-void DescriptorPool::allocateSet(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptorSet,
-    const void* pNext) const
+void DescriptorPool::destroyVkResources()
+{
+    vkDestroyDescriptorPool(m_device->getVkDevice(), m_descriptorPool, nullptr);
+}
+
+void DescriptorPool::allocateSet(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet &descriptorSet,
+                                 const void *pNext) const
 {
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;

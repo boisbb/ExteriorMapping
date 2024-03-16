@@ -36,5 +36,13 @@
 #define CONFIG_FILES_LOC "../res/configs/"
 #endif
 
+#ifndef SCREENSHOT_FILES_LOC
+#define SCREENSHOT_FILES_LOC "../screenshots/"
+#endif
+
+#ifndef MODELS_FILES_LOC
+#define MODELS_FILES_LOC "../res/models/"
+#endif
+
 #define DRAW_LIGHT false
 

@@ -40,14 +40,13 @@ namespace vke
 Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, const RendererInitParams& params)
     : m_device(device), m_window(window), m_currentFrame(0), m_fubos(MAX_FRAMES_IN_FLIGHT),
     m_vssbos(MAX_FRAMES_IN_FLIGHT), m_fssbos(MAX_FRAMES_IN_FLIGHT), m_cssbos(MAX_FRAMES_IN_FLIGHT),
-    m_creubo(MAX_FRAMES_IN_FLIGHT), m_cressbo(MAX_FRAMES_IN_FLIGHT), m_creDebugSsbo(MAX_FRAMES_IN_FLIGHT), m_creHitsssbo(MAX_FRAMES_IN_FLIGHT),
-    m_creHitsCntssbo(MAX_FRAMES_IN_FLIGHT), m_quadubo(MAX_FRAMES_IN_FLIGHT),
-    m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
+    m_creubo(MAX_FRAMES_IN_FLIGHT), m_cressbo(MAX_FRAMES_IN_FLIGHT), m_creDebugSsbo(MAX_FRAMES_IN_FLIGHT), 
+    m_quadubo(MAX_FRAMES_IN_FLIGHT), m_generalDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_materialDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_computeRayEvalDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0),
     m_swapChainImageIndices(MAX_FRAMES_IN_FLIGHT), m_secondarySwapchain(nullptr), m_secondaryQuadubo(MAX_FRAMES_IN_FLIGHT),
-    m_secondaryQuadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_pointCloudDescriptorsets(MAX_FRAMES_IN_FLIGHT),
-    m_pointCloudUbo(MAX_FRAMES_IN_FLIGHT), m_pointClouds(MAX_FRAMES_IN_FLIGHT)
+    m_secondaryQuadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_pointCloudDescriptorsets(MAX_FRAMES_IN_FLIGHT)
+    // m_pointCloudUbo(MAX_FRAMES_IN_FLIGHT), m_pointClouds(MAX_FRAMES_IN_FLIGHT)
 {
     createCommandBuffers();
     createComputeCommandBuffers();
@@ -58,6 +57,76 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
 
 Renderer::~Renderer()
 {
+}
+
+void Renderer::destroyVkResources()
+{
+    // cleanup also other pointers
+    m_swapChain->destroyVkResources();
+    m_secondarySwapchain->destroyVkResources();
+
+    m_offscreenFramebuffer->destroyVkResources();
+    m_viewMatrixFramebuffer->destroyVkResources();
+    
+    m_offscreenPipeline->destroyVkResources();
+    m_cullPipeline->destroyVkResources();
+    m_raysEvalPipeline->destroyVkResources();
+    m_quadPipeline->destroyVkResources();
+
+    m_quadRenderPass->destroyVkResources();
+    m_offscreenRenderPass->destroyVkResources();
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        vkFreeCommandBuffers(m_device->getVkDevice(), m_device->getCommandPool(), 1, &m_commandBuffers[i]);
+        vkFreeCommandBuffers(m_device->getVkDevice(), m_device->getCommandPool(), 1, &m_computeCommandBuffers[i]);
+    
+        m_fubos[i]->destroyVkResources();
+        m_vssbos[i]->destroyVkResources();
+        m_fssbos[i]->destroyVkResources();
+        m_cssbos[i]->destroyVkResources();
+        m_creubo[i]->destroyVkResources();
+        m_cressbo[i]->destroyVkResources();
+
+#ifdef RAY_EVAL_DEBUG
+        m_creDebugSsbo[i]->destroyVkResources();
+#endif
+
+        m_quadubo[i]->destroyVkResources();
+        m_secondaryQuadubo[i]->destroyVkResources();
+    }
+
+    for (auto& texture : m_textures)
+        texture->destroyVkResources();
+    
+    for (auto& texture : m_bumpTextures)
+        texture->destroyVkResources();
+
+    m_novelImageSampler->destroyVkResources();
+    vkDestroyImageView(m_device->getVkDevice(), m_novelImageView, nullptr);
+    m_novelImage->destroyVkResources();
+
+    m_testPixelSampler->destroyVkResources();
+    vkDestroyImageView(m_device->getVkDevice(), m_testPixelImageView, nullptr);
+    m_testPixelImage->destroyVkResources();
+
+    m_descriptorSetLayout->destroyVkResources();
+    m_viewSetLayout->destroyVkResources();
+    m_materialSetLayout->destroyVkResources();
+    m_computeSetLayout->destroyVkResources();
+    m_computeSceneSetLayout->destroyVkResources();
+    m_computeRayEvalSetLayout->destroyVkResources();
+    m_quadSetLayout->destroyVkResources();
+    m_secondaryQuadSetLayout->destroyVkResources();
+
+    m_descriptorPool->destroyVkResources();
+    m_viewPool->destroyVkResources();
+    m_materialPool->destroyVkResources();
+    m_computePool->destroyVkResources();
+    m_computeScenePool->destroyVkResources();
+    m_computeRayEvalPool->destroyVkResources();
+    m_quadPool->destroyVkResources();
+    m_secondaryQuadPool->destroyVkResources();
 }
 
 void Renderer::initDescriptorResources()
@@ -176,19 +245,19 @@ void Renderer::initDescriptorResources()
 
         m_computeRayEvalDescriptorSets[i]->updateImages(imageBinding, imageInfos);
 
-        m_pointCloudDescriptorsets[i] = std::make_shared<DescriptorSet>(m_device, m_pointCloudSetLayout,
-            m_pointCloudPool);
-        
-        bufferInfos = {
-            m_pointCloudUbo[i]->getInfo(),
-            m_pointClouds[i]->getInfo()
-        };
-
-        bufferBinding = {
-            0, 1
-        };
-
-        m_pointCloudDescriptorsets[i]->updateBuffers(bufferBinding, bufferInfos);
+        // m_pointCloudDescriptorsets[i] = std::make_shared<DescriptorSet>(m_device, m_pointCloudSetLayout,
+        //     m_pointCloudPool);
+        // 
+        // bufferInfos = {
+        //     m_pointCloudUbo[i]->getInfo(),
+        //     m_pointClouds[i]->getInfo()
+        // };
+// 
+        // bufferBinding = {
+        //     0, 1
+        // };
+// 
+        // m_pointCloudDescriptorsets[i]->updateBuffers(bufferBinding, bufferInfos);
     }
 
     // Quad
@@ -274,7 +343,7 @@ void Renderer::rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid
 
     updateRayEvalComputeDescriptorData(novelViews, views, params);
 
-    glm::vec2 res = m_novelImage->getDims();//novelViews[0]->getResolution();
+    glm::vec2 res = m_novelImage->getDims();
 
     m_device->createImageBarrier(m_computeCommandBuffers[m_currentFrame], 0, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
         VK_IMAGE_LAYOUT_GENERAL, m_novelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
@@ -304,6 +373,7 @@ void Renderer::rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid
 
 }
 
+/*
 void Renderer::pointCloudComputePass(std::shared_ptr<ViewGrid> &viewGrid)
 {
     std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
@@ -321,6 +391,7 @@ void Renderer::pointCloudComputePass(std::shared_ptr<ViewGrid> &viewGrid)
 
     vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil(((double)POINT_CLOUD_WIDTH) / 32.f), std::ceil(((double)POINT_CLOUD_HEIGHT) / 32.f), 1);
 }
+*/
 
 void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared_ptr<ViewGrid>& viewGrid, 
         const std::shared_ptr<ViewGrid>& viewMatrixGrid, bool updateData)
@@ -705,6 +776,11 @@ VkDescriptorImageInfo Renderer::getNovelImageInfo() const
     };
 }
 
+std::shared_ptr<Image> Renderer::getNovelViewImage() const
+{
+    return m_novelImage;
+}
+
 VkDescriptorImageInfo Renderer::getTestPixelImageInfo() const
 {
     return VkDescriptorImageInfo{
@@ -1024,14 +1100,14 @@ void Renderer::createDescriptors()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cressbo[i]->map();
 
-        m_pointCloudUbo[i] = std::make_unique<Buffer>(m_device, sizeof(PointCloudUniformBuffer), 
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        m_pointCloudUbo[i]->map();
+        // m_pointCloudUbo[i] = std::make_unique<Buffer>(m_device, sizeof(PointCloudUniformBuffer), 
+        //     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        // m_pointCloudUbo[i]->map();
 
-        m_pointClouds[i] = std::make_unique<Buffer>(m_device, MAX_VIEWS * MAX_OFFSCREEN_RESOLUTION_LINEAR * (sizeof(Point)),
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        m_pointClouds[i]->map();
+        // m_pointClouds[i] = std::make_unique<Buffer>(m_device, MAX_VIEWS * MAX_OFFSCREEN_RESOLUTION_LINEAR * (sizeof(Point)),
+        //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        //     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        // m_pointClouds[i]->map();
 
 #ifdef RAY_EVAL_DEBUG
         m_creDebugSsbo[i] = std::make_unique<Buffer>(m_device, sizeof(ViewEvalDebugCompute) * MAX_RESOLUTION_LINEAR, 
@@ -1039,13 +1115,6 @@ void Renderer::createDescriptors()
         m_creDebugSsbo[i]->map();
 #endif
 
-        // m_creHitsssbo[i] = std::make_unique<Buffer>(m_device, sizeof(FrustumHit) * MAX_RESOLUTION_LINEAR * MAX_VIEWS * 2, 
-        //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        // m_creHitsssbo[i]->map();
-        // 
-        // m_creHitsCntssbo[i] = std::make_unique<Buffer>(m_device, sizeof(int) * MAX_RESOLUTION_LINEAR, 
-        //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        // m_creHitsCntssbo[i]->map();
     }
 
     // Compute general
@@ -1200,6 +1269,7 @@ void Renderer::createDescriptors()
         VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, quadPoolSizes);
 
     // point clouds
+    /*
     VkDescriptorSetLayoutBinding pointCloudUboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         1, VK_SHADER_STAGE_COMPUTE_BIT);
     VkDescriptorSetLayoutBinding pointCloudLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -1225,6 +1295,8 @@ void Renderer::createDescriptors()
     m_pointCloudPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
         pointCloudGenSizes);
 
+    */
+
 }
 
 void Renderer::createRenderResources()
@@ -1245,7 +1317,7 @@ void Renderer::createRenderResources()
         VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
 
     m_novelImage = std::make_shared<Image>(m_device, glm::vec2(NOVEL_VIEW_WIDTH, NOVEL_VIEW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     m_novelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageView = m_novelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
@@ -1290,10 +1362,10 @@ void Renderer::createPipeline(const RendererInitParams& params)
         m_computeRayEvalSetLayout->getLayout()
     };
 
-    std::vector<VkDescriptorSetLayout> pointCloudComputeSetLayout = {
-        m_computeRayEvalSetLayout->getLayout(),
-        m_pointCloudSetLayout->getLayout()
-    };
+    // std::vector<VkDescriptorSetLayout> pointCloudComputeSetLayout = {
+    //     m_computeRayEvalSetLayout->getLayout(),
+    //     m_pointCloudSetLayout->getLayout()
+    // };
 
     m_offscreenPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), params.vertexShaderFile,
         params.fragmentShaderFile, offscreenGraphicsSetLayouts);
@@ -1306,7 +1378,7 @@ void Renderer::createPipeline(const RendererInitParams& params)
     m_raysEvalPipeline = std::make_shared<ComputePipeline>(m_device, params.computeRaysEvalShaderFile, computeRaysEvalSetLayout);
 
     // Point clouds
-    m_pointCloudCompPipeline = std::make_shared<ComputePipeline>(m_device, params.computePointCloudShaderFile, pointCloudComputeSetLayout);
+    // m_pointCloudCompPipeline = std::make_shared<ComputePipeline>(m_device, params.computePointCloudShaderFile, pointCloudComputeSetLayout);
     // m_pointCloudGraphPipeline = std::make_shared<GraphicsPipeline>
 
     // testing
@@ -1378,8 +1450,6 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
 
     if (scene->sceneChanged())
     {
-        // std::cout << "update" << std::endl;
-
         std::vector<MeshShaderDataVertex> vssboData;
         std::vector<MeshShaderDataFragment> fssboData;
 
@@ -1393,7 +1463,6 @@ void Renderer::updateDescriptorData(const std::shared_ptr<Scene>& scene, const s
 
         if (scene->getRenderDebugGeometryFlag())
         {
-            // std::cout << "update descriptor data for views" << std::endl;
             for (auto& view : viewMatrix)
             {
                 view->updateDescriptorDataRenderDebugCube(vssboData, fssboData);

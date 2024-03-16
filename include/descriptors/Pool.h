@@ -16,6 +16,8 @@ public:
         std::vector<VkDescriptorPoolSize> poolSizes);
     ~DescriptorPool();
 
+    void destroyVkResources();
+
     void allocateSet(const VkDescriptorSetLayout descriptorSetLayout, VkDescriptorSet& descriptorSet,
         const void* pNext = nullptr) const;
 private:

@@ -35,6 +35,17 @@ Window::Window(int width, int height, bool visible)
 
 Window::~Window()
 {
+    glfwDestroyWindow(m_window);
+    glfwTerminate();
+}
+
+void Window::destroyVkResources(VkInstance instance)
+{
+    if (m_surface != VK_NULL_HANDLE)
+    {
+        vkDestroySurfaceKHR(instance, m_surface, nullptr);
+        m_surface = VK_NULL_HANDLE;
+    }
 }
 
 void Window::createWindowSurface(VkInstance instance, VkSurfaceKHR& surface)

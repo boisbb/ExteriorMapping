@@ -34,6 +34,8 @@ public:
         VkSamplerMipmapMode mipMap);
     ~Sampler();
 
+    void destroyVkResources();
+
     VkSampler getVkSampler() const;
 
 private:

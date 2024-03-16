@@ -23,6 +23,16 @@ View::~View()
 {
 }
 
+void View::destroyVkResources()
+{
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_vubos[i]->destroyVkResources();
+        m_cubos[i]->destroyVkResources();
+        m_fubos[i]->destroyVkResources();
+    }
+}
+
 glm::vec2 View::getResolution() const
 {
     return m_resolution;

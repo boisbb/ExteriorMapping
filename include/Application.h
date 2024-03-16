@@ -65,6 +65,7 @@ class Application
 {
 public:
     Application(std::string configFile);
+    ~Application();
     
     /**
      * @brief Runs the application.
@@ -165,6 +166,8 @@ private:
     std::shared_ptr<Model> m_cameraCube;
 
     std::shared_ptr<Image> m_viewMatrixScreenshotImage;
+    std::shared_ptr<Image> m_novelViewScreenshotImage;
+    std::shared_ptr<Image> m_actualViewScreenshotImage;
 
     // Imgui flags and resources.
     float m_prevTime;
@@ -197,6 +200,9 @@ private:
     
     // Parsed config file.
     utils::Config m_config;
+
+    // ImGui
+    VkDescriptorPool m_imguiPool;
 };
 
 }

@@ -20,6 +20,8 @@ public:
         VkDescriptorSetLayoutCreateFlags flags = 0, const void* pNext = nullptr);
     ~DescriptorSetLayout();
 
+    void destroyVkResources();
+
     VkDescriptorSetLayoutBinding getBinding(uint32_t binding);
     VkDescriptorSetLayout getLayout();
 private:

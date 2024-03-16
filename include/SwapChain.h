@@ -36,6 +36,8 @@ public:
         VkSurfaceKHR surface);
     ~SwapChain();
 
+    void destroyVkResources();
+
     /**
      * @brief Initializes frame buffers.
      * 
@@ -62,14 +64,6 @@ public:
      */
     void recreate(VkExtent2D windowExtent, VkSurfaceKHR surface);
 
-    // Sync members
-    std::vector<VkSemaphore> m_imageAvailableSemaphores;
-    std::vector<VkSemaphore> m_renderFinishedSemaphores;
-    std::vector<VkFence> m_inFlightFences;
-
-    // Compute sync members
-    std::vector<VkSemaphore> m_computeFinishedSemaphores;
-    std::vector<VkFence> m_computeInFlightFences;
 private:
     // Create methods.
     void createSwapChain(VkSurfaceKHR surface);
@@ -118,9 +112,14 @@ private:
     std::vector<VkImageView> m_swapChainImageViews;
     std::vector<std::shared_ptr<Framebuffer>> m_swapChainFramebuffers;
 
-    // Depth buffer
-    std::shared_ptr<Image> m_depthImage;
-    VkImageView m_depthImageView;
+    // Sync members
+    std::vector<VkSemaphore> m_imageAvailableSemaphores;
+    std::vector<VkSemaphore> m_renderFinishedSemaphores;
+    std::vector<VkFence> m_inFlightFences;
+
+    // Compute sync members
+    std::vector<VkSemaphore> m_computeFinishedSemaphores;
+    std::vector<VkFence> m_computeInFlightFences;
 };
 
 }

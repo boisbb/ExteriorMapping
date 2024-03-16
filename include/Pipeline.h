@@ -23,6 +23,8 @@ public:
     Pipeline(std::shared_ptr<Device> device);
     ~Pipeline();
 
+    void destroyVkResources();
+
     VkPipeline getPipeline() const;
     VkPipelineLayout getPipelineLayout() const;
 

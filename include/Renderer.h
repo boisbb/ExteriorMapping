@@ -53,6 +53,8 @@ public:
     Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> window, const RendererInitParams& params);
     ~Renderer();
 
+    void destroyVkResources();
+
     /**
      * @brief Initialize data for descriptors.
      * 
@@ -224,9 +226,9 @@ public:
     std::shared_ptr<Framebuffer> getSecondaryQuadFramebuffer() const;
     std::shared_ptr<Framebuffer> getViewMatrixFramebuffer() const;
     VkDescriptorImageInfo getNovelImageInfo() const;
+    std::shared_ptr<Image> getNovelViewImage() const;
     VkDescriptorImageInfo getTestPixelImageInfo() const;
     SamplingType getNovelViewSamplingType() const;
-    int getInt() const;
 
     // Setters
     void setSceneChanged(int sceneChanged);
@@ -352,7 +354,6 @@ private:
     std::vector<uint32_t> m_secondarySwapChainImageIndices;
     std::shared_ptr<RenderPass> m_quadRenderPass;
     std::shared_ptr<RenderPass> m_offscreenRenderPass;
-    std::shared_ptr<Framebuffer> m_mainFramebuffer;
     std::shared_ptr<Framebuffer> m_offscreenFramebuffer;
     std::shared_ptr<Framebuffer> m_viewMatrixFramebuffer;
 
@@ -360,11 +361,9 @@ private:
     std::shared_ptr<ComputePipeline> m_cullPipeline;
     std::shared_ptr<ComputePipeline> m_raysEvalPipeline;
     std::shared_ptr<GraphicsPipeline> m_quadPipeline;
-    std::shared_ptr<GraphicsPipeline> m_pointCloudGraphPipeline;
-    std::shared_ptr<ComputePipeline> m_pointCloudCompPipeline;
+    // std::shared_ptr<GraphicsPipeline> m_pointCloudGraphPipeline;
+    // std::shared_ptr<ComputePipeline> m_pointCloudCompPipeline;
     // test
-    std::shared_ptr<ComputePipeline> m_intersectsPipeline;
-    std::shared_ptr<ComputePipeline> m_intervalsPipeline;
 
     std::unordered_map<std::string, int> m_textureMap;
     std::vector<std::shared_ptr<Texture>> m_textures;
@@ -382,12 +381,10 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_creubo;
     std::vector<std::unique_ptr<Buffer>> m_cressbo;
     std::vector<std::unique_ptr<Buffer>> m_creDebugSsbo;
-    std::vector<std::unique_ptr<Buffer>> m_creHitsssbo;
-    std::vector<std::unique_ptr<Buffer>> m_creHitsCntssbo;
     std::vector<std::unique_ptr<Buffer>> m_quadubo;
     std::vector<std::unique_ptr<Buffer>> m_secondaryQuadubo;
-    std::vector<std::unique_ptr<Buffer>> m_pointCloudUbo;
-    std::vector<std::unique_ptr<Buffer>> m_pointClouds;
+    // std::vector<std::unique_ptr<Buffer>> m_pointCloudUbo;
+    // std::vector<std::unique_ptr<Buffer>> m_pointClouds;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_materialDescriptorSets;
@@ -405,7 +402,7 @@ private:
     std::shared_ptr<DescriptorSetLayout> m_computeRayEvalSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_quadSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_secondaryQuadSetLayout;
-    std::shared_ptr<DescriptorSetLayout> m_pointCloudSetLayout;
+    // std::shared_ptr<DescriptorSetLayout> m_pointCloudSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
     std::shared_ptr<DescriptorPool> m_viewPool;
@@ -415,7 +412,7 @@ private:
     std::shared_ptr<DescriptorPool> m_computeRayEvalPool;
     std::shared_ptr<DescriptorPool> m_quadPool;
     std::shared_ptr<DescriptorPool> m_secondaryQuadPool;
-    std::shared_ptr<DescriptorPool> m_pointCloudPool;
+    // std::shared_ptr<DescriptorPool> m_pointCloudPool;
 
     std::shared_ptr<Image> m_novelImage;
     std::shared_ptr<Sampler> m_novelImageSampler;

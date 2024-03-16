@@ -53,16 +53,40 @@ Application::Application(std::string configFile)
     init(configFile);
 }
 
+Application::~Application()
+{
+    vkDeviceWaitIdle(m_device->getVkDevice());
+    m_renderer->destroyVkResources();
+
+    m_scene->destroyVkResources();
+    
+    m_novelViewGrid->destroyVkResources();
+    m_viewGrid->destroyVkResources();
+
+    m_viewMatrixScreenshotImage->destroyVkResources();
+    m_novelViewScreenshotImage->destroyVkResources();
+    m_actualViewScreenshotImage->destroyVkResources();
+
+    m_window->destroyVkResources(m_device->getInstance());
+    m_secondaryWindow->destroyVkResources(m_device->getInstance());
+
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    vkDestroyDescriptorPool(m_device->getVkDevice(), m_imguiPool, nullptr);
+
+    m_device->destroyVkResources();
+}
+
 void Application::run()
 {
     draw();
 
-    vke::utils::saveConfig("last.json", m_config, m_novelViewGrid, m_viewGrid);
+    vke::utils::saveConfig(std::string(CONFIG_FILES_LOC) + "last.json", m_config, m_novelViewGrid, m_viewGrid);
 }
 
 void Application::init(std::string configFile)
 {
-    utils::parseConfig(std::string(CONFIG_FILES_LOC) + configFile, m_config);
+    utils::parseConfig(configFile, m_config);
 
     m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
 
@@ -98,6 +122,14 @@ void Application::init(std::string configFile)
     m_viewMatrixScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     m_viewMatrixScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    m_novelViewScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(NOVEL_VIEW_WIDTH, NOVEL_VIEW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    m_novelViewScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    m_actualViewScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    m_actualViewScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     m_prevTime = glfwGetTime();
 }
@@ -304,8 +336,7 @@ void Application::initImgui()
 	pool_info.poolSizeCount = std::size(pool_sizes);
 	pool_info.pPoolSizes = pool_sizes;
 
-    VkDescriptorPool imguiPool;
-    vkCreateDescriptorPool(m_device->getVkDevice(), &pool_info, nullptr, &imguiPool);
+    vkCreateDescriptorPool(m_device->getVkDevice(), &pool_info, nullptr, &m_imguiPool);
 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -321,7 +352,7 @@ void Application::initImgui()
     initInfo.QueueFamily = indices.graphicsFamily.value();
     initInfo.Queue = m_device->getPresentQueue();
     initInfo.PipelineCache = VK_NULL_HANDLE;
-    initInfo.DescriptorPool = imguiPool;
+    initInfo.DescriptorPool = m_imguiPool;
     initInfo.Allocator = NULL;
     initInfo.MinImageCount = 2;
     initInfo.ImageCount = m_renderer->getSwapChain()->getImageCount();
@@ -442,7 +473,7 @@ void Application::renderImgui(int lastFps)
         {
             if (ImGui::DragFloat("FOV", &m_mainViewFov, 1.f, 30.f, 120.f))
             {
-                m_novelViewGrid->getViews()[0]->getCamera()->setFov(m_mainViewFov);
+                m_novelViewGrid->setFov(m_mainViewFov);
             }
         }
 
@@ -725,33 +756,59 @@ void Application::handleGuiInputChanges()
 
     if (m_imagesSaved && m_threadStarted)
     {
-        std::cout << "images saved, joining thread" << std::endl;
         m_saveImageThread.join();
         m_threadStarted = false;
         m_viewMatrixScreenshotImage->unmap();
+        m_actualViewScreenshotImage->unmap();
+        m_novelViewScreenshotImage->unmap();
     }
 
     if (m_screenshot && !m_threadStarted)
     {
+        std::time_t t = std::time(nullptr);
+        std::tm tm = *std::localtime(&t);
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%d-%m-%Y_%H-%M-%S/");
+        std::string timeString = oss.str();
+        std::string screenshotFolder = std::string(SCREENSHOT_FILES_LOC) + timeString;
+        std::filesystem::create_directories(screenshotFolder);
+
         VkCommandBuffer commandBuffer;
         m_device->beginSingleCommands(commandBuffer);
 
         m_device->copyImageToImage(m_renderer->getViewMatrixFramebuffer()->getColorImage(), m_viewMatrixScreenshotImage,
             commandBuffer);
+        
+        m_device->copyImageToImage(m_renderer->getOffscreenFramebuffer()->getColorImage(), m_actualViewScreenshotImage,
+            commandBuffer);
+
+        m_device->copyImageToImage(m_renderer->getNovelViewImage(), m_novelViewScreenshotImage, commandBuffer);
 
         m_device->endSingleCommands(commandBuffer);
 
         m_viewMatrixScreenshotImage->map();
-        void* data = m_viewMatrixScreenshotImage->getMapped();
-        glm::ivec3 dims = glm::ivec3(m_viewMatrixScreenshotImage->getDims(), 4);
+        void* viewMatrixData = m_viewMatrixScreenshotImage->getMapped();
+        glm::ivec3 viewMatrixDims = glm::ivec3(m_viewMatrixScreenshotImage->getDims(), 4);
+
+        m_actualViewScreenshotImage->map();
+        void* actualViewData = m_actualViewScreenshotImage->getMapped();
+        glm::ivec3 actualViewDims = glm::ivec3(m_actualViewScreenshotImage->getDims(), 4);
+
+        m_novelViewScreenshotImage->map();
+        void* novelData = m_novelViewScreenshotImage->getMapped();
+        glm::ivec3 novelDims = glm::ivec3(m_novelViewScreenshotImage->getDims(), 4);
 
         std::vector<SaveImageInfo> saveImageInfos = {
-            SaveImageInfo{"test.ppm", dims, (uint8_t*)data}
+            SaveImageInfo{screenshotFolder + "viewMatrix.ppm", viewMatrixDims, (uint8_t*)viewMatrixData},
+            SaveImageInfo{screenshotFolder + "gtView.ppm", actualViewDims, (uint8_t*)actualViewData},
+            SaveImageInfo{screenshotFolder + "novelView.ppm", novelDims, (uint8_t*)novelData}
         };
 
         m_imagesSaved = false;
         m_threadStarted = true;
         m_saveImageThread = std::thread(vke::utils::saveImagesThread, saveImageInfos, std::ref(m_imagesSaved));
+
+        vke::utils::saveConfig(screenshotFolder + "config.json", m_config, m_novelViewGrid, m_viewGrid);
 
         m_screenshot = false;
     }

@@ -25,7 +25,18 @@ int main(int argc, char* argv[])
     {
         if (arguments.size() == 2)
         {
-            configFile = arguments[1];
+            configFile = std::string(CONFIG_FILES_LOC) + arguments[1];
+        }
+        else
+        {
+            printUsage();
+        }
+    }
+    else if (arguments[0] == "--fromSnap")
+    {
+        if (arguments.size() == 2)
+        {
+            configFile = std::string(SCREENSHOT_FILES_LOC) + arguments[1];
         }
         else
         {
@@ -34,7 +45,7 @@ int main(int argc, char* argv[])
     }
     else if (arguments[0] == "--recover")
     {
-        configFile = "last.json";
+        configFile = std::string(CONFIG_FILES_LOC) + "last.json";
     }
     else
     {
@@ -42,9 +53,9 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if (!std::filesystem::exists(std::string(CONFIG_FILES_LOC) + configFile))
+    if (!std::filesystem::exists(configFile))
     {
-        std::cout << "Error: the config file does not exist." << std::endl;
+        std::cout << "Error: the config file: " + configFile + " does not exist." << std::endl;
         return 1;
     }
 

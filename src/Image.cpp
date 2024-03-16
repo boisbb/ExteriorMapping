@@ -57,6 +57,19 @@ Image::Image(std::shared_ptr<Device> device, glm::vec2 dims, VkFormat format, Vk
 
 Image::~Image()
 {
+    destroyVkResources();
+}
+
+void Image::destroyVkResources()
+{
+    if (m_image != VK_NULL_HANDLE)
+    {
+        vkDestroyImage(m_device->getVkDevice(), m_image, nullptr);
+        vkFreeMemory(m_device->getVkDevice(), m_imageMemory, nullptr);
+
+        m_image = VK_NULL_HANDLE;
+        m_imageMemory = VK_NULL_HANDLE;
+    }
 }
 
 void Image::transitionImageLayout(VkImageLayout oldL, VkImageLayout newL, VkImageAspectFlags aspectMask)

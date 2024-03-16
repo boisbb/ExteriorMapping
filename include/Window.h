@@ -53,6 +53,8 @@ public:
      */
     Window(int width = 800, int height = 600, bool visible = true);
     ~Window();
+
+    void destroyVkResources(VkInstance instance);
     
     /**
      * @brief Create a Window Surface and return it.

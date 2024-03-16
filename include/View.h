@@ -43,6 +43,8 @@ public:
         std::shared_ptr<DescriptorSetLayout> descriptorSetLayout, std::shared_ptr<DescriptorPool> descriptorPool);
     ~View();
 
+    void destroyVkResources();
+
     // Getters
     glm::vec2 getResolution() const;
     glm::vec2 getViewportStart() const;

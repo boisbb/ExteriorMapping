@@ -93,7 +93,7 @@ void saveConfig(std::string configFile, const Config& initConfig, std::shared_pt
 
 	std::string jdump = j.dump(4, ' ');
 
-	std::ofstream f(std::string(CONFIG_FILES_LOC) + configFile, std::ios::out);
+	std::ofstream f(configFile, std::ios::out);
 	f.write(jdump.data(), jdump.length());
 
 	f.close();
@@ -256,8 +256,6 @@ void parseViewsByGrid(nlohmann::json viewData, Config &config)
 void parseSceneData(nlohmann::json sceneData, Config &config)
 {
 	config.models = std::vector<std::string>();
-
-	std::cout << "huh" << std::endl;
 
 	config.lightPos = glm::vec3(
 		sceneData["lightPos"]["x"],

@@ -35,6 +35,8 @@ public:
         VkImageView swapchainImageView);
     ~Framebuffer();
 
+    void destroyVkResources();
+
     // Getters
     VkFramebuffer getFramebuffer() const;
     std::shared_ptr<Sampler> getSampler() const;

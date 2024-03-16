@@ -24,6 +24,14 @@
 #include <limits>
 #include <algorithm>
 
+std::array<std::string, 5> deviceTypes = {
+    "other",
+    "integrated",
+    "discrete",
+    "virtual",
+    "cpu"
+};
+
 namespace vke
 {
 
@@ -37,9 +45,6 @@ Device::Device(std::shared_ptr<Window> window)
     createCommandPool();
 
     vkGetPhysicalDeviceFeatures(m_physicalDevice, &m_features);
-
-    if (m_features.multiDrawIndirect == VK_FALSE)
-        std::cout << std::endl;
 
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
     indexingFeatures.descriptorBindingPartiallyBound = true;
@@ -66,6 +71,19 @@ Device::Device(std::shared_ptr<Window> window)
 
 Device::~Device()
 {
+}
+
+void Device::destroyVkResources()
+{
+    vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+    vkDestroyDevice(m_device, nullptr);
+
+    // destroy surfaces
+
+    if (m_enableValidationLayers)
+        DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
+    
+    vkDestroyInstance(m_instance, nullptr);
 }
 
 void Device::createInstance()
@@ -228,8 +246,9 @@ void Device::pickPhysicalDevice()
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(m_instance, &deviceCount, devices.data());
 
-    for (const auto& device : devices)
+    for (int i = 0; i < devices.size(); i++)
     {
+        auto& device = devices[i];
         if (vke::utils::checkDeviceSuitable(device, m_surface, m_deviceExtensions))
         {
             m_physicalDevice = device;
@@ -237,12 +256,11 @@ void Device::pickPhysicalDevice()
             VkPhysicalDeviceProperties props;
             vkGetPhysicalDeviceProperties(m_physicalDevice, &props);
 
-            std::cout << "apiVersion: " << props.apiVersion << std::endl
-                      << "driverVersion: " << props.driverVersion << std::endl
-                      << "vendorId: " << props.vendorID << std::endl
-                      << "deviceId: " << props.deviceID << std::endl
-                      << "deviceType: " << props.deviceType << std::endl;
-
+            std::cout << "Selected device: " << i << std::endl
+                      << "Name: " << props.deviceName << std::endl
+                      << "Type: " << deviceTypes[static_cast<int>(props.deviceType)] << std::endl
+                      << "API version: " << props.apiVersion << std::endl
+                      << "Driver version: " << props.driverVersion << std::endl;
             break;
         }
     }

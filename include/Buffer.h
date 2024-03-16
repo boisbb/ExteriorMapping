@@ -9,12 +9,15 @@ namespace vke
 
 class Device;
 
+
 class Buffer
 {
 public:
     Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageFlags usage,
         VkMemoryPropertyFlags properties);
     ~Buffer();
+    
+    void destroyVkResources();
 
     VkDescriptorBufferInfo getInfo() const;
     void* getMapped() const;
@@ -25,6 +28,7 @@ public:
     void unmap();
 
     void copyMapped(void* data, size_t size);
+    
 private:
     std::shared_ptr<Device> m_device;
 

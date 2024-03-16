@@ -106,9 +106,6 @@ public:
 
     std::vector<Vertex> m_vertices;
     std::vector<uint32_t> m_indices;
-
-    std::shared_ptr<Buffer> m_vertexBuffer;
-    std::shared_ptr<Buffer> m_indexBuffer;
 private:
     /**
      * @brief Create and assign texture.

@@ -37,6 +37,19 @@ Scene::~Scene()
 {
 }
 
+void Scene::destroyVkResources()
+{
+    m_vertexBuffer->destroyVkResources();
+    m_indexBuffer->destroyVkResources();
+    m_indirectDrawBuffer->destroyVkResources();
+
+    for (auto& kv : m_indirectBuffersMap)
+    {
+        for (auto& buff : kv.second)
+            buff->destroyVkResources();
+    }
+}
+
 void Scene::setModels(const std::shared_ptr<Device>& device, std::shared_ptr<DescriptorSetLayout> descriptorSetLayout,
     std::shared_ptr<DescriptorPool> descriptorPool, std::vector<std::shared_ptr<Model>> models,
     const std::vector<Vertex>& vertices, const std::vector<uint32_t> indices)
@@ -110,12 +123,12 @@ void Scene::draw(std::shared_ptr<View> view, VkCommandBuffer commandBuffer,
 
     vkCmdBindIndexBuffer(commandBuffer, m_indexBuffer->getVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-    VkBuffer indirectDrawBuffer = m_indirectBuffersMap[view][currentFrame]->getVkBuffer();
+    // VkBuffer indirectDrawBuffer = m_indirectBuffersMap[view][currentFrame]->getVkBuffer();
 
     int totalDraws = m_drawCount;
     totalDraws += (m_renderDebugCameraGeometry) ? m_renderDebugViewsDrawCount : 0;
 
-    vkCmdDrawIndexedIndirect(commandBuffer, indirectDrawBuffer, 0, totalDraws,
+    vkCmdDrawIndexedIndirect(commandBuffer, m_indirectBuffersMap[view][currentFrame]->getVkBuffer(), 0, totalDraws,
         sizeof(VkDrawIndexedIndirectCommand));
 }
 
@@ -208,7 +221,6 @@ void Scene::addDebugCameraGeometry(std::vector<std::shared_ptr<View>> views)
         return;
 
     static int update = 0;
-    // std::cout << "update: " << update << std::endl;
     update++;
 
     m_reinitializeDebugCameraGeometry = false;

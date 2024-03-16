@@ -23,6 +23,12 @@ Pipeline::~Pipeline()
 {
 }
 
+void Pipeline::destroyVkResources()
+{
+    vkDestroyPipeline(m_device->getVkDevice(), m_pipeline, nullptr);
+    vkDestroyPipelineLayout(m_device->getVkDevice(), m_pipelineLayout, nullptr);
+}
+
 VkPipeline Pipeline::getPipeline() const
 {
     return m_pipeline;

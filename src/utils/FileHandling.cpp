@@ -29,8 +29,7 @@ std::vector<char> readFile(const std::string& filename)
 
     if (!file.is_open())
     {
-        std::cout << filename << std::endl;
-        throw std::runtime_error("failed to open file");
+        throw std::runtime_error("Failed to open file: " + filename);
     }
 
     size_t fileSize = (size_t)file.tellg();
@@ -52,8 +51,7 @@ unsigned char* loadImage(std::string& filename, int& width, int& height, int& ch
     unsigned char* pixels = stbi_load(filename.c_str(), &width, &height, &channels, 0);
     if (pixels == NULL)
     {
-        std::cout << filename << std::endl;
-        throw std::runtime_error("Failed loading image.");
+        throw std::runtime_error("Failed loading image: " + filename);
     }
 
     return pixels;
@@ -72,9 +70,6 @@ void saveImage(const std::string &filename, const glm::ivec3 &dims, uint8_t *dat
     else if (filename.substr(filename.find_last_of(".") + 1) == "ppm")
     {
         std::ofstream file(filename, std::ios::out | std::ios::binary);
-
-        std::cout << "Saving image: " << filename << std::endl <<
-                     "dims: " << dims.x << " " << dims.y << " " << dims.z << std::endl;
 
         file << "P6\n" << dims.x << "\n" << dims.y << "\n" << 255 << "\n";
 
@@ -100,7 +95,6 @@ void saveImage(const std::string &filename, const glm::ivec3 &dims, uint8_t *dat
 
 void saveImages(const std::vector<SaveImageInfo> &saveInfos)
 {
-    std::cout << "save images pls" << std::endl;
     for (auto& info : saveInfos)
     {
         saveImage(info.filename, info.dims, info.data);

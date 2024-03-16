@@ -35,6 +35,22 @@ Buffer::Buffer(std::shared_ptr<Device> device, VkDeviceSize size, VkBufferUsageF
 
 Buffer::~Buffer()
 {
+    if (m_buffer != VK_NULL_HANDLE)
+    {
+        destroyVkResources();
+    }
+}
+
+void Buffer::destroyVkResources()
+{
+    if (m_buffer != VK_NULL_HANDLE)
+    {
+        vkDestroyBuffer(m_device->getVkDevice(), m_buffer, nullptr);
+        vkFreeMemory(m_device->getVkDevice(), m_bufferMemory, nullptr);
+
+        m_buffer = VK_NULL_HANDLE;
+        m_bufferMemory = VK_NULL_HANDLE;
+    }
 }
 
 VkDescriptorBufferInfo Buffer::getInfo() const

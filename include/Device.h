@@ -57,6 +57,8 @@ public:
     Device(std::shared_ptr<Window> window);
     ~Device();
 
+    void destroyVkResources();
+
     // Getters
     QueueFamilyIndices getQueueFamilies();
     QueueFamilyIndices getQueueFamilyIndices();

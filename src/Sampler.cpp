@@ -48,6 +48,11 @@ Sampler::~Sampler()
 {
 }
 
+void Sampler::destroyVkResources()
+{
+    vkDestroySampler(m_device->getVkDevice(), m_sampler, nullptr);
+}
+
 VkSampler Sampler::getVkSampler() const
 {
     return m_sampler;

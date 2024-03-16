@@ -33,13 +33,22 @@ Framebuffer::Framebuffer(std::shared_ptr<Device> device, std::shared_ptr<RenderP
 
 Framebuffer::~Framebuffer()
 {
+    // destroyVkResources();
+}
+
+void Framebuffer::destroyVkResources()
+{
     vkDestroyFramebuffer(m_device->getVkDevice(), m_framebuffer, nullptr);
 
     if (!m_fromSwapchain)
     {
+        m_sampler->destroyVkResources();
         vkDestroyImageView(m_device->getVkDevice(), m_colorImageView, nullptr);
-        vkDestroyImageView(m_device->getVkDevice(), m_depthImageView, nullptr);
+        m_colorImage->destroyVkResources();
+        m_depthImage->destroyVkResources();
     }
+
+    vkDestroyImageView(m_device->getVkDevice(), m_depthImageView, nullptr);
 }
 
 VkFramebuffer Framebuffer::getFramebuffer() const

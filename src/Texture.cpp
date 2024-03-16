@@ -19,8 +19,7 @@ namespace vke
 
 Texture::Texture(std::shared_ptr<Device> device, unsigned char* pixels, glm::vec2 dims, int channels,
     VkFormat format)
-    : m_device(device),
-    m_descriptorSets(MAX_FRAMES_IN_FLIGHT)
+    : m_device(device)
 {
     VkDeviceSize imageSize = dims.x * dims.y * channels;
     
@@ -47,6 +46,13 @@ Texture::Texture(std::shared_ptr<Device> device, unsigned char* pixels, glm::vec
 
 Texture::~Texture()
 {
+}
+
+void Texture::destroyVkResources()
+{
+    m_sampler->destroyVkResources();
+    vkDestroyImageView(m_device->getVkDevice(), m_imageView, nullptr);
+    m_image->destroyVkResources();
 }
 
 std::shared_ptr<Sampler> Texture::getSampler() const

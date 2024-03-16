@@ -177,7 +177,6 @@ void Mesh::handleTexture(std::shared_ptr<Device> device, std::shared_ptr<Rendere
             channels = 4;
             newTexture = std::make_shared<Texture>(device, newPixels.data(), glm::vec2(width, height),
                 channels, format);
-            // std::cout << "transfering" << std::endl;
         }
         else if (channels == 4)
         {

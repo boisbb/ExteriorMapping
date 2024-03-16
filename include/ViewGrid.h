@@ -40,6 +40,8 @@ public:
         std::shared_ptr<Model> cameraCube);
     ~ViewGrid();
 
+    void destroyVkResources();
+
     /**
      * @brief Calculates the eye position of the view in grid.
      * 

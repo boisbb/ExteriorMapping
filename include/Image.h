@@ -42,6 +42,8 @@ public:
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED);
     ~Image();
 
+    void destroyVkResources();
+
     /**
      * @brief Transition image from one layout to another.
      * 
@@ -69,7 +71,7 @@ public:
     VkFormat getVkFormat() const;
     glm::vec2 getDims() const;
     void* getMapped();
-
+    
 private:
     glm::vec2 m_dims;
 
