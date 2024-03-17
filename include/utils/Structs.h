@@ -101,9 +101,8 @@ struct RayEvalUniformBuffer {
     glm::vec2 testedPixel;
     int numOfRaySamples;
     bool automaticSampleCount;
-    float __padding1;
-    bool thresholdDepth;
-    float maxSampleDistance;
+    int maxViewsUsed;
+    float __padding2;
 };
 
 struct ViewEvalDataCompute {
@@ -144,6 +143,7 @@ struct RayEvalParams
     bool automaticSampleCount;
     bool thresholdDepth;
     float maxSampleDistance;
+    int maxViewsUsed;
 };
 
 struct WindowParams

@@ -161,7 +161,7 @@ void parseViewsByGridPos(nlohmann::json viewData, Config& config)
 	uint32_t maxCol = 0;
 	for (auto& row : rows)
 	{
-		maxCol = (rows.size() > maxCol) ? rows.size() : maxCol;
+		maxCol = (row.size() > maxCol) ? row.size() : maxCol;
 		for (auto& col : row)
 		{
 			Config::View view;

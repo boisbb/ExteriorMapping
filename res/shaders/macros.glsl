@@ -204,7 +204,7 @@
         } \
     }
 
-#define EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, avg, rayPixSamples) \
+#define EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, avg, rayPixSamples, maxViewsUsed) \
     float dist = 20; \
     float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
     float segmentStart = maxInterval.t.x; \
@@ -242,6 +242,11 @@
                 localAvg += pixVal; \
                 \
                 numOfViews++; \
+                \
+                if (numOfViews > maxViewsUsed) \
+                { \
+                    break; \
+                } \
             } \
         } \
         \
@@ -257,7 +262,7 @@
         } \
     }
 
-#define EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, samplingType, rayPixSamples) \
+#define EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, samplingType, rayPixSamples, maxViewsUsed) \
     float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
     float segmentStart = maxInterval.t.x; \
     \
@@ -271,6 +276,8 @@
         \
         vec4 colorAcc = vec4(0.0); \
         float pointDistAcc = 0; \
+        \
+        int numOfViews = 0; \
         \
         for (int k = 0; k < ubo.viewCnt; k++) \
         { \
@@ -310,17 +317,23 @@
                 \
                 pointDistAcc += pointDistance; \
                 colorAcc += texture(viewImagesSampler, uvView); \
+                \
+                numOfViews++; \
+                if (numOfViews > maxViewsUsed) \
+                { \
+                    break; \
+                } \
             } \
         } \
         \
         if (pointDistAcc < minDist) \
         { \
             minDist = pointDistAcc; \
-            finalColor = colorAcc / ubo.viewCnt; \
+            finalColor = colorAcc / numOfViews; \
         } \
     }
 
-#define EVALUATE_AND_SAMPLE_DEPTH_DIST_TEST_PIXEL(org, dir, maxInterval, finalColor, samplingType, testPixelImage, rayPixSamples) \
+#define EVALUATE_AND_SAMPLE_DEPTH_DIST_TEST_PIXEL(org, dir, maxInterval, finalColor, samplingType, testPixelImage, rayPixSamples, maxViewsUsed) \
     float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
     float segmentStart = maxInterval.t.x; \
     \
@@ -392,13 +405,17 @@
                 colorAcc += texture(viewImagesSampler, uvView); \
                 intervalViewCnt++; \
                 WRITE_IMAGE_PIXEL_NEIGHBOURS(testPixelImage, ivec2(pixId), 15, vec4(0, float(j) / float(rayPixSamples), 0, 1)); \
+                if (intervalViewCnt > maxViewsUsed) \
+                { \
+                    break; \
+                } \
             } \
         } \
         \
         if (pointDistAcc < minDist) \
         { \
             minDist = pointDistAcc; \
-            finalColor = colorAcc / maxInterval.count; \
+            finalColor = colorAcc / intervalViewCnt; \
             sampledPixels = localSampledPixels; \
         } \
     } \
@@ -417,93 +434,6 @@
                 ivec2 pixIndex = start + ivec2(x, y); \
                 WRITE_IMAGE_PIXEL_NEIGHBOURS(testPixelImage, pixel, offset, vec4(1.f, 1.f, 0.f, 1.f)); \
             } \
-        } \
-    }
-
-#define EVALUATE_AND_SAMPLE_DEPTH_DIST_THRESH(org, dir, maxInterval, finalColor, samplingType, rayPixSamples, threshold) \
-    float sampleDist = (maxInterval.t.y - maxInterval.t.x) / rayPixSamples; \
-    float segmentStart = maxInterval.t.x; \
-    \
-    vec3 startP = org + dir * maxInterval.t.x; \
-    vec3 endP = org + dir * maxInterval.t.y; \
-    \
-    float minDist = 1.0 / 0.0; \
-    float distanceVals[MAX_VIEWS]; \
-    float depthVals[MAX_VIEWS]; \
-    vec4 colorVals[MAX_VIEWS]; \
-    for (int j = 0; j < rayPixSamples; j++) \
-    { \
-        vec3 p = org + dir * (segmentStart + j * sampleDist); \
-        \
-        int values = 0; \
-        float depthAcc = 0; \
-        \
-        for (int k = 0; k < ubo.viewCnt; k++) \
-        { \
-            bool result = false; \
-            IS_IN_MASK(k, maxInterval.idBits, result); \
-            if (result) \
-            { \
-                ViewDataEvalCompute currentView = cssbo.objects[k]; \
-                \
-                vec2 pixId = vec2(0.0); \
-                vec2 dView = vec2(0.0); \
-                CALCULATE_PIX_ID_D(p, currentView.view,  currentView.proj, \
-                    currentView.resOffset.xy, currentView.resOffset.zw, \
-                    pixId, dView); \
-                \
-                vec2 uvView = pixId / ubo.viewsTotalRes; \
-                \
-                float n = currentView.nearFar.x; \
-                float f = currentView.nearFar.y; \
-                float z = texture(viewImagesDepthSampler, uvView).r; \
-                \
-                vec4 clipPoint = vec4(dView, z, 1.0); \
-                vec4 viewPoint = currentView.invProj * clipPoint; \
-                viewPoint /= viewPoint.w; \
-                \
-                vec3 worldPoint = (currentView.invView * viewPoint).xyz; \
-                \
-                float pointDistance = 1.0 / 0.0; \
-                if (samplingType == SAMPLE_DEPTH_NORMAL) \
-                { \
-                    POINT_TO_LINE_DIST(worldPoint, startP, endP, pointDistance); \
-                } \
-                else if (samplingType == SAMPLE_DEPTH_ANGLE) \
-                { \
-                    LINE_TO_LINE_ANGLE_DIST(org, worldPoint, startP, endP, pointDistance); \
-                } \
-                \
-                float actDepth = (2.0 * n) / (f + n - z * (f - n)); \
-                depthAcc += actDepth; \
-                \
-                distanceVals[values] = pointDistance; \
-                colorVals[values] = texture(viewImagesSampler, uvView); \
-                depthVals[values] = actDepth; \
-                values++; \
-            } \
-        } \
-        \
-        float meanDepth = depthAcc / ubo.viewCnt; \
-        vec4 colorAcc = vec4(0.0); \
-        int chosenValues = 0; \
-        \
-        float pointDistAcc = 0.f; \
-        for (int l = 0; l < values; l++) \
-        { \
-            if (abs(depthVals[l] - meanDepth) < threshold) \
-            { \
-                colorAcc += colorVals[l]; \
-                pointDistAcc += distanceVals[l]; \
-                chosenValues++; \
-            } \
-        } \
-        float meanDist = (pointDistAcc / chosenValues); \
-        \
-        if (meanDist < minDist && chosenValues > 0) \
-        { \
-            minDist = meanDist; \
-            finalColor = colorAcc / chosenValues; \
         } \
     }
 

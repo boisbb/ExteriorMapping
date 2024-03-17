@@ -260,7 +260,7 @@ std::shared_ptr<Model> importModel(std::string filename, std::vector<Vertex>& ve
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
-        throw std::runtime_error("Error loading model.");
+        throw std::runtime_error("Error loading model: " + filename);
     }
 
     std::shared_ptr<Model> model = std::make_shared<Model>();

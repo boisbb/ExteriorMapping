@@ -56,6 +56,225 @@ void ViewGrid::reconstructMatrices()
     }
 }
 
+void ViewGrid::addColumn()
+{
+    if (m_views.size() + m_gridSize.y > MAX_VIEWS)
+    {
+        std::cout << "Error: Maximum number of views exceeded." << std::endl;
+        return;
+    }
+
+    if (!m_byStep && !m_byInGridPos)
+        return;
+
+    if (m_viewRowColumns.size() == 0)
+        return;
+    
+    int newViewWidth = static_cast<float>(m_resolution.x) / static_cast<float>(m_gridSize.x + 1);
+    int viewHeight = static_cast<float>(m_resolution.y) / static_cast<float>(m_gridSize.y);
+
+    int newViewWidthOffset = 0;
+    int viewHeightOffset = 0;
+
+    int viewId = 0;
+
+    glm::vec2 gridStart(0.f);
+
+    if (m_byStep)
+    {
+        gridStart = glm::vec2(
+            -(((m_config.gridSize.x - 1) * m_step.x) / 2),
+            ((m_config.gridSize.y - 1) * m_step.y) / 2
+        );
+    }
+
+    for (int i = 0; i < m_viewRowColumns.size(); i++)
+    {
+        viewHeightOffset = viewHeight * i;
+        for (int j = 0; j < m_viewRowColumns[i]; j++)
+        {
+            newViewWidthOffset = j * newViewWidth;
+
+            m_views[viewId]->setResolution(glm::vec2(newViewWidth, viewHeight));
+            m_views[viewId]->setViewportStart(glm::vec2(newViewWidthOffset, viewHeightOffset));
+
+            viewId++;
+        }
+
+        newViewWidthOffset = m_viewRowColumns[i] * newViewWidth;
+
+        std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(newViewWidth, viewHeight), glm::vec2(newViewWidthOffset, viewHeightOffset),
+        m_device, m_setLayout, m_setPool);
+        view->setDebugCameraGeometry(m_cameraCube);
+        view->getCamera()->setFov(m_fov);
+        view->getCamera()->setViewDir(m_prevViewDir);
+
+        if (m_byStep)
+        {
+            glm::vec3 gridPos = glm::vec3(gridStart, 0.f) + glm::vec3(m_viewRowColumns[i], -i, 0.f) * 
+                glm::vec3(m_step, 0.f);
+
+            m_viewGridPos[view] = gridPos;
+            viewCalculateEye(view);
+        }
+        else if (m_byInGridPos)
+        {
+            m_viewGridPos[view] = glm::vec3(0.f);
+            viewCalculateEye(view);
+        }
+
+        m_views.insert(m_views.begin() + viewId, view);
+        viewId++;
+        m_viewRowColumns[i] += 1;
+    }
+
+    m_gridSize.x += 1;
+}
+
+void ViewGrid::removeColumn(int currentFrame, bool resourcesOnly)
+{
+    if (m_gridSize.x == 1)
+        return;
+
+    if (!m_byStep && !m_byInGridPos)
+        return;
+
+    if (m_viewRowColumns.size() == 0)
+        return;
+    
+    int newViewWidth = static_cast<float>(m_resolution.x) / static_cast<float>(m_gridSize.x - 1);
+    int viewHeight = static_cast<float>(m_resolution.y) / static_cast<float>(m_gridSize.y);
+
+    int newViewWidthOffset = 0;
+    int viewHeightOffset = 0;
+
+    int viewId = 0;
+
+    for (int i = 0; i < m_viewRowColumns.size(); i++)
+    {
+        if (resourcesOnly)
+        {
+            viewId = (m_gridSize.y * i) + m_gridSize.x - 1;
+            m_views[viewId]->destroyVkResources(currentFrame);
+            continue;
+        }
+
+        viewHeightOffset = viewHeight * i;
+        for (int j = 0; j < m_viewRowColumns[i] - 1; j++)
+        {
+            newViewWidthOffset = j * newViewWidth;
+
+            m_views[viewId]->setResolution(glm::vec2(newViewWidth, viewHeight));
+            m_views[viewId]->setViewportStart(glm::vec2(newViewWidthOffset, viewHeightOffset));
+
+            viewId++;
+        }
+
+        m_views[viewId]->destroyVkResources(currentFrame);
+
+        m_views.erase(std::next(m_views.begin(), viewId));
+        m_viewRowColumns[i] -= 1;
+    }
+
+    if (!resourcesOnly)
+        m_gridSize.x -= 1;
+}
+
+void ViewGrid::addRow()
+{
+    if (m_views.size() + m_gridSize.x > MAX_VIEWS)
+    {
+        std::cout << "Error: Maximum number of views exceeded." << std::endl;
+        return;
+    }
+
+    if (!m_byStep && !m_byInGridPos)
+        return;
+
+    int rowsCount = m_viewRowColumns.size();
+    int newViewHeight = static_cast<float>(m_resolution.y) / static_cast<float>(rowsCount + 1);
+    int newViewHeightOffset = newViewHeight * rowsCount;
+    int columnsCount = m_viewRowColumns[m_viewRowColumns.size() - 1];
+    int viewWidth = static_cast<float>(m_resolution.x) / static_cast<float>(columnsCount);
+
+    resizeViewsHeight(newViewHeight);
+
+    glm::vec2 gridStart(0.f);
+    if (m_byStep)
+    {
+        gridStart = glm::vec2(
+            -(((m_config.gridSize.x - 1) * m_step.x) / 2),
+            ((m_config.gridSize.y - 1) * m_step.y) / 2
+        );
+    }
+
+    for (int i = 0; i < columnsCount; i++)
+    {
+        int newViewWidthOffset = viewWidth * i;
+
+        std::shared_ptr<View> view = std::make_shared<View>(glm::vec2(viewWidth, newViewHeight),
+            glm::vec2(newViewWidthOffset, newViewHeightOffset), m_device, m_setLayout, m_setPool);
+        
+        view->setDebugCameraGeometry(m_cameraCube);
+        view->getCamera()->setFov(m_fov);
+        view->getCamera()->setViewDir(m_prevViewDir);
+        m_views.push_back(view);
+
+        if (m_byStep)
+        {
+            glm::vec3 gridPos = glm::vec3(gridStart, 0.f) + glm::vec3(i, -rowsCount, 0.f) * 
+                glm::vec3(m_step, 0.f);
+
+            m_viewGridPos[view] = gridPos;
+            viewCalculateEye(view);
+        }
+        else if (m_byInGridPos)
+        {
+            m_viewGridPos[view] = glm::vec3(0.f);
+            viewCalculateEye(view);
+        }
+    }
+
+    if (m_byInGridPos || m_byStep)
+    {
+        m_gridSize.y += 1;
+    }
+
+    m_viewRowColumns.push_back(columnsCount);
+}
+
+void ViewGrid::removeRow(int currentFrame, bool resourcesOnly)
+{
+    if (m_gridSize.y == 1)
+        return;
+
+    if (!m_byStep && !m_byInGridPos)
+        return;
+
+    int columnsCount = m_viewRowColumns[m_viewRowColumns.size() - 1];
+
+    int firstRowViewId = m_views.size() - columnsCount;
+
+    for (int i = firstRowViewId; i < m_views.size(); i++)
+    {
+        m_views[i]->destroyVkResources(currentFrame);
+    }
+
+    if (resourcesOnly)
+        return;
+
+
+    m_views.erase(std::next(m_views.begin(), firstRowViewId), std::next(m_views.begin(), m_views.size()));
+    m_viewRowColumns.erase(std::next(m_viewRowColumns.begin(), m_viewRowColumns.size() - 1));
+
+    m_gridSize.y -= 1;
+
+    int rowsCount = m_viewRowColumns.size();
+    int newViewHeight = static_cast<float>(m_resolution.y) / static_cast<float>(rowsCount);
+
+    resizeViewsHeight(newViewHeight);
+}
+
 std::vector<std::shared_ptr<View>> ViewGrid::getViews() const
 {
     return m_views;
@@ -162,7 +381,7 @@ void ViewGrid::initializeViews()
 void ViewGrid::initializeByInGridPos()
 {
     m_byInGridPos = m_config.byInGridPos;
-    m_byStep = true;
+    m_byStep = false;
     m_position = m_config.location;
     m_viewDir = m_config.viewDir;
     m_gridSize = m_config.gridSize;
@@ -333,6 +552,33 @@ void ViewGrid::addViewColumn(int rowId, int rowViewStartId)
     
     m_views.insert(m_views.begin() + rowViewStartId + rowViewsCount, view);
     m_viewRowColumns[rowId] += 1;
+}
+
+void ViewGrid::resizeViewsHeight(int newViewHeight)
+{
+    int newViewHeightOffset = 0;
+
+    int viewId = 0;
+    for (int i = 0; i < m_viewRowColumns.size(); i++)
+    {
+        newViewHeightOffset = newViewHeight * i;
+        
+        for (int j = 0; j < m_viewRowColumns[i]; j++)
+        {
+            auto& view = m_views[viewId];
+
+            glm::vec2 viewOffset =  view->getViewportStart();
+            viewOffset.y = newViewHeightOffset;
+
+            glm::vec2 viewResolution = view->getResolution();
+            viewResolution.y = newViewHeight;
+
+            view->setViewportStart(viewOffset);
+            view->setResolution(viewResolution);
+
+            viewId += 1;
+        }
+    }
 }
 
 void ViewGrid::calculateGridMatrix()

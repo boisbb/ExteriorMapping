@@ -1515,8 +1515,7 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
     creuData.testedPixel = params.testedPixel;
     creuData.numOfRaySamples = params.numOfRaySamples;
     creuData.automaticSampleCount = params.automaticSampleCount;
-    creuData.thresholdDepth = params.thresholdDepth;
-    creuData.maxSampleDistance = params.maxSampleDistance;
+    creuData.maxViewsUsed = params.maxViewsUsed;
 
     m_creubo[m_currentFrame]->copyMapped(&creuData, sizeof(RayEvalUniformBuffer));
 

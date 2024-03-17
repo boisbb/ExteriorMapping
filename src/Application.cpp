@@ -132,6 +132,8 @@ void Application::init(std::string configFile)
     m_actualViewScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     m_prevTime = glfwGetTime();
+
+    m_numberOfViewsUsed = m_viewGrid->getViews().size();
 }
 
 void Application::draw()
@@ -181,7 +183,8 @@ void Application::draw()
         {
             m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid, 
                 RayEvalParams{m_testPixels, m_testedPixel, m_numberOfRaySamples, 
-                m_automaticSampleCount, m_thresholdDepth, m_maxSampleDistance});
+                m_automaticSampleCount, m_thresholdDepth, m_maxSampleDistance, 
+                m_numberOfViewsUsed});
         }
         
         // End compute pass and submit it.
@@ -439,34 +442,44 @@ void Application::renderImgui(int lastFps)
 
         }
 
-        ImGui::Checkbox("Automatic sample count", &m_automaticSampleCount);
-
-        ImGui::Text("Number of ray samples:");
-        ImGui::SliderInt("tt", &m_numberOfRaySamples, 0, 256);
-
-        ImGui::Text("Sampling method:");
-        if (ImGui::BeginCombo("##samplingCombo", samplingTypeStrings[static_cast<int>(m_samplingType)].c_str()))
+        if (ImGui::CollapsingHeader("Novel view parameters"))
         {
-            for (int i = 0; i < static_cast<int>(SamplingType::END); i++)
+            ImGui::Indent();
+
+            ImGui::Checkbox("Automatic sample count", &m_automaticSampleCount);
+
+            ImGui::Text("Number of ray samples:");
+            ImGui::SliderInt("Samples", &m_numberOfRaySamples, 0, 256);
+
+            ImGui::Text("Maximum number of views used:");
+            ImGui::SliderInt("Views", &m_numberOfViewsUsed, 4, m_viewGrid->getViews().size());
+
+            ImGui::Text("Sampling method:");
+            if (ImGui::BeginCombo("##samplingCombo", samplingTypeStrings[static_cast<int>(m_samplingType)].c_str()))
             {
-                bool isSelected = static_cast<int>(m_samplingType) == i;
-                if (ImGui::Selectable(samplingTypeStrings[i].c_str(), isSelected))
+                for (int i = 0; i < static_cast<int>(SamplingType::END); i++)
                 {
-                    m_samplingType = static_cast<SamplingType>(i);
+                    bool isSelected = static_cast<int>(m_samplingType) == i;
+                    if (ImGui::Selectable(samplingTypeStrings[i].c_str(), isSelected))
+                    {
+                        m_samplingType = static_cast<SamplingType>(i);
+                    }
+
+                    if (isSelected)
+                    {
+                        ImGui::SetItemDefaultFocus();
+                    }
+
+                    if (m_renderer->getNovelViewSamplingType() != m_samplingType)
+                    {
+                        m_renderer->setNovelViewSamplingType(m_samplingType);
+                    }
                 }
 
-                if (isSelected)
-                {
-                    ImGui::SetItemDefaultFocus();
-                }
-
-                if (m_renderer->getNovelViewSamplingType() != m_samplingType)
-                {
-                    m_renderer->setNovelViewSamplingType(m_samplingType);
-                }
+                ImGui::EndCombo();
             }
 
-            ImGui::EndCombo();
+            ImGui::Unindent();
         }
         
         if(ImGui::CollapsingHeader("Parameters"))
@@ -481,11 +494,11 @@ void Application::renderImgui(int lastFps)
         ImGui::Unindent();
     }
 
-    if (ImGui::CollapsingHeader("Views"))
+    if (ImGui::CollapsingHeader("View Grid"))
     {
         ImGui::Indent();
 
-        if (ImGui::Checkbox("Render from view matrix", &m_renderFromViews))
+        if (ImGui::Checkbox("Render from view grid", &m_renderFromViews))
         {
             if (m_renderNovel)
                 m_renderFromViews = false;
@@ -536,64 +549,95 @@ void Application::renderImgui(int lastFps)
             ImGui::Unindent();
         }
 
-        int viewId = 0;
-        std::vector<uint32_t> viewRowsColumns = m_viewGrid->getViewRowsColumns();
-        for (int i = 0; i < viewRowsColumns.size(); i++)
+        if (ImGui::CollapsingHeader("Views"))
         {
-            std::string rowText = "Row #" + std::to_string(i);
+            ImGui::Indent();
 
-            if (ImGui::CollapsingHeader(rowText.c_str()))
+            if (ImGui::Button("Add row"))
             {
-                ImGui::PushID(i);
-                ImGui::Indent();
-
-                std::vector<std::shared_ptr<View>> views = m_viewGrid->getViews();
-                for (int j = 0; j < viewRowsColumns[i]; j++)
-                {
-                    std::string colText = "#" + std::to_string(j);
-                    if (ImGui::CollapsingHeader(colText.c_str()))
-                    {
-                        auto& view = views[viewId + j];
-
-                        ImGui::PushID(view.get());
-                        ImGui::Indent();
-
-                        bool depthOnly = view->getDepthOnly();
-
-                        if (ImGui::Checkbox("Render only depth", &depthOnly))
-                        {
-                            view->setDepthOnly(depthOnly);
-                        }
-
-                        bool frustumCulling = view->getFrustumCull();
-
-                        if (ImGui::Checkbox("Frustum Culling", &frustumCulling))
-                        {
-                            view->setFrustumCull(frustumCulling);
-                        }
-
-                        VkDrawIndexedIndirectCommand* commands = m_scene->getViewDrawData(view, m_renderer->getCurrentFrame());
-                        
-                        int renderedModels = 0;
-                        for (int k = 0; k < m_scene->getDrawCount(); k++)
-                        {
-                            renderedModels += commands[k].instanceCount;
-                        }
-
-                        std::string rm = "Rendered meshes: " + std::to_string(renderedModels);
-
-                        ImGui::Text(rm.c_str(), "warning fix");
-
-                        ImGui::Unindent();
-                        ImGui::PopID();
-                    }
-                }
-
-                ImGui::Unindent();
-                ImGui::PopID();
+                m_viewGrid->addRow();
             }
 
-            viewId += viewRowsColumns[i];
+            ImGui::SameLine();
+
+            if (ImGui::Button("Remove row"))
+            {
+                m_removeRow = 0;
+            }
+
+            if (ImGui::Button("Add column"))
+            {
+                m_viewGrid->addColumn();
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Remove column"))
+            {
+                m_removeCol = 0;
+            }
+
+            int viewId = 0;
+            std::vector<uint32_t> viewRowsColumns = m_viewGrid->getViewRowsColumns();
+            for (int i = 0; i < viewRowsColumns.size(); i++)
+            {
+                std::string rowText = "Row #" + std::to_string(i);
+
+                if (ImGui::CollapsingHeader(rowText.c_str()))
+                {
+                    ImGui::PushID(i);
+                    ImGui::Indent();
+
+                    std::vector<std::shared_ptr<View>> views = m_viewGrid->getViews();
+                    for (int j = 0; j < viewRowsColumns[i]; j++)
+                    {
+                        std::string colText = "#" + std::to_string(j);
+                        if (ImGui::CollapsingHeader(colText.c_str()))
+                        {
+                            auto& view = views[viewId + j];
+
+                            ImGui::PushID(view.get());
+                            ImGui::Indent();
+
+                            bool depthOnly = view->getDepthOnly();
+
+                            if (ImGui::Checkbox("Render only depth", &depthOnly))
+                            {
+                                view->setDepthOnly(depthOnly);
+                            }
+
+                            bool frustumCulling = view->getFrustumCull();
+
+                            if (ImGui::Checkbox("Frustum Culling", &frustumCulling))
+                            {
+                                view->setFrustumCull(frustumCulling);
+                            }
+
+                            VkDrawIndexedIndirectCommand* commands = m_scene->getViewDrawData(view, m_renderer->getCurrentFrame());
+                            
+                            int renderedModels = 0;
+                            for (int k = 0; k < m_scene->getDrawCount(); k++)
+                            {
+                                renderedModels += commands[k].instanceCount;
+                            }
+
+                            std::string rm = "Rendered meshes: " + std::to_string(renderedModels);
+
+                            ImGui::Text(rm.c_str(), "warning fix");
+
+                            ImGui::Unindent();
+                            ImGui::PopID();
+                        }
+                    }
+
+                    ImGui::Unindent();
+                    ImGui::PopID();
+                }
+
+                viewId += viewRowsColumns[i];
+            }
+
+            ImGui::Unindent();
         }
 
         ImGui::Unindent();
@@ -811,6 +855,20 @@ void Application::handleGuiInputChanges()
         vke::utils::saveConfig(screenshotFolder + "config.json", m_config, m_novelViewGrid, m_viewGrid);
 
         m_screenshot = false;
+    }
+
+    if (m_removeRow < MAX_FRAMES_IN_FLIGHT)
+    {
+        vkDeviceWaitIdle(m_device->getVkDevice());
+        m_viewGrid->removeRow(!m_renderer->getCurrentFrame(), (m_removeRow == 0));
+        m_removeRow++;
+    }
+
+    if (m_removeCol < MAX_FRAMES_IN_FLIGHT)
+    {
+        vkDeviceWaitIdle(m_device->getVkDevice());
+        m_viewGrid->removeColumn(!m_renderer->getCurrentFrame(), (m_removeCol == 0));
+        m_removeCol++;
     }
 }
 

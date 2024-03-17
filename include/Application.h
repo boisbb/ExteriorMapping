@@ -179,6 +179,7 @@ private:
     bool m_renderNovel = false;
     bool m_novelSecondWindow = false;
     bool m_automaticSampleCount = false;
+    int m_numberOfViewsUsed = 4;
     bool m_thresholdDepth = false;
     int m_numberOfRaySamples = 16;
     float m_maxSampleDistance = 1.f;
@@ -192,6 +193,8 @@ private:
     SamplingType m_samplingType;
     bool m_reRenderViewMatrix = false;
     bool m_screenshot = false;
+    int m_removeRow = MAX_FRAMES_IN_FLIGHT;
+    int m_removeCol = MAX_FRAMES_IN_FLIGHT;
 
     // threads
     std::thread m_saveImageThread;

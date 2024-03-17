@@ -55,6 +55,14 @@ public:
      */
     void reconstructMatrices();
 
+    void addColumn();
+
+    void removeColumn(int currentFrame, bool resourcesOnly = false);
+
+    void addRow();
+
+    void removeRow(int currentFrame, bool resourcesOnly = false);
+
     // Getters
     std::vector<std::shared_ptr<View>> getViews() const;
     void getInputInfo(glm::vec3& position, glm::vec3& viewDir, float& speed, 
@@ -83,6 +91,7 @@ private:
     void initializeByGrid();
     void addViewRow();
     void addViewColumn(int rowId, int rowViewStartId);
+    void resizeViewsHeight(int newViewHeight);
 
     /**
      * @brief Calculates the "view" matrix for the grid.

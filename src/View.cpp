@@ -23,13 +23,22 @@ View::~View()
 {
 }
 
-void View::destroyVkResources()
+void View::destroyVkResources(int currentFrame)
 {
-    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    if (currentFrame == -1)
     {
-        m_vubos[i]->destroyVkResources();
-        m_cubos[i]->destroyVkResources();
-        m_fubos[i]->destroyVkResources();
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            m_vubos[i]->destroyVkResources();
+            m_cubos[i]->destroyVkResources();
+            m_fubos[i]->destroyVkResources();
+        }
+    }
+    else
+    {
+        m_vubos[currentFrame]->destroyVkResources();
+        m_cubos[currentFrame]->destroyVkResources();
+        m_fubos[currentFrame]->destroyVkResources();
     }
 }
 

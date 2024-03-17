@@ -18,8 +18,7 @@ layout(set=0, binding=0) uniform RayEvalUniformBuffer {
     vec2 testedPixel;
     int numOfRaySamples;
     bool automaticSampleCount;
-    bool thresholdDepth;
-    float maxSampleDistance;
+    int maxViewsUsed;
 } ubo;
 
 layout(std430, set=0, binding=1) readonly buffer ssbo {
@@ -89,25 +88,17 @@ void main()
 
         if (ubo.samplingType == SAMPLE_COLOR)
         {
-            EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, finalColor, float(sampleCount));
+            EVALUATE_AND_SAMPLE_COLOR(org, dir, maxInterval, finalColor, float(sampleCount), ubo.maxViewsUsed);
         }
         else
         {
             if (ubo.testPixel == true && ubo.testedPixel.x == origPixId.x && ubo.testedPixel.y == origPixId.y)
             {
-                EVALUATE_AND_SAMPLE_DEPTH_DIST_TEST_PIXEL(org, dir, maxInterval, finalColor, ubo.samplingType, testPixelImage, float(sampleCount));
+                EVALUATE_AND_SAMPLE_DEPTH_DIST_TEST_PIXEL(org, dir, maxInterval, finalColor, ubo.samplingType, testPixelImage, float(sampleCount), ubo.maxViewsUsed);
             }
             else
             {
-                if (ubo.thresholdDepth == false)
-                {
-                    EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, ubo.samplingType, float(sampleCount));
-                }
-                else
-                {
-                    EVALUATE_AND_SAMPLE_DEPTH_DIST_THRESH(org, dir, maxInterval, finalColor, ubo.samplingType, float(sampleCount),
-                        ubo.maxSampleDistance);
-                }
+                EVALUATE_AND_SAMPLE_DEPTH_DIST(org, dir, maxInterval, finalColor, ubo.samplingType, float(sampleCount), ubo.maxViewsUsed);
             }
         }
 
