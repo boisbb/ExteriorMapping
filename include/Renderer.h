@@ -292,6 +292,8 @@ public:
      */
     void setNovelViewBarrier();
 
+    void setOffscreenFramebufferBarrier();
+
     /**
      * @brief End render pass.
      * 

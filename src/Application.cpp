@@ -213,6 +213,10 @@ void Application::draw()
         if (m_renderNovel || m_novelSecondWindow)
             m_renderer->setNovelViewBarrier();
         
+        // https://github.com/ARM-software/vulkan_best_practice_for_mobile_developers/blob/master/samples/performance/pipeline_barriers/pipeline_barriers_tutorial.md
+        if (!m_renderNovel)
+            m_renderer->setOffscreenFramebufferBarrier();
+        
         // Renders the offscreen framebuffer or novel view into the swapchain framebuffer.
         m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer());
         m_renderer->quadRenderPass(windowResolution, m_depthOnly);

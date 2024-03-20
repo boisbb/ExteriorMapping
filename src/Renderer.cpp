@@ -904,6 +904,13 @@ void Renderer::setNovelViewBarrier()
         VK_IMAGE_LAYOUT_GENERAL, m_novelImage->getVkImage(), VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
+void Renderer::setOffscreenFramebufferBarrier()
+{
+    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], 0, VK_ACCESS_SHADER_READ_BIT, m_offscreenFramebuffer->getColorImage()->getVkImageLayout(),
+        m_offscreenFramebuffer->getColorImage()->getVkImageLayout(), m_offscreenFramebuffer->getColorImage()->getVkImage(), 
+        VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
 void Renderer::endRenderPass()
 {
     VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
