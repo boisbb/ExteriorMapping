@@ -129,7 +129,7 @@ void RenderPass::createRenderPass()
     }
     else
     {
-        colorDependencies.resize(1);
+        colorDependencies.resize(2);
 
         colorDependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
         colorDependencies[0].dstSubpass = 0;
@@ -137,6 +137,14 @@ void RenderPass::createRenderPass()
         colorDependencies[0].srcAccessMask = 0;
         colorDependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         colorDependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        colorDependencies[1].srcSubpass = VK_SUBPASS_EXTERNAL;
+        colorDependencies[1].dstSubpass = 0;
+        colorDependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorDependencies[1].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorDependencies[1].srcAccessMask = 0;
+        colorDependencies[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+        colorDependencies[1].dependencyFlags = 0;
     }
 
     

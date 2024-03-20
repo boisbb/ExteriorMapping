@@ -59,6 +59,7 @@ struct UniformDataFragment {
 
 struct ViewDataFragment {
     bool depthOnly;
+    float __padding;
 };
 
 struct MeshShaderDataVertex {
