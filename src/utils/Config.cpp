@@ -75,9 +75,9 @@ void saveConfig(std::string configFile, const Config& initConfig, std::shared_pt
 	glm::vec3 viewGridPos = viewMatrix->getPos();
 	glm::vec3 viewGridDir = viewMatrix->getViewDir();
 
-	j["viewData"]["viewGrid"]["pos"]["x"] = viewGridPos.x;
-	j["viewData"]["viewGrid"]["pos"]["y"] = viewGridPos.y;
-	j["viewData"]["viewGrid"]["pos"]["z"] = viewGridPos.z;
+	j["viewData"]["viewGrid"]["location"]["x"] = viewGridPos.x;
+	j["viewData"]["viewGrid"]["location"]["y"] = viewGridPos.y;
+	j["viewData"]["viewGrid"]["location"]["z"] = viewGridPos.z;
 
 	j["viewData"]["viewGrid"]["viewDir"]["x"] = viewGridDir.x;
 	j["viewData"]["viewGrid"]["viewDir"]["y"] = viewGridDir.y;
@@ -186,9 +186,9 @@ void parseViewsByGridPos(nlohmann::json viewData, Config& config)
 	config.gridSize = glm::vec2(maxCol, rowCount);
 
 	config.location = glm::vec3(
-		viewData["viewGrid"]["pos"]["x"].template get<float>(),
-		viewData["viewGrid"]["pos"]["y"].template get<float>(),
-		viewData["viewGrid"]["pos"]["z"].template get<float>()
+		viewData["viewGrid"]["location"]["x"].template get<float>(),
+		viewData["viewGrid"]["location"]["y"].template get<float>(),
+		viewData["viewGrid"]["location"]["z"].template get<float>()
 	);
 
 	config.viewDir = glm::vec3(
@@ -205,28 +205,28 @@ void parseViewsByStep(nlohmann::json viewData, Config &config)
 	config.byStep = true;
 
 	config.gridSize = glm::ivec2(
-		viewData["views"]["gridSize"]["x"].template get<float>(),
-		viewData["views"]["gridSize"]["y"].template get<float>()
+		viewData["viewGrid"]["gridSize"]["x"].template get<float>(),
+		viewData["viewGrid"]["gridSize"]["y"].template get<float>()
 	);
 
 	config.viewDir = glm::vec3(
-		viewData["views"]["viewDir"]["x"].template get<float>(),
-		viewData["views"]["viewDir"]["y"].template get<float>(),
-		viewData["views"]["viewDir"]["z"].template get<float>()
+		viewData["viewGrid"]["viewDir"]["x"].template get<float>(),
+		viewData["viewGrid"]["viewDir"]["y"].template get<float>(),
+		viewData["viewGrid"]["viewDir"]["z"].template get<float>()
 	);
 
 	config.location = glm::vec3(
-		viewData["views"]["location"]["x"].template get<float>(),
-		viewData["views"]["location"]["y"].template get<float>(),
-		viewData["views"]["location"]["z"].template get<float>()
+		viewData["viewGrid"]["location"]["x"].template get<float>(),
+		viewData["viewGrid"]["location"]["y"].template get<float>(),
+		viewData["viewGrid"]["location"]["z"].template get<float>()
 	);
 
 	config.step = glm::vec2(
-		viewData["views"]["step"]["x"].template get<float>(),
-		viewData["views"]["step"]["y"].template get<float>()
+		viewData["viewGrid"]["step"]["x"].template get<float>(),
+		viewData["viewGrid"]["step"]["y"].template get<float>()
 	);
 
-	config.gridFov = viewData["fov"].template get<float>();
+	config.gridFov = viewData["viewGrid"]["fov"].template get<float>();
 }
 
 void parseViewsByGrid(nlohmann::json viewData, Config &config)

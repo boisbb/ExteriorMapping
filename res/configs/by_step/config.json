@@ -14,10 +14,10 @@
                 "z": 0
             }
         },
-        "fov" : 30,
         "byStep": true,
         "byInGridPos": false,
-        "views": {
+        "viewGrid": {
+            "fov" : 30,
             "gridSize": {
                 "x": 4,
                 "y": 4
