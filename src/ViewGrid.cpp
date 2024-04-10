@@ -154,7 +154,7 @@ void ViewGrid::removeColumn(int currentFrame, bool resourcesOnly)
     {
         if (resourcesOnly)
         {
-            viewId = (m_gridSize.y * i) + m_gridSize.x - 1;
+            viewId = (m_gridSize.x * i) + m_gridSize.x - 1;
             m_views[viewId]->destroyVkResources(currentFrame);
             continue;
         }
@@ -175,6 +175,8 @@ void ViewGrid::removeColumn(int currentFrame, bool resourcesOnly)
         m_views.erase(std::next(m_views.begin(), viewId));
         m_viewRowColumns[i] -= 1;
     }
+
+    std::cout << "removed column" << std::endl;
 
     if (!resourcesOnly)
         m_gridSize.x -= 1;
@@ -260,6 +262,8 @@ void ViewGrid::removeRow(int currentFrame, bool resourcesOnly)
         m_views[i]->destroyVkResources(currentFrame);
     }
 
+    std::cout << "removed row" << std::endl;
+
     if (resourcesOnly)
         return;
 
@@ -273,6 +277,7 @@ void ViewGrid::removeRow(int currentFrame, bool resourcesOnly)
     int newViewHeight = static_cast<float>(m_resolution.y) / static_cast<float>(rowsCount);
 
     resizeViewsHeight(newViewHeight);
+
 }
 
 std::vector<std::shared_ptr<View>> ViewGrid::getViews() const

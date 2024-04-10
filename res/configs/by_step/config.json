@@ -17,8 +17,8 @@
         "byStep": true,
         "byInGridPos": false,
         "viewGrid": {
-            "fov" : 30,
-            "gridSize": {
+            "fov" : 90,
+            "gridSize": {  
                 "x": 4,
                 "y": 4
             },
@@ -41,6 +41,7 @@
     "sceneData": {
         "models": [
             "dabrovic_sponza/sponza.obj",
+            "porsche/porsche.obj",
             "basicCube/cube.obj"
         ],
         "lightPos": {

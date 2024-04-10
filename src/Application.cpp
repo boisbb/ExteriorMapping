@@ -426,7 +426,7 @@ void Application::renderImgui(int lastFps)
         ImGui::Unindent();
     }
 
-    if(ImGui::CollapsingHeader("Main view"))
+    if(ImGui::CollapsingHeader("Main View"))
     {
         ImGui::Indent();
         ImGui::PushID(0);        
@@ -489,10 +489,12 @@ void Application::renderImgui(int lastFps)
         
         if(ImGui::CollapsingHeader("Parameters"))
         {
+            ImGui::Indent();
             if (ImGui::DragFloat("FOV", &m_mainViewFov, 1.f, 30.f, 120.f))
             {
                 m_novelViewGrid->setFov(m_mainViewFov);
             }
+            ImGui::Unindent();
         }
 
         ImGui::PopID();

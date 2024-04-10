@@ -404,7 +404,7 @@
                 pointDistAcc += pointDistance; \
                 colorAcc += texture(viewImagesSampler, uvView); \
                 intervalViewCnt++; \
-                WRITE_IMAGE_PIXEL_NEIGHBOURS(testPixelImage, ivec2(pixId), 15, vec4(0, float(j) / float(rayPixSamples), 0, 1)); \
+                WRITE_IMAGE_PIXEL_NEIGHBOURS(testPixelImage, ivec2(pixId), 15, vec4(0, 0, 1, 1)); \
                 if (intervalViewCnt > maxViewsUsed) \
                 { \
                     break; \

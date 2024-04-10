@@ -27,7 +27,7 @@ Window::Window(int width, int height, bool visible)
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     glfwWindowHint(GLFW_VISIBLE, m_visible);
 
-    m_window = glfwCreateWindow(m_width, m_height, "VulkanApp", nullptr, nullptr);
+    m_window = glfwCreateWindow(m_width, m_height, "Exterior Mapping", nullptr, nullptr);
     glfwSetWindowUserPointer(m_window, this);
 
     glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
