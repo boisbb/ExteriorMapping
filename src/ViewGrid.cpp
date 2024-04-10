@@ -176,8 +176,6 @@ void ViewGrid::removeColumn(int currentFrame, bool resourcesOnly)
         m_viewRowColumns[i] -= 1;
     }
 
-    std::cout << "removed column" << std::endl;
-
     if (!resourcesOnly)
         m_gridSize.x -= 1;
 }
@@ -261,8 +259,6 @@ void ViewGrid::removeRow(int currentFrame, bool resourcesOnly)
     {
         m_views[i]->destroyVkResources(currentFrame);
     }
-
-    std::cout << "removed row" << std::endl;
 
     if (resourcesOnly)
         return;
