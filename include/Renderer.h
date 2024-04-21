@@ -186,7 +186,7 @@ public:
      * 
      * @param imageInfo Vulkan image info.
      */
-    void changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo);
+    void changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo, bool allFrames = false);
 
     /**
      * @brief Copy offscreen frame buffer to the image for pixel testing.

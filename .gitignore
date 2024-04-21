@@ -6,3 +6,4 @@ external/downloaded/*
 res/shaders/glslc.exe
 doc/*
 screenshots/*
+eval/eval/*

@@ -39,7 +39,9 @@ void DescriptorPool::allocateSet(const VkDescriptorSetLayout descriptorSetLayout
     allocInfo.pSetLayouts = &descriptorSetLayout;
     allocInfo.pNext = pNext;
 
-    if (vkAllocateDescriptorSets(m_device->getVkDevice(), &allocInfo, &descriptorSet) != VK_SUCCESS)
+    auto res = vkAllocateDescriptorSets(m_device->getVkDevice(), &allocInfo, &descriptorSet);
+
+    if (res != VK_SUCCESS)
     {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }

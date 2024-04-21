@@ -58,6 +58,8 @@ void ViewGrid::reconstructMatrices()
 
 void ViewGrid::addColumn()
 {
+    
+
     if (m_views.size() + m_gridSize.y > MAX_VIEWS)
     {
         std::cout << "Error: Maximum number of views exceeded." << std::endl;

@@ -64,7 +64,24 @@ namespace vke
 class Application
 {
 public:
-    Application(std::string configFile);
+
+    struct Arguments
+    {
+        enum class EvaluationType
+        {
+            SAMPLES,
+            ONE,
+            _COUNT
+        };
+
+        std::string configFile;
+        glm::vec2 windowResolution;
+
+        EvaluationType evalType;
+        SamplingType samplingType;
+    };
+
+    Application(const Arguments& arguments);
     ~Application();
     
     /**
@@ -79,7 +96,7 @@ private:
      * @brief Initialize the application and rendering resources.
      * 
      */
-    void init(std::string configFile);
+    void init();
 
     /**
      * @brief Draw the frames.
@@ -92,7 +109,7 @@ private:
      *        so that the novel view can be rendered right away.
      * 
      */
-    void renderViewMatrix();
+    void renderViewMatrix(std::shared_ptr<ViewGrid> grid, std::shared_ptr<Framebuffer> framebuffer, bool novelView);
 
     /**
      * @brief Consumes the user input.
@@ -168,6 +185,14 @@ private:
     std::shared_ptr<Image> m_viewMatrixScreenshotImage;
     std::shared_ptr<Image> m_novelViewScreenshotImage;
     std::shared_ptr<Image> m_actualViewScreenshotImage;
+
+    // Application argument members
+    Arguments m_args;
+    bool m_terminate = false;
+    bool m_evaluate = false;
+    int m_evaluateFrames = 0;
+    int64_t m_evaluateTotalDuration = 0;
+    std::vector<float> m_evalResults;
 
     // Imgui flags and resources.
     float m_prevTime;

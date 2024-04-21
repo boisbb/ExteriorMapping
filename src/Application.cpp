@@ -43,15 +43,16 @@ std::array<std::string, 3> samplingTypeStrings = {
 namespace vke
 {
 
-Application::Application(std::string configFile)
+Application::Application(const Arguments& arguments)
     : m_showCameraGeometry(false),
     m_renderFromViews(false),
     m_changeOffscreenTarget(MAX_FRAMES_IN_FLIGHT),
     m_samplingType(SamplingType::COLOR),
     m_testedPixel(0.f, 0.f),
-    m_intervalCounter(m_interval)
+    m_intervalCounter(m_interval),
+    m_args(arguments)
 {
-    init(configFile);
+    init();
 }
 
 Application::~Application()
@@ -85,11 +86,11 @@ void Application::run()
     vke::utils::saveConfig(std::string(CONFIG_FILES_LOC) + "last.json", m_config, m_novelViewGrid, m_viewGrid);
 }
 
-void Application::init(std::string configFile)
+void Application::init()
 {
-    utils::parseConfig(configFile, m_config);
+    utils::parseConfig(m_args.configFile, m_config);
 
-    m_window = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT);
+    m_window = std::make_shared<Window>(m_args.windowResolution.x, m_args.windowResolution.y);
 
     m_device = std::make_shared<Device>(m_window);
 
@@ -99,7 +100,7 @@ void Application::init(std::string configFile)
     m_renderer = std::make_shared<Renderer>(m_device, m_window, params);
     m_renderer->setNovelViewSamplingType(m_samplingType);
 
-    m_secondaryWindow = std::make_shared<Window>(WINDOW_WIDTH, WINDOW_HEIGHT, false);
+    m_secondaryWindow = std::make_shared<Window>(m_args.windowResolution.x, m_args.windowResolution.y, false);
     m_secondaryWindow->createWindowSurface(m_device->getInstance());
     glfwSetWindowCloseCallback(m_secondaryWindow->getWindow(), secondaryWindowCloseCallback);
 
@@ -108,8 +109,8 @@ void Application::init(std::string configFile)
     createScene();
     createMainView();
 
-    VkExtent2D offscreenRes = m_renderer->getOffscreenFramebuffer()->getResolution();
-    m_viewGrid = std::make_shared<ViewGrid>(m_device, glm::vec2(offscreenRes.width, offscreenRes.height), m_config, 
+    VkExtent2D vmRes = m_renderer->getViewMatrixFramebuffer()->getResolution();
+    m_viewGrid = std::make_shared<ViewGrid>(m_device, glm::vec2(vmRes.width, vmRes.height), m_config, 
         m_renderer->getViewDescriptorSetLayout(), m_renderer->getViewDescriptorPool(), m_cameraCube);
     
     m_viewsFov = m_config.gridFov;
@@ -117,10 +118,9 @@ void Application::init(std::string configFile)
     m_renderer->initDescriptorResources();
     
     initImgui();
-    renderViewMatrix();
-    vkDeviceWaitIdle(m_device->getVkDevice());
+    renderViewMatrix(m_viewGrid, m_renderer->getViewMatrixFramebuffer(), false);
 
-    m_viewMatrixScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_viewMatrixScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(VIEW_MATRIX_WIDTH, VIEW_MATRIX_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     m_viewMatrixScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -128,13 +128,35 @@ void Application::init(std::string configFile)
         VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     m_novelViewScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    m_actualViewScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_actualViewScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(MAIN_VIEW_WIDTH, MAIN_VIEW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     m_actualViewScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     m_prevTime = glfwGetTime();
 
     m_numberOfViewsUsed = m_viewGrid->getViews().size();
+
+    if (m_args.evalType != Arguments::EvaluationType::_COUNT)
+    {
+        m_evaluate = true;
+        m_renderNovel = true;
+        m_samplingType = m_args.samplingType;
+        m_renderer->setNovelViewSamplingType(m_samplingType);
+
+        if (m_args.evalType == Arguments::EvaluationType::SAMPLES)
+        {
+            m_numberOfRaySamples = EVAL_SAMPLES_STEP;
+        }
+        else if (m_args.evalType == Arguments::EvaluationType::ONE)
+        {
+            m_numberOfRaySamples = 128;
+        }
+
+        vkDeviceWaitIdle(m_device->getVkDevice());
+        renderViewMatrix(m_novelViewGrid, m_renderer->getOffscreenFramebuffer(), true);
+        vkDeviceWaitIdle(m_device->getVkDevice());
+        m_renderer->changeQuadRenderPassSource(m_renderer->getNovelImageInfo(), true);
+    }
 }
 
 void Application::draw()
@@ -145,12 +167,15 @@ void Application::draw()
     int frames = 0;
     int lastFps = 0;
 
+    auto start = std::chrono::high_resolution_clock::now();
+    auto stop = std::chrono::high_resolution_clock::now();
+
     glm::vec2 windowResolution = m_window->getResolution();
     glm::vec2 secondaryWindowResolution = m_secondaryWindow->getResolution();
     std::shared_ptr<ViewGrid> viewGrid;
     std::shared_ptr<Framebuffer> framebuffer;
 
-    while (!glfwWindowShouldClose(m_window->getWindow()))
+    while (!glfwWindowShouldClose(m_window->getWindow()) && !m_terminate)
     {
         // Choose respective resources, which will be rendered mainly.
         viewGrid = m_renderFromViews ? m_viewGrid : m_novelViewGrid;
@@ -170,6 +195,9 @@ void Application::draw()
         // Reconstruct matrices for the main views;
         viewGrid->reconstructMatrices();
         
+        if (m_evaluate)
+            start = std::chrono::high_resolution_clock::now();
+
         // Begin compute pass.
         m_renderer->beginComputePass();
 
@@ -247,6 +275,16 @@ void Application::draw()
 
         m_renderer->presentFrame(m_window, windowParams);
 
+        if (m_evaluate)
+        {
+            stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<milliseconds>(stop - start);
+
+            m_evaluateTotalDuration += duration.count();
+
+            m_evaluateFrames += 1;
+        }
+
         if (!handlePresentResult(windowParams, windowResolution, secondaryWindowResolution))
             continue;
 
@@ -259,20 +297,20 @@ void Application::draw()
     vkDeviceWaitIdle(m_device->getVkDevice());
 }
 
-void Application::renderViewMatrix()
+void Application::renderViewMatrix(std::shared_ptr<ViewGrid> grid, std::shared_ptr<Framebuffer> framebuffer, bool novelView)
 {
-    m_viewGrid->reconstructMatrices();
+    grid->reconstructMatrices();
 
     // Run the culling compute pass.
     m_renderer->beginComputePass();
-    m_renderer->cullComputePass(m_scene, m_viewGrid, false);
+    m_renderer->cullComputePass(m_scene, grid, novelView);
     m_renderer->endComputePass();
     m_renderer->submitCompute();
 
     // Render the scene.
     m_renderer->beginCommandBuffer();
-    m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), m_renderer->getViewMatrixFramebuffer());
-    m_renderer->renderPass(m_scene, m_viewGrid, m_viewGrid);
+    m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
+    m_renderer->renderPass(m_scene, grid, m_viewGrid);
     m_renderer->endRenderPass();
 
     // Copy the data into the test framebuffer.
@@ -348,7 +386,7 @@ void Application::initImgui()
 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.DisplaySize = ImVec2(WINDOW_WIDTH, WINDOW_HEIGHT);
+    io.DisplaySize = ImVec2(m_args.windowResolution.x, m_args.windowResolution.y);
     io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
 
     ImGui_ImplGlfw_InitForVulkan(m_window->getWindow(), true);
@@ -454,7 +492,7 @@ void Application::renderImgui(int lastFps)
             ImGui::Checkbox("Automatic sample count", &m_automaticSampleCount);
 
             ImGui::Text("Number of ray samples:");
-            ImGui::SliderInt("Samples", &m_numberOfRaySamples, 0, 256);
+            ImGui::SliderInt("Samples", &m_numberOfRaySamples, MIN_RAY_SAMPLES, MAX_RAY_SAMPLES);
 
             ImGui::Text("Maximum number of views used:");
             ImGui::SliderInt("Views", &m_numberOfViewsUsed, 4, m_viewGrid->getViews().size());
@@ -800,7 +838,7 @@ void Application::handleGuiInputChanges()
     if (m_reRenderViewMatrix)
     {
         vkDeviceWaitIdle(m_device->getVkDevice());
-        renderViewMatrix();
+        renderViewMatrix(m_viewGrid, m_renderer->getViewMatrixFramebuffer(), false);
         m_reRenderViewMatrix = false;
         vkDeviceWaitIdle(m_device->getVkDevice());
     }
@@ -876,6 +914,41 @@ void Application::handleGuiInputChanges()
         vkDeviceWaitIdle(m_device->getVkDevice());
         m_viewGrid->removeColumn(!m_renderer->getCurrentFrame(), (m_removeCol == 0));
         m_removeCol++;
+    }
+
+    if (m_evaluate)
+    {
+        if (m_evaluateFrames >= MAX_EVAL_FRAMES)
+        {
+            if (m_args.evalType == Arguments::EvaluationType::SAMPLES)
+            {
+                if (m_numberOfRaySamples <= MAX_RAY_SAMPLES)
+                {
+                    m_numberOfRaySamples += EVAL_SAMPLES_STEP;
+                    m_evaluateFrames = 0;
+                    m_evaluateTotalDuration = 0;
+                }
+                else
+                {
+                    std::cout << "-----EVALUATION RESULTS-----" << std::endl;
+                    std::cout << "nr. samples | mean frame render time" << std::endl;
+                    for (int i = 0; i < m_evalResults.size(); i++)
+                        std::cout << (i * EVAL_SAMPLES_STEP) << " " << m_evalResults[i] << std::endl;
+
+                    m_terminate = true;
+                    m_evaluate = false;
+                }
+            }
+            else if (m_args.evalType == Arguments::EvaluationType::ONE)
+            {
+                std::cout << "-----EVALUATION RESULTS-----" << std::endl;
+                std::cout << "nr. cameras | mean frame render time" << std::endl;
+                std::cout << (m_viewGrid->getViews().size()) << " " << ((float)m_evaluateTotalDuration / (float)m_evaluateFrames) << std::endl;
+
+                m_terminate = true;
+                m_evaluate = false;
+            }
+        }
     }
 }
 

@@ -628,7 +628,7 @@ void Renderer::presentFrame(std::shared_ptr<Window> window, WindowParams& params
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo)
+void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo, bool allFrames)
 {
     std::vector<VkDescriptorImageInfo> imageInfos{
         imageInfo
@@ -638,7 +638,18 @@ void Renderer::changeQuadRenderPassSource(VkDescriptorImageInfo imageInfo)
         1
     };
 
-    m_quadDescriptorSets[m_currentFrame]->updateImages(imageBinding, imageInfos, 0);
+    if (allFrames)
+    {
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            m_quadDescriptorSets[i]->updateImages(imageBinding, imageInfos, 0);
+        }
+    }
+    else
+    {
+        m_quadDescriptorSets[m_currentFrame]->updateImages(imageBinding, imageInfos, 0);
+    }
+
 }
 
 void Renderer::copyOffscreenFrameBufferToSupp()
@@ -1032,11 +1043,11 @@ void Renderer::createDescriptors()
     m_viewSetLayout = std::make_shared<DescriptorSetLayout>(m_device, viewLayoutBindings);
 
     VkDescriptorPoolSize viewPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS + 1));
     VkDescriptorPoolSize cuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS + 1));
     VkDescriptorPoolSize fvuboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS + 1));
     
     std::vector<VkDescriptorPoolSize> viewSizes = {
         viewPoolSize,
@@ -1044,7 +1055,7 @@ void Renderer::createDescriptors()
         fvuboPoolSize
     };
 
-    m_viewPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS), 
+    m_viewPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS + 1), 
         0, viewSizes);
 
     //! Textures
@@ -1162,7 +1173,7 @@ void Renderer::createDescriptors()
         drawPoolSize
     };
     m_computeScenePool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 
-        static_cast<uint32_t>(MAX_VIEWS), 0, computeSceneSizes);
+        static_cast<uint32_t>(MAX_VIEWS + 1), 0, computeSceneSizes);
 
     // Compute raygen
     VkDescriptorSetLayoutBinding uboRayGenLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -1318,10 +1329,10 @@ void Renderer::createRenderResources()
         depthFormat, true);
 
     m_offscreenFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
-        VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
+        VkExtent2D{(uint32_t)MAIN_VIEW_WIDTH, (uint32_t)MAIN_VIEW_HEIGHT});
 
     m_viewMatrixFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
-        VkExtent2D{(uint32_t)FRAMEBUFFER_WIDTH, (uint32_t)FRAMEBUFFER_HEIGHT});
+        VkExtent2D{(uint32_t)VIEW_MATRIX_WIDTH, (uint32_t)VIEW_MATRIX_HEIGHT});
 
     m_novelImage = std::make_shared<Image>(m_device, glm::vec2(NOVEL_VIEW_WIDTH, NOVEL_VIEW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -1330,7 +1341,7 @@ void Renderer::createRenderResources()
     m_novelImageSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
         VK_SAMPLER_MIPMAP_MODE_LINEAR);
 
-    m_testPixelImage = std::make_shared<Image>(m_device, glm::vec2(FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_testPixelImage = std::make_shared<Image>(m_device, glm::vec2(VIEW_MATRIX_WIDTH, VIEW_MATRIX_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     m_testPixelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     m_testPixelImageView = m_testPixelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1509,7 +1520,7 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
 {
     std::shared_ptr<Camera> mainCamera = novelViews[0]->getCamera();
     glm::vec2 res = m_novelImage->getDims();
-    VkExtent2D offscreenFbRes = m_offscreenFramebuffer->getResolution();
+    VkExtent2D offscreenFbRes = m_viewMatrixFramebuffer->getResolution();
 
     RayEvalUniformBuffer creuData{};
     creuData.invProj = mainCamera->getProjectionInverse();
