@@ -1622,11 +1622,12 @@ void Renderer::updatePointsDescriptorData(const std::shared_ptr<View> &novelView
     pointsUboData.proj = novelView->getCamera()->getProjection();
     pointsUboData.viewImageRes = views->getResolution();
     pointsUboData.viewCount = views->getGridSize();
-    pointsUboData.sampledView = glm::vec2(0,0);
+    pointsUboData.sampledView = glm::vec2(0, 0);
+    pointsUboData.pointsRes = glm::vec2(POINT_CLOUD_WIDTH, POINT_CLOUD_HEIGHT);
 
     m_pointsUbo[m_currentFrame]->copyMapped(&pointsUboData, sizeof(PointsUniformBuffer));
 
-    std::vector<ViewEvalDataCompute> pointsssbo(views->getViews().size());
+    std::vector<PointsStorageBuffer> pointsssbo(views->getViews().size());
 
     std::vector<std::shared_ptr<View>> gridViews = views->getViews();
 
@@ -1639,12 +1640,10 @@ void Renderer::updatePointsDescriptorData(const std::shared_ptr<View> &novelView
 
         glm::vec2 res = gridViews[i]->getResolution();
         glm::vec2 offset = gridViews[i]->getViewportStart();
-        pointsssbo[i].resOffset.x = res.x;
+        pointsssbo[i].resOffset.x = 8000;
         pointsssbo[i].resOffset.y = res.y;
         pointsssbo[i].resOffset.z = offset.x;
         pointsssbo[i].resOffset.w = offset.y;
-
-        std::cout << res.x<<std::endl;
     }
 
     m_pointsSsbo[m_currentFrame]->copyMapped(pointsssbo.data(), sizeof(PointsStorageBuffer) * pointsssbo.size());

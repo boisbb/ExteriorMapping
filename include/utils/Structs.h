@@ -175,6 +175,7 @@ struct PointsUniformBuffer
     glm::vec2 viewImageRes;
     glm::vec2 viewCount;
     glm::vec2 sampledView;
+    glm::vec2 pointsRes;
 };
 
 struct PointsStorageBuffer
