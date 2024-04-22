@@ -220,6 +220,7 @@ private:
     bool m_screenshot = false;
     int m_removeRow = MAX_FRAMES_IN_FLIGHT;
     int m_removeCol = MAX_FRAMES_IN_FLIGHT;
+    bool m_pointClouds = false;
 
     // threads
     std::thread m_saveImageThread;

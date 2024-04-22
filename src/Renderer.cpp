@@ -45,8 +45,8 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     m_computeDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_computeRayEvalDescriptorSets(MAX_FRAMES_IN_FLIGHT),
     m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0),
     m_swapChainImageIndices(MAX_FRAMES_IN_FLIGHT), m_secondarySwapchain(nullptr), m_secondaryQuadubo(MAX_FRAMES_IN_FLIGHT),
-    m_secondaryQuadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_pointCloudDescriptorsets(MAX_FRAMES_IN_FLIGHT)
-    // m_pointCloudUbo(MAX_FRAMES_IN_FLIGHT), m_pointClouds(MAX_FRAMES_IN_FLIGHT)
+    m_secondaryQuadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_pointsDescriptorsets(MAX_FRAMES_IN_FLIGHT),
+    m_pointsUbo(MAX_FRAMES_IN_FLIGHT), m_pointsSsbo(MAX_FRAMES_IN_FLIGHT)
 {
     createCommandBuffers();
     createComputeCommandBuffers();
@@ -72,6 +72,7 @@ void Renderer::destroyVkResources()
     m_cullPipeline->destroyVkResources();
     m_raysEvalPipeline->destroyVkResources();
     m_quadPipeline->destroyVkResources();
+    m_pointCloudPipeline->destroyVkResources();
 
     m_quadRenderPass->destroyVkResources();
     m_offscreenRenderPass->destroyVkResources();
@@ -94,6 +95,8 @@ void Renderer::destroyVkResources()
 
         m_quadubo[i]->destroyVkResources();
         m_secondaryQuadubo[i]->destroyVkResources();
+        m_pointsUbo[i]->destroyVkResources();
+        m_pointsSsbo[i]->destroyVkResources();
     }
 
     for (auto& texture : m_textures)
@@ -118,6 +121,7 @@ void Renderer::destroyVkResources()
     m_computeRayEvalSetLayout->destroyVkResources();
     m_quadSetLayout->destroyVkResources();
     m_secondaryQuadSetLayout->destroyVkResources();
+    m_pointsSetLayout->destroyVkResources();
 
     m_descriptorPool->destroyVkResources();
     m_viewPool->destroyVkResources();
@@ -127,6 +131,7 @@ void Renderer::destroyVkResources()
     m_computeRayEvalPool->destroyVkResources();
     m_quadPool->destroyVkResources();
     m_secondaryQuadPool->destroyVkResources();
+    m_pointsPool->destroyVkResources();
 }
 
 void Renderer::initDescriptorResources()
@@ -244,20 +249,6 @@ void Renderer::initDescriptorResources()
         };
 
         m_computeRayEvalDescriptorSets[i]->updateImages(imageBinding, imageInfos);
-
-        // m_pointCloudDescriptorsets[i] = std::make_shared<DescriptorSet>(m_device, m_pointCloudSetLayout,
-        //     m_pointCloudPool);
-        // 
-        // bufferInfos = {
-        //     m_pointCloudUbo[i]->getInfo(),
-        //     m_pointClouds[i]->getInfo()
-        // };
-// 
-        // bufferBinding = {
-        //     0, 1
-        // };
-// 
-        // m_pointCloudDescriptorsets[i]->updateBuffers(bufferBinding, bufferInfos);
     }
 
     // Quad
@@ -306,6 +297,35 @@ void Renderer::initDescriptorResources()
         quboData.m_depthOnly = false;
         
         m_secondaryQuadubo[i]->copyMapped(&quboData, sizeof(QuadUniformBuffer));
+    }
+
+    // points
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_pointsDescriptorsets[i] = std::make_shared<DescriptorSet>(m_device, m_pointsSetLayout, m_pointsPool);
+
+        std::vector<VkDescriptorBufferInfo> bufferInfos{
+            m_pointsUbo[i]->getInfo(),
+            m_pointsSsbo[i]->getInfo()
+        };
+
+        std::vector<uint32_t> bufferBinding
+        {
+            0, 1
+        };
+
+        m_pointsDescriptorsets[i]->updateBuffers(bufferBinding, bufferInfos);
+
+        std::vector<VkDescriptorImageInfo> imageInfos = {
+            m_viewMatrixFramebuffer->getColorImageInfo(),
+            m_viewMatrixFramebuffer->getDepthImageInfo(),
+        };
+
+        std::vector<uint32_t> imageBinding = {
+            2, 3
+        };
+
+        m_pointsDescriptorsets[i]->updateImages(imageBinding, imageInfos);
     }
 }
 
@@ -440,6 +460,23 @@ void Renderer::quadRenderPass(glm::vec2 windowResolution, bool depthOnly, bool s
     vkCmdDraw(m_commandBuffers[m_currentFrame], 3, 1, 0, 0);
 }
 
+void Renderer::pointsRenderPass(const std::shared_ptr<ViewGrid>& mainView, const std::shared_ptr<ViewGrid>& viewGrid)
+{
+    std::shared_ptr<View> view = mainView->getViews()[0];
+
+    updatePointsDescriptorData(view, viewGrid);
+
+    setViewport(glm::vec2(0, 0), mainView->getResolution());
+    setScissor(glm::vec2(0, 0), mainView->getResolution());
+
+    m_pointCloudPipeline->bind(m_commandBuffers[m_currentFrame]);
+
+    VkDescriptorSet pointsSet = m_pointsDescriptorsets[m_currentFrame]->getDescriptorSet();
+    vkCmdBindDescriptorSets(m_commandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pointCloudPipeline->getPipelineLayout(), 0, 1, &pointsSet, 0, nullptr);
+
+    vkCmdDraw(m_commandBuffers[m_currentFrame], 1, 1, 0, 0);
+}
+
 void Renderer::setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution)
 {
     VkViewport viewport{};
@@ -489,22 +526,20 @@ void Renderer::prepareFrame(const std::shared_ptr<Scene>& scene, std::shared_ptr
     vkResetCommandBuffer(currentCommandBuffer, 0);
 }
 
-void Renderer::submitFrame(bool secondarySwapchain)
+void Renderer::submitFrame(bool secondarySwapchain, bool waitForCompute)
 {
     VkCommandBuffer currentCommandBuffer = m_commandBuffers[m_currentFrame];
 
     VkSemaphore currentImageAvailableSemaphore = m_swapChain->getImageAvailableSemaphore(m_currentFrame);
     VkFence currentFence = m_swapChain->getFenceId(m_currentFrame);
-    
-    VkSemaphore currentComputeFinishedSemaphore = m_swapChain->getComputeFinishedSemaphore(m_currentFrame);
-    
+        
     std::vector<VkSemaphore> waitSemaphores = {
-        currentComputeFinishedSemaphore,
         currentImageAvailableSemaphore
     };
 
+    
+
     std::vector<VkPipelineStageFlags> waitStages = {
-        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
     };
 
@@ -512,6 +547,12 @@ void Renderer::submitFrame(bool secondarySwapchain)
     {
         waitSemaphores.push_back(m_secondarySwapchain->getImageAvailableSemaphore(m_currentFrame));
         waitStages.push_back(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+    }
+
+    if (waitForCompute)
+    {
+        waitSemaphores.push_back(m_swapChain->getComputeFinishedSemaphore(m_currentFrame));
+        waitStages.push_back(VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
     }
 
     VkSubmitInfo submitInfo{};
@@ -922,6 +963,13 @@ void Renderer::setOffscreenFramebufferBarrier()
         VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
+void Renderer::setViewMatrixFramebufferBarrier()
+{
+    m_device->createImageBarrier(m_commandBuffers[m_currentFrame], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m_viewMatrixFramebuffer->getColorImage()->getVkImage(),
+        VK_IMAGE_ASPECT_COLOR_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
 void Renderer::endRenderPass()
 {
     VkCommandBuffer commandBuffer = m_commandBuffers[m_currentFrame];
@@ -1118,15 +1166,6 @@ void Renderer::createDescriptors()
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         m_cressbo[i]->map();
 
-        // m_pointCloudUbo[i] = std::make_unique<Buffer>(m_device, sizeof(PointCloudUniformBuffer), 
-        //     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        // m_pointCloudUbo[i]->map();
-
-        // m_pointClouds[i] = std::make_unique<Buffer>(m_device, MAX_VIEWS * MAX_OFFSCREEN_RESOLUTION_LINEAR * (sizeof(Point)),
-        //     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        //     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        // m_pointClouds[i]->map();
-
 #ifdef RAY_EVAL_DEBUG
         m_creDebugSsbo[i] = std::make_unique<Buffer>(m_device, sizeof(ViewEvalDebugCompute) * MAX_RESOLUTION_LINEAR, 
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -1287,34 +1326,53 @@ void Renderer::createDescriptors()
         VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT, quadPoolSizes);
 
     // point clouds
-    /*
-    VkDescriptorSetLayoutBinding pointCloudUboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-        1, VK_SHADER_STAGE_COMPUTE_BIT);
-    VkDescriptorSetLayoutBinding pointCloudLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        1, VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT);
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        m_pointsUbo[i] = std::make_unique<Buffer>(m_device, sizeof(PointsUniformBuffer),
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_pointsUbo[i]->map();
+
+        m_pointsSsbo[i] = std::make_unique<Buffer>(m_device, sizeof(PointsStorageBuffer) * static_cast<uint32_t>(MAX_VIEWS),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        m_pointsSsbo[i]->map();
+    }
+
+    VkDescriptorSetLayoutBinding pointsUboLayoutBinding = createDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        1, VK_SHADER_STAGE_VERTEX_BIT);
+    VkDescriptorSetLayoutBinding pointsSsboLayoutBinding = createDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        1, VK_SHADER_STAGE_VERTEX_BIT);
+    VkDescriptorSetLayoutBinding viewsImagePointsLayoutBinding = createDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        1, VK_SHADER_STAGE_VERTEX_BIT);
+    VkDescriptorSetLayoutBinding viewsDepthPointsLayoutBinding = createDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        1, VK_SHADER_STAGE_VERTEX_BIT);
 
     std::vector<VkDescriptorSetLayoutBinding> pointCloudLayoutBindings = {
-        pointCloudUboLayoutBinding,
-        pointCloudLayoutBinding
+        pointsUboLayoutBinding,
+        pointsSsboLayoutBinding,
+        viewsImagePointsLayoutBinding,
+        viewsDepthPointsLayoutBinding
     };
 
-    m_pointCloudSetLayout = std::make_shared<DescriptorSetLayout>(m_device, pointCloudLayoutBindings);
+    m_pointsSetLayout = std::make_shared<DescriptorSetLayout>(m_device, pointCloudLayoutBindings);
 
-    VkDescriptorPoolSize pointCloudUboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+    VkDescriptorPoolSize pointsUboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
-    VkDescriptorPoolSize pointCloudPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * MAX_VIEWS);
+    VkDescriptorPoolSize pointsSsboPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * static_cast<uint32_t>(MAX_VIEWS));
+    VkDescriptorPoolSize viewsImagePointsPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
+    VkDescriptorPoolSize viewsDepthPointsPoolSize = createPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT));
 
     std::vector<VkDescriptorPoolSize> pointCloudGenSizes = {
-        pointCloudUboPoolSize,
-        pointCloudPoolSize
+        pointsUboPoolSize,
+        pointsSsboPoolSize,
+        viewsImagePointsPoolSize,
+        viewsDepthPointsPoolSize
     };
 
-    m_pointCloudPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
+    m_pointsPool = std::make_shared<DescriptorPool>(m_device, static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), 0,
         pointCloudGenSizes);
-
-    */
-
 }
 
 void Renderer::createRenderResources()
@@ -1380,10 +1438,9 @@ void Renderer::createPipeline(const RendererInitParams& params)
         m_computeRayEvalSetLayout->getLayout()
     };
 
-    // std::vector<VkDescriptorSetLayout> pointCloudComputeSetLayout = {
-    //     m_computeRayEvalSetLayout->getLayout(),
-    //     m_pointCloudSetLayout->getLayout()
-    // };
+    std::vector<VkDescriptorSetLayout> pointCloudSetLayout = {
+        m_pointsSetLayout->getLayout()
+    };
 
     m_offscreenPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), params.vertexShaderFile,
         params.fragmentShaderFile, offscreenGraphicsSetLayouts);
@@ -1391,17 +1448,12 @@ void Renderer::createPipeline(const RendererInitParams& params)
     m_quadPipeline = std::make_shared<GraphicsPipeline>(m_device, m_quadRenderPass->getRenderPass(), params.quadVertexShaderFile,
         params.quadFragmentShaderFile, quadSetLayout, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, false, false);
     
+    m_pointCloudPipeline = std::make_shared<GraphicsPipeline>(m_device, m_offscreenRenderPass->getRenderPass(), params.vertexPointCloudShaderFile, params.fragmentPointCloudShaderFile,
+        pointCloudSetLayout, VK_PRIMITIVE_TOPOLOGY_POINT_LIST, true, false);
+
     m_cullPipeline = std::make_shared<ComputePipeline>(m_device, params.computeShaderFile, computeSetLayouts);
 
     m_raysEvalPipeline = std::make_shared<ComputePipeline>(m_device, params.computeRaysEvalShaderFile, computeRaysEvalSetLayout);
-
-    // Point clouds
-    // m_pointCloudCompPipeline = std::make_shared<ComputePipeline>(m_device, params.computePointCloudShaderFile, pointCloudComputeSetLayout);
-    // m_pointCloudGraphPipeline = std::make_shared<GraphicsPipeline>
-
-    // testing
-    // m_intersectsPipeline = std::make_shared<ComputePipeline>(m_device, "intersect.spv", computeRaysEvalSetLayout);
-    // m_intervalsPipeline = std::make_shared<ComputePipeline>(m_device, "intervalsInterpolate.spv", computeRaysEvalSetLayout);
 }
 
 void Renderer::handleResizeWindow(bool main)
@@ -1561,6 +1613,41 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
 
     m_cressbo[m_currentFrame]->copyMapped(cressbo.data(), sizeof(ViewEvalDataCompute) * cressbo.size());
 
+}
+
+void Renderer::updatePointsDescriptorData(const std::shared_ptr<View> &novelView, const std::shared_ptr<ViewGrid>& views)
+{
+    PointsUniformBuffer pointsUboData{};
+    pointsUboData.view = novelView->getCamera()->getView();
+    pointsUboData.proj = novelView->getCamera()->getProjection();
+    pointsUboData.viewImageRes = views->getResolution();
+    pointsUboData.viewCount = views->getGridSize();
+    pointsUboData.sampledView = glm::vec2(0,0);
+
+    m_pointsUbo[m_currentFrame]->copyMapped(&pointsUboData, sizeof(PointsUniformBuffer));
+
+    std::vector<ViewEvalDataCompute> pointsssbo(views->getViews().size());
+
+    std::vector<std::shared_ptr<View>> gridViews = views->getViews();
+
+    for (int i = 0; i < gridViews.size(); i++)
+    {
+        pointsssbo[i].view = gridViews[i]->getCamera()->getView();
+        pointsssbo[i].proj = gridViews[i]->getCamera()->getProjection();
+        pointsssbo[i].invView = gridViews[i]->getCamera()->getViewInverse();
+        pointsssbo[i].invProj = gridViews[i]->getCamera()->getProjectionInverse();
+
+        glm::vec2 res = gridViews[i]->getResolution();
+        glm::vec2 offset = gridViews[i]->getViewportStart();
+        pointsssbo[i].resOffset.x = res.x;
+        pointsssbo[i].resOffset.y = res.y;
+        pointsssbo[i].resOffset.z = offset.x;
+        pointsssbo[i].resOffset.w = offset.y;
+
+        std::cout << res.x<<std::endl;
+    }
+
+    m_pointsSsbo[m_currentFrame]->copyMapped(pointsssbo.data(), sizeof(PointsStorageBuffer) * pointsssbo.size());
 }
 
 void Renderer::updateQuadDescriptorData(bool depthOnly){

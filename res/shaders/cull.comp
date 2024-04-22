@@ -64,7 +64,7 @@ void main()
 
             if (isCulled)
             {
-                drawssbo.drawCalls[gId].instanceCount = 1;
+                drawssbo.drawCalls[gId].instanceCount = 0;
             }
             else
             {

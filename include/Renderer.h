@@ -107,6 +107,8 @@ public:
      * @param secondaryWindow Whether the target is secondary window.
      */
     void quadRenderPass(glm::vec2 windowResolution, bool depthOnly = false, bool secondaryWindow = false);
+
+    void pointsRenderPass(const std::shared_ptr<ViewGrid>& mainView, const std::shared_ptr<ViewGrid>& viewGrid);
     
     /**
      * @brief Set the Viewport.
@@ -159,7 +161,7 @@ public:
      * 
      * @param secondarySwapchain Whether the secondary swapchain should be used.
      */
-    void submitFrame(bool secondarySwapchain = false);
+    void submitFrame(bool secondarySwapchain = false, bool waitForCompute = true);
 
     /**
      * @brief Submit graphics without using swapchain.
@@ -294,6 +296,8 @@ public:
 
     void setOffscreenFramebufferBarrier();
 
+    void setViewMatrixFramebufferBarrier();
+
     /**
      * @brief End render pass.
      * 
@@ -339,6 +343,9 @@ private:
      */
     void updateRayEvalComputeDescriptorData(const std::vector<std::shared_ptr<View>>& novelViews,
         const std::vector<std::shared_ptr<View>>& views, const RayEvalParams& params);
+
+    void updatePointsDescriptorData(const std::shared_ptr<View>& novelView,
+        const std::shared_ptr<ViewGrid>& views);
     
     /**
      * @brief Update data for the final on screen rendering.
@@ -363,9 +370,7 @@ private:
     std::shared_ptr<ComputePipeline> m_cullPipeline;
     std::shared_ptr<ComputePipeline> m_raysEvalPipeline;
     std::shared_ptr<GraphicsPipeline> m_quadPipeline;
-    // std::shared_ptr<GraphicsPipeline> m_pointCloudGraphPipeline;
-    // std::shared_ptr<ComputePipeline> m_pointCloudCompPipeline;
-    // test
+    std::shared_ptr<GraphicsPipeline> m_pointCloudPipeline;
 
     std::unordered_map<std::string, int> m_textureMap;
     std::vector<std::shared_ptr<Texture>> m_textures;
@@ -385,8 +390,8 @@ private:
     std::vector<std::unique_ptr<Buffer>> m_creDebugSsbo;
     std::vector<std::unique_ptr<Buffer>> m_quadubo;
     std::vector<std::unique_ptr<Buffer>> m_secondaryQuadubo;
-    // std::vector<std::unique_ptr<Buffer>> m_pointCloudUbo;
-    // std::vector<std::unique_ptr<Buffer>> m_pointClouds;
+    std::vector<std::unique_ptr<Buffer>> m_pointsUbo;
+    std::vector<std::unique_ptr<Buffer>> m_pointsSsbo;
 
     std::vector<std::shared_ptr<DescriptorSet>> m_generalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_materialDescriptorSets;
@@ -394,7 +399,7 @@ private:
     std::vector<std::shared_ptr<DescriptorSet>> m_computeRayEvalDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_quadDescriptorSets;
     std::vector<std::shared_ptr<DescriptorSet>> m_secondaryQuadDescriptorSets;
-    std::vector<std::shared_ptr<DescriptorSet>> m_pointCloudDescriptorsets;
+    std::vector<std::shared_ptr<DescriptorSet>> m_pointsDescriptorsets;
 
     std::shared_ptr<DescriptorSetLayout> m_descriptorSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_viewSetLayout;
@@ -404,7 +409,7 @@ private:
     std::shared_ptr<DescriptorSetLayout> m_computeRayEvalSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_quadSetLayout;
     std::shared_ptr<DescriptorSetLayout> m_secondaryQuadSetLayout;
-    // std::shared_ptr<DescriptorSetLayout> m_pointCloudSetLayout;
+    std::shared_ptr<DescriptorSetLayout> m_pointsSetLayout;
 
     std::shared_ptr<DescriptorPool> m_descriptorPool;
     std::shared_ptr<DescriptorPool> m_viewPool;
@@ -414,7 +419,7 @@ private:
     std::shared_ptr<DescriptorPool> m_computeRayEvalPool;
     std::shared_ptr<DescriptorPool> m_quadPool;
     std::shared_ptr<DescriptorPool> m_secondaryQuadPool;
-    // std::shared_ptr<DescriptorPool> m_pointCloudPool;
+    std::shared_ptr<DescriptorPool> m_pointsPool;
 
     std::shared_ptr<Image> m_novelImage;
     std::shared_ptr<Sampler> m_novelImageSampler;

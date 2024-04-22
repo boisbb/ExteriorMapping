@@ -94,9 +94,14 @@ void Application::init()
 
     m_device = std::make_shared<Device>(m_window);
 
-    RendererInitParams params{"offscreen.vert.spv",
-        "offscreen.frag.spv", "cull.comp.spv", "quad.vert.spv",
-        "quad.frag.spv", "novelView.comp.spv", "generatePoints.comp.spv"};
+    RendererInitParams params{
+        "offscreen.vert.spv", "offscreen.frag.spv", 
+        "cull.comp.spv", 
+        "quad.vert.spv", "quad.frag.spv", 
+        "novelView.comp.spv",
+        "points.vert.spv", "points.frag.spv"
+    };
+
     m_renderer = std::make_shared<Renderer>(m_device, m_window, params);
     m_renderer->setNovelViewSamplingType(m_samplingType);
 
@@ -175,6 +180,8 @@ void Application::draw()
     std::shared_ptr<ViewGrid> viewGrid;
     std::shared_ptr<Framebuffer> framebuffer;
 
+    m_pointClouds = true;
+
     while (!glfwWindowShouldClose(m_window->getWindow()) && !m_terminate)
     {
         // Choose respective resources, which will be rendered mainly.
@@ -199,26 +206,29 @@ void Application::draw()
             start = std::chrono::high_resolution_clock::now();
 
         // Begin compute pass.
-        m_renderer->beginComputePass();
+        if (!m_pointClouds)
+        {
+            m_renderer->beginComputePass();
 
-        // Perform frustum culling when the novel view isn't rendered.
-        if (!m_renderNovel)
-        {
-            m_renderer->cullComputePass(m_scene, viewGrid, (!m_renderFromViews));
+            // Perform frustum culling when the novel view isn't rendered.
+            if (!m_renderNovel)
+            {
+                m_renderer->cullComputePass(m_scene, viewGrid, (!m_renderFromViews));
+            }
+            
+            // Perform compute pass for extrapolating the novel view.
+            if (m_renderNovel || m_novelSecondWindow)
+            {
+                m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid, 
+                    RayEvalParams{m_testPixels, m_testedPixel, m_numberOfRaySamples, 
+                    m_automaticSampleCount, m_thresholdDepth, m_maxSampleDistance, 
+                    m_numberOfViewsUsed});
+            }
+            
+            // End compute pass and submit it.
+            m_renderer->endComputePass();
+            m_renderer->submitCompute();
         }
-        
-        // Perform compute pass for extrapolating the novel view.
-        if (m_renderNovel || m_novelSecondWindow)
-        {
-            m_renderer->rayEvalComputePass(m_novelViewGrid, m_viewGrid, 
-                RayEvalParams{m_testPixels, m_testedPixel, m_numberOfRaySamples, 
-                m_automaticSampleCount, m_thresholdDepth, m_maxSampleDistance, 
-                m_numberOfViewsUsed});
-        }
-        
-        // End compute pass and submit it.
-        m_renderer->endComputePass();
-        m_renderer->submitCompute();
 
         WindowParams windowParams{m_novelSecondWindow, VK_SUCCESS, VK_SUCCESS};
 
@@ -234,7 +244,13 @@ void Application::draw()
         if (!m_renderNovel)
         {
             m_renderer->beginRenderPass(m_renderer->getOffscreenRenderPass(), framebuffer);
-            m_renderer->renderPass(m_scene, viewGrid, m_viewGrid);
+
+            if (!m_pointClouds)
+                m_renderer->renderPass(m_scene, viewGrid, m_viewGrid);
+            else
+                m_renderer->pointsRenderPass(m_novelViewGrid, m_viewGrid);
+
+
             m_renderer->endRenderPass();
         }
 
@@ -244,7 +260,12 @@ void Application::draw()
         
         // https://github.com/ARM-software/vulkan_best_practice_for_mobile_developers/blob/master/samples/performance/pipeline_barriers/pipeline_barriers_tutorial.md
         if (!m_renderNovel)
-            m_renderer->setOffscreenFramebufferBarrier();
+        {
+            if (!m_renderFromViews)
+                m_renderer->setOffscreenFramebufferBarrier();
+            else if (m_renderFromViews)
+                m_renderer->setViewMatrixFramebufferBarrier();
+        }
         
         // Renders the offscreen framebuffer or novel view into the swapchain framebuffer.
         m_renderer->beginRenderPass(m_renderer->getQuadRenderPass(), m_renderer->getQuadFramebuffer());
@@ -271,7 +292,7 @@ void Application::draw()
         // Ends render command buffer.
         m_renderer->endCommandBuffer();
         // Submit the frame and present it.
-        m_renderer->submitFrame(m_novelSecondWindow);
+        m_renderer->submitFrame(m_novelSecondWindow, !m_pointClouds);
 
         m_renderer->presentFrame(m_window, windowParams);
 
@@ -344,7 +365,7 @@ bool Application::consumeInput()
 
         m_intervalCounter = m_interval;
 
-        VkExtent2D fbSize = m_renderer->getOffscreenFramebuffer()->getResolution();
+        VkExtent2D fbSize = (m_renderFromViews) ? m_renderer->getViewMatrixFramebuffer()->getResolution() : m_renderer->getOffscreenFramebuffer()->getResolution();
         glm::vec2 windowSize = m_window->getResolution();
         glm::vec2 secondaryWindowSize = m_secondaryWindow->getResolution();
 

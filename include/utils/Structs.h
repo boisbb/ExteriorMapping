@@ -43,7 +43,8 @@ struct RendererInitParams
     std::string quadVertexShaderFile;
     std::string quadFragmentShaderFile;
     std::string computeRaysEvalShaderFile;
-    std::string computePointCloudShaderFile;
+    std::string vertexPointCloudShaderFile;
+    std::string fragmentPointCloudShaderFile;
 };
 
 // Regular shader data
@@ -165,6 +166,24 @@ struct SaveImageInfo
 struct QuadUniformBuffer
 {
     bool m_depthOnly;
+};
+
+struct PointsUniformBuffer
+{
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::vec2 viewImageRes;
+    glm::vec2 viewCount;
+    glm::vec2 sampledView;
+};
+
+struct PointsStorageBuffer
+{
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::mat4 invView;
+    glm::mat4 invProj;
+    glm::vec4 resOffset;
 };
 
 struct Point

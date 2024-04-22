@@ -32,8 +32,11 @@ struct FrustumHit
     int viewId;
 };
 
-struct Point
+struct PointsStorageBuffer
 {
-    vec3 pos;
-    vec3 color;
+    mat4 view;
+    mat4 proj;
+    mat4 invView;
+    mat4 invProj;
+    vec4 resOffset;
 };
