@@ -393,26 +393,6 @@ void Renderer::rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid
 
 }
 
-/*
-void Renderer::pointCloudComputePass(std::shared_ptr<ViewGrid> &viewGrid)
-{
-    std::vector<std::shared_ptr<View>> views = viewGrid->getViews();
-    
-    VkDescriptorSet rayEvalSet = m_computeRayEvalDescriptorSets[m_currentFrame]->getDescriptorSet();
-    VkDescriptorSet pointCloudSet = m_pointCloudDescriptorsets[m_currentFrame]->getDescriptorSet();
-
-    vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_pointCloudCompPipeline->getPipelineLayout(),
-        0, 1, &rayEvalSet, 0, nullptr);
-    
-    vkCmdBindDescriptorSets(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_COMPUTE, m_pointCloudCompPipeline->getPipelineLayout(),
-        0, 1, &pointCloudSet, 0, nullptr);
-
-    m_pointCloudCompPipeline->bind(m_computeCommandBuffers[m_currentFrame]);
-
-    vkCmdDispatch(m_computeCommandBuffers[m_currentFrame], std::ceil(((double)POINT_CLOUD_WIDTH) / 32.f), std::ceil(((double)POINT_CLOUD_HEIGHT) / 32.f), 1);
-}
-*/
-
 void Renderer::renderPass(const std::shared_ptr<Scene> &scene, const std::shared_ptr<ViewGrid>& viewGrid, 
         const std::shared_ptr<ViewGrid>& viewMatrixGrid, bool updateData)
 {
@@ -460,11 +440,12 @@ void Renderer::quadRenderPass(glm::vec2 windowResolution, bool depthOnly, bool s
     vkCmdDraw(m_commandBuffers[m_currentFrame], 3, 1, 0, 0);
 }
 
-void Renderer::pointsRenderPass(const std::shared_ptr<ViewGrid>& mainView, const std::shared_ptr<ViewGrid>& viewGrid)
+void Renderer::pointsRenderPass(const std::shared_ptr<ViewGrid>& mainView, const std::shared_ptr<ViewGrid>& viewGrid,
+        const PointCloudParams& pointsParams)
 {
     std::shared_ptr<View> view = mainView->getViews()[0];
 
-    updatePointsDescriptorData(view, viewGrid);
+    updatePointsDescriptorData(view, viewGrid, pointsParams);
 
     setViewport(glm::vec2(0, 0), mainView->getResolution());
     setScissor(glm::vec2(0, 0), mainView->getResolution());
@@ -474,7 +455,7 @@ void Renderer::pointsRenderPass(const std::shared_ptr<ViewGrid>& mainView, const
     VkDescriptorSet pointsSet = m_pointsDescriptorsets[m_currentFrame]->getDescriptorSet();
     vkCmdBindDescriptorSets(m_commandBuffers[m_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pointCloudPipeline->getPipelineLayout(), 0, 1, &pointsSet, 0, nullptr);
 
-    vkCmdDraw(m_commandBuffers[m_currentFrame], 1, 1, 0, 0);
+    vkCmdDraw(m_commandBuffers[m_currentFrame], pointsParams.resolution.x * pointsParams.resolution.y, 1, 0, 0);
 }
 
 void Renderer::setViewport(const glm::vec2& viewportStart, const glm::vec2& viewportResolution)
@@ -1615,20 +1596,21 @@ void Renderer::updateRayEvalComputeDescriptorData(const std::vector<std::shared_
 
 }
 
-void Renderer::updatePointsDescriptorData(const std::shared_ptr<View> &novelView, const std::shared_ptr<ViewGrid>& views)
+void Renderer::updatePointsDescriptorData(const std::shared_ptr<View> &novelView, const std::shared_ptr<ViewGrid>& views,
+    const PointCloudParams& pointsParams)
 {
     PointsUniformBuffer pointsUboData{};
     pointsUboData.view = novelView->getCamera()->getView();
     pointsUboData.proj = novelView->getCamera()->getProjection();
     pointsUboData.viewImageRes = views->getResolution();
     pointsUboData.viewCount = views->getGridSize();
-    pointsUboData.sampledView = glm::vec2(0, 0);
-    pointsUboData.pointsRes = glm::vec2(POINT_CLOUD_WIDTH, POINT_CLOUD_HEIGHT);
+    pointsUboData.sampledView = pointsParams.view;
+    pointsUboData.pointsRes = pointsParams.resolution;
 
     m_pointsUbo[m_currentFrame]->copyMapped(&pointsUboData, sizeof(PointsUniformBuffer));
 
     std::vector<PointsStorageBuffer> pointsssbo(views->getViews().size());
-
+ 
     std::vector<std::shared_ptr<View>> gridViews = views->getViews();
 
     for (int i = 0; i < gridViews.size(); i++)
@@ -1640,10 +1622,11 @@ void Renderer::updatePointsDescriptorData(const std::shared_ptr<View> &novelView
 
         glm::vec2 res = gridViews[i]->getResolution();
         glm::vec2 offset = gridViews[i]->getViewportStart();
-        pointsssbo[i].resOffset.x = 8000;
+        pointsssbo[i].resOffset.x = res.x;
         pointsssbo[i].resOffset.y = res.y;
         pointsssbo[i].resOffset.z = offset.x;
         pointsssbo[i].resOffset.w = offset.y;
+        pointsssbo[i].nearFar = gridViews[i]->getCamera()->getNearFar();
     }
 
     m_pointsSsbo[m_currentFrame]->copyMapped(pointsssbo.data(), sizeof(PointsStorageBuffer) * pointsssbo.size());

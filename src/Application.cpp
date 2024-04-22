@@ -180,8 +180,6 @@ void Application::draw()
     std::shared_ptr<ViewGrid> viewGrid;
     std::shared_ptr<Framebuffer> framebuffer;
 
-    m_pointClouds = true;
-
     while (!glfwWindowShouldClose(m_window->getWindow()) && !m_terminate)
     {
         // Choose respective resources, which will be rendered mainly.
@@ -248,7 +246,8 @@ void Application::draw()
             if (!m_pointClouds)
                 m_renderer->renderPass(m_scene, viewGrid, m_viewGrid);
             else
-                m_renderer->pointsRenderPass(m_novelViewGrid, m_viewGrid);
+                m_renderer->pointsRenderPass(m_novelViewGrid, m_viewGrid, 
+                PointCloudParams{m_pointCloudRes, m_sampledView});
 
 
             m_renderer->endRenderPass();
@@ -709,6 +708,44 @@ void Application::renderImgui(int lastFps)
         ImGui::Unindent();
     }
 
+    if (ImGui::CollapsingHeader("Point Clouds"))
+    {
+        ImGui::Indent();
+        ImGui::PushID(3);
+
+        if(ImGui::Checkbox("Render Point Clouds", &m_pointClouds))
+        {
+            if (m_pointClouds && (m_renderNovel || m_novelSecondWindow))
+            {
+                m_pointClouds = false;
+            }
+        }
+
+        int vec2[2] = {m_pointCloudRes.x, m_pointCloudRes.y};
+        if (ImGui::DragInt2("Resolution", vec2, 100, 0, MAX_POINT_CLOUD_DIM))
+        {
+            m_pointCloudRes.x = vec2[0];
+            m_pointCloudRes.y = vec2[1];
+        }
+
+        int vec22[2] = {m_sampledView.x, m_sampledView.y};
+        glm::ivec2 gridSize = m_viewGrid->getGridSize();
+        if (ImGui::DragInt2("Sampled View", vec22, 1, 0, std::max(gridSize.x, gridSize.y)))
+        {
+            if (vec22[0] < gridSize.x)
+                m_sampledView.x = vec22[0];
+            else
+                m_sampledView.x = gridSize.x - 1;
+
+            if (vec22[1] < gridSize.y)
+                m_sampledView.y = vec22[1];
+            else
+                m_sampledView.y = gridSize.y - 1;
+        }
+
+        ImGui::PopID();
+        ImGui::Unindent();
+    }
 
     if (ImGui::CollapsingHeader("Light"))
     {

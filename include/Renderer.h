@@ -80,13 +80,6 @@ public:
      */
     void rayEvalComputePass(const std::shared_ptr<ViewGrid>& novelViewGrid, 
         const std::shared_ptr<ViewGrid>& viewGrid, const RayEvalParams& params);
-
-    /**
-     * @brief Generates point cloud vertex buffer.
-     * 
-     * @param viewGrid 
-     */
-    void pointCloudComputePass(std::shared_ptr<ViewGrid>& viewGrid);
     
     /**
      * @brief Renders the scene seen through view grid.
@@ -108,7 +101,8 @@ public:
      */
     void quadRenderPass(glm::vec2 windowResolution, bool depthOnly = false, bool secondaryWindow = false);
 
-    void pointsRenderPass(const std::shared_ptr<ViewGrid>& mainView, const std::shared_ptr<ViewGrid>& viewGrid);
+    void pointsRenderPass(const std::shared_ptr<ViewGrid>& mainView, const std::shared_ptr<ViewGrid>& viewGrid,
+        const PointCloudParams& pointsParams);
     
     /**
      * @brief Set the Viewport.
@@ -345,7 +339,7 @@ private:
         const std::vector<std::shared_ptr<View>>& views, const RayEvalParams& params);
 
     void updatePointsDescriptorData(const std::shared_ptr<View>& novelView,
-        const std::shared_ptr<ViewGrid>& views);
+        const std::shared_ptr<ViewGrid>& views, const PointCloudParams& pointsParams);
     
     /**
      * @brief Update data for the final on screen rendering.

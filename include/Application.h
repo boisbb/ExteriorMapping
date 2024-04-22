@@ -221,6 +221,8 @@ private:
     int m_removeRow = MAX_FRAMES_IN_FLIGHT;
     int m_removeCol = MAX_FRAMES_IN_FLIGHT;
     bool m_pointClouds = false;
+    glm::ivec2 m_pointCloudRes = {POINT_CLOUD_WIDTH, POINT_CLOUD_HEIGHT};
+    glm::ivec2 m_sampledView = glm::vec2(0,0);
 
     // threads
     std::thread m_saveImageThread;

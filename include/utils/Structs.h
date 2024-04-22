@@ -148,6 +148,12 @@ struct RayEvalParams
     int maxViewsUsed;
 };
 
+struct PointCloudParams
+{
+    glm::ivec2 resolution;
+    glm::ivec2 view;
+};
+
 struct WindowParams
 {
     bool secondarySwapchain;
@@ -185,6 +191,8 @@ struct PointsStorageBuffer
     glm::mat4 invView;
     glm::mat4 invProj;
     glm::vec4 resOffset;
+    glm::vec2 nearFar;
+    float __padding[2];
 };
 
 struct Point

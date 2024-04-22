@@ -39,4 +39,5 @@ struct PointsStorageBuffer
     mat4 invView;
     mat4 invProj;
     vec4 resOffset;
+    vec2 nearFar;
 };
