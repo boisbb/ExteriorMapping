@@ -17,10 +17,10 @@
         "byStep": true,
         "byInGridPos": false,
         "viewGrid": {
-            "fov" : 90,
+            "fov" : 75,
             "gridSize": {  
-                "x": 2,
-                "y": 2
+                "x": 4,
+                "y": 4
             },
             "viewDir": {
                 "x": -1,

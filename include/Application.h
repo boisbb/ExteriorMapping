@@ -71,6 +71,7 @@ public:
         {
             SAMPLES,
             ONE,
+            MSE,
             _COUNT
         };
 
@@ -79,6 +80,8 @@ public:
 
         EvaluationType evalType;
         SamplingType samplingType;
+        int numberOfSamples = 170;
+        bool mseGt = false;
     };
 
     Application(const Arguments& arguments);
@@ -186,13 +189,21 @@ private:
     std::shared_ptr<Image> m_novelViewScreenshotImage;
     std::shared_ptr<Image> m_actualViewScreenshotImage;
 
-    // Application argument members
+    // Application argument + evaluate members
     Arguments m_args;
     bool m_terminate = false;
     bool m_evaluate = false;
     int m_evaluateFrames = 0;
     int64_t m_evaluateTotalDuration = 0;
     std::vector<float> m_evalResults;
+    int m_evaluateSteps = 0;
+    int m_evaluateTotalMseSteps = 0;
+    int m_evaluateRotations = 0;
+    int m_evaluateSideSteps = 0;
+    float m_currentSideStep = MSE_SIDESTEP;
+    float m_currentRotation = MSE_ROTATION_ANGLE;
+    glm::vec3 m_evaluateOriginalEye;
+    glm::vec3 m_evaluateOriginalViewDir;
 
     // Imgui flags and resources.
     float m_prevTime;

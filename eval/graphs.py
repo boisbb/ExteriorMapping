@@ -4,6 +4,7 @@ import numpy as np
 import subprocess
 import matplotlib.pyplot as plt
 import json
+import shutil
 
 def call_command(command):
     process = subprocess.run(command.split(), capture_output=True)
@@ -53,7 +54,6 @@ def acquire_cameras_data():
     data = json.load(open("../res/configs/by_step/config.json"))
 
     df = []
-    filenames = []
 
     start = [1, 2]
     for i in range(13):
@@ -78,8 +78,13 @@ def acquire_cameras_data():
 
         df.append(line)
 
-        filenames.append(config_file_name)
-    
+    shutil.rmtree(eval_json_dir)
+
+    return df
+
+def evaluate_cameras():
+    df = acquire_cameras_data()
+
     df = np.around(np.array(df).astype(np.float64), 1)
     df = pd.DataFrame(df, columns=['views', 'time'])
     df.set_index("views", inplace=True)
@@ -99,8 +104,7 @@ def acquire_cameras_data():
     plt.savefig('cameras_plot.pdf')
     plt.show()
 
-def evaluate_cameras():
-    acquire_cameras_data()
+def evaluate_mse():
     return
     
 

@@ -17,7 +17,7 @@
         "byStep": true,
         "byInGridPos": false,
         "viewGrid": {
-            "fov": 90,
+            "fov": 75,
             "gridSize": {
                 "x": 3,
                 "y": 4

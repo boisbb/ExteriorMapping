@@ -29,6 +29,8 @@
 #include <unordered_map>
 #include <chrono>
 #include <sstream>
+#include <iostream>
+#include <unistd.h>
 
 // usings
 using namespace std::chrono;
@@ -144,23 +146,31 @@ void Application::init()
     if (m_args.evalType != Arguments::EvaluationType::_COUNT)
     {
         m_evaluate = true;
-        m_renderNovel = true;
-        m_samplingType = m_args.samplingType;
-        m_renderer->setNovelViewSamplingType(m_samplingType);
 
-        if (m_args.evalType == Arguments::EvaluationType::SAMPLES)
+        if (!m_args.mseGt)
         {
-            m_numberOfRaySamples = EVAL_SAMPLES_STEP;
-        }
-        else if (m_args.evalType == Arguments::EvaluationType::ONE)
-        {
-            m_numberOfRaySamples = 128;
-        }
+            m_renderNovel = true;
+            m_samplingType = m_args.samplingType;
+            m_renderer->setNovelViewSamplingType(m_samplingType);
 
-        vkDeviceWaitIdle(m_device->getVkDevice());
-        renderViewMatrix(m_novelViewGrid, m_renderer->getOffscreenFramebuffer(), true);
-        vkDeviceWaitIdle(m_device->getVkDevice());
-        m_renderer->changeQuadRenderPassSource(m_renderer->getNovelImageInfo(), true);
+            if (m_args.evalType == Arguments::EvaluationType::SAMPLES)
+            {
+                m_numberOfRaySamples = EVAL_SAMPLES_STEP;
+            }
+            else if (m_args.evalType == Arguments::EvaluationType::ONE)
+            {
+                m_numberOfRaySamples = 128;
+            }
+            else if (m_args.evalType == Arguments::EvaluationType::MSE)
+            {
+                m_numberOfRaySamples = m_args.numberOfSamples;
+            }
+
+            vkDeviceWaitIdle(m_device->getVkDevice());
+            renderViewMatrix(m_novelViewGrid, m_renderer->getOffscreenFramebuffer(), true);
+            vkDeviceWaitIdle(m_device->getVkDevice());
+            m_renderer->changeQuadRenderPassSource(m_renderer->getNovelImageInfo(), true);
+        }
     }
 }
 
@@ -311,6 +321,8 @@ void Application::draw()
         // Fps counter.
         countFps(frames, lastFps, lastTime);
 
+        // sleep(1);
+
         handleGuiInputChanges();
     }
 
@@ -359,6 +371,130 @@ bool Application::consumeInput()
         m_intervalCounter -= delta;
         if (m_intervalCounter > 0.f)
         {
+            return false;
+        }
+
+        if (m_evaluate)
+        {
+            if (m_args.evalType == Arguments::EvaluationType::MSE)
+            {
+                if (m_evaluateSteps >= MAX_MSE_STEPS)
+                {
+                    m_terminate = true;
+                    m_evaluate = false;
+                }
+
+                std::shared_ptr<Camera> camera = m_novelViewGrid->getViews()[0]->getCamera();
+                glm::vec3 eye = camera->getEye();
+                glm::vec3 viewDir = camera->getViewDir();
+                glm::vec3 up = camera->getUp();
+
+                if (m_evaluateSteps % MSE_MOVE_STEP == 0)
+                {
+                    if (m_evaluateSideSteps < MAX_MSE_SIDESTEPS)
+                    {
+                        if (m_evaluateSideSteps == 0)
+                        {
+                            m_currentSideStep = MSE_SIDESTEP / ((float)(m_evaluateSteps / MSE_MOVE_STEP) + 1);
+
+                            m_evaluateOriginalEye = eye;
+
+                            eye += MSE_SIDESTEP_DEVIATION * m_currentSideStep * 
+                                (-glm::normalize(glm::cross(viewDir, up)));
+                    
+                            eye += MSE_SIDESTEP_DEVIATION * m_currentSideStep * up;
+                            camera->setCameraEye(eye);
+                        }
+                        else if (m_evaluateSideSteps < 1 + 2 * MSE_SIDESTEP_DEVIATION)
+                        {
+                            camera->setCameraEye(eye + m_currentSideStep * 
+                                glm::normalize(glm::cross(viewDir, up)));
+                        }
+                        else if (m_evaluateSideSteps < 1 + 2 * 2 * MSE_SIDESTEP_DEVIATION)
+                        {
+                            camera->setCameraEye(eye + m_currentSideStep * -up);
+                        }
+                        else if (m_evaluateSideSteps < 1 + 3 * 2 * MSE_SIDESTEP_DEVIATION)
+                        {
+                            camera->setCameraEye(eye + m_currentSideStep * 
+                                -glm::normalize(glm::cross(viewDir, up)));
+                        }
+                        else if (m_evaluateSideSteps < 1 + 4 * 2 * MSE_SIDESTEP_DEVIATION)
+                        {
+                            camera->setCameraEye(eye + m_currentSideStep * up);
+                        }
+
+                        m_evaluateSideSteps++;
+                    }
+                    else
+                    {
+                        if (m_evaluateSideSteps == MAX_MSE_SIDESTEPS)
+                        {
+                            m_evaluateSideSteps++;
+                            camera->setCameraEye(m_evaluateOriginalEye);
+                        }
+                        else
+                        {
+                            m_evaluateSideSteps = 0;
+                            camera->setCameraEye(eye + viewDir * MSE_FW_STEP);
+                            m_evaluateSteps++;
+                        }
+                    }
+                }
+                else if (m_evaluateSteps % MSE_MOVE_STEP == 1)
+                {
+                    if (m_evaluateRotations < MAX_MSE_ROTATES)
+                    {
+                        if (m_evaluateRotations == 0)
+                        {
+                            m_currentRotation = MSE_ROTATION_ANGLE / ((float)(m_evaluateSteps / MSE_MOVE_STEP) + 1);
+                            m_evaluateOriginalViewDir = viewDir;
+                        }
+
+
+                        glm::vec3 newViewDir = m_evaluateOriginalViewDir;
+
+                        float angle = m_currentRotation / ((m_evaluateRotations / 4.f) + 1.f);
+                        angle = ((m_evaluateRotations / 2) % 2 == 0) ? m_currentRotation : -m_currentRotation;
+                        
+                        if (m_evaluateRotations % 2 == 0)
+                        {
+                            newViewDir = glm::rotate(newViewDir, angle, up);
+                        }
+                        else
+                        {
+                            newViewDir = glm::rotate(newViewDir, angle, glm::normalize(glm::cross(newViewDir, up)));
+                        }
+
+                        camera->setViewDir(newViewDir);
+                        m_evaluateRotations++;
+                    }
+                    else
+                    {
+                        camera->setViewDir(m_evaluateOriginalViewDir);
+                        if (m_evaluateRotations == MAX_MSE_ROTATES)
+                        {
+                            m_evaluateRotations++;
+                        }
+                        else
+                        {
+                            camera->setCameraEye(eye + m_evaluateOriginalViewDir * MSE_FW_STEP);
+                            m_evaluateRotations = 0;
+                            m_evaluateSteps++;
+                        }
+                    }
+                }
+                else
+                {
+                    camera->setCameraEye(eye + viewDir * MSE_FW_STEP);
+                    m_evaluateSteps++;
+                }
+
+                m_evaluateTotalMseSteps++;
+
+                return true;
+            }
+
             return false;
         }
 
@@ -1006,6 +1142,44 @@ void Application::handleGuiInputChanges()
                 m_terminate = true;
                 m_evaluate = false;
             }
+        }
+
+        if (m_args.evalType == Arguments::EvaluationType::MSE)
+        {
+            std::string folder = "";
+            std::shared_ptr<Image> srcImg = nullptr;
+            std::shared_ptr<Image> dstImg = nullptr;
+
+            if (m_args.mseGt)
+            {
+                folder = std::string(SCREENSHOT_FILES_LOC) + "eval/gt/";
+                srcImg = m_renderer->getOffscreenFramebuffer()->getColorImage();
+                dstImg = m_actualViewScreenshotImage;
+            }
+            else
+            {
+               folder = std::string(SCREENSHOT_FILES_LOC) + "eval/novel/";
+               srcImg = m_renderer->getNovelViewImage();
+               dstImg = m_novelViewScreenshotImage;
+            }
+
+            std::filesystem::create_directories(folder);
+
+            VkCommandBuffer commandBuffer;
+            m_device->beginSingleCommands(commandBuffer);
+            m_device->copyImageToImage(srcImg, dstImg, commandBuffer);
+            m_device->endSingleCommands(commandBuffer);
+
+            dstImg->map();
+            void* data = dstImg->getMapped();
+            glm::ivec3 dims = glm::ivec3(dstImg->getDims(), 4);
+
+            std::vector<SaveImageInfo> saveImageInfos = {
+                SaveImageInfo{folder + std::to_string(m_evaluateTotalMseSteps) + ".ppm", dims, (uint8_t*)data}
+            };
+
+            vke::utils::saveImages(saveImageInfos);
+            dstImg->unmap();
         }
     }
 }

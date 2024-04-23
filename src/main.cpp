@@ -55,9 +55,24 @@ void argumentsDebug(const std::vector<std::string>& arguments, vke::Application:
             {
                 appArgs.evalType = vke::Application::Arguments::EvaluationType::SAMPLES;
             }
-            else if(*stringIt == "one")
+            else if (*stringIt == "one")
             {
                 appArgs.evalType = vke::Application::Arguments::EvaluationType::ONE;
+            }
+            else if (*stringIt == "mse")
+            {
+                appArgs.evalType = vke::Application::Arguments::EvaluationType::MSE;
+            }
+        }
+
+        if (appArgs.evalType == vke::Application::Arguments::EvaluationType::MSE)
+        {
+            if (auto stringIt = std::next(it, 2); stringIt != arguments.end())
+            {
+                if (*stringIt == "gt")
+                {
+                    appArgs.mseGt = true;
+                }
             }
         }
 
@@ -73,6 +88,14 @@ void argumentsDebug(const std::vector<std::string>& arguments, vke::Application:
             else if (*stringIt == "da")
             {
                 appArgs.samplingType = vke::SamplingType::DEPTH_ANGLE;
+            }
+        }
+
+        if (auto stringIt = std::next(it, 3); stringIt != arguments.end())
+        {
+            if (isStringNumber(*stringIt))
+            {
+                appArgs.numberOfSamples = std::stoi(*stringIt);
             }
         }
     }

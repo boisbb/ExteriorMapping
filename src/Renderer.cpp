@@ -518,8 +518,6 @@ void Renderer::submitFrame(bool secondarySwapchain, bool waitForCompute)
         currentImageAvailableSemaphore
     };
 
-    
-
     std::vector<VkPipelineStageFlags> waitStages = {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
     };
