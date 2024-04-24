@@ -147,7 +147,7 @@ void Application::init()
     {
         m_evaluate = true;
 
-        if (!m_args.mseGt)
+        if (!m_args.mseGt && m_args.evalType != Arguments::EvaluationType::GT)
         {
             m_renderNovel = true;
             m_samplingType = m_args.samplingType;
@@ -210,13 +210,23 @@ void Application::draw()
         // Reconstruct matrices for the main views;
         viewGrid->reconstructMatrices();
         
-        if (m_evaluate)
-            start = std::chrono::high_resolution_clock::now();
+        // if (m_evaluate)
+        //     start = std::chrono::high_resolution_clock::now();
 
         // Begin compute pass.
         if (!m_pointClouds)
         {
             m_renderer->beginComputePass();
+
+            if (m_evaluate)
+            {
+                if (m_evaluateFrames >= MAX_FRAMES_IN_FLIGHT)
+                {
+                    m_evaluateTotalDuration += m_renderer->collectQuery(true);
+                }
+                
+                m_renderer->startQuery(true);
+            }
 
             // Perform frustum culling when the novel view isn't rendered.
             if (!m_renderNovel)
@@ -231,6 +241,11 @@ void Application::draw()
                     RayEvalParams{m_testPixels, m_testedPixel, m_numberOfRaySamples, 
                     m_automaticSampleCount, m_thresholdDepth, m_maxSampleDistance, 
                     m_numberOfViewsUsed});
+            }
+
+            if (m_evaluate)
+            {
+                m_renderer->endQuery(true);
             }
             
             // End compute pass and submit it.
@@ -247,6 +262,16 @@ void Application::draw()
 
         // Begin render command buffer.
         m_renderer->beginCommandBuffer();
+
+        if (m_evaluate)
+        {
+            if (m_evaluateFrames >= MAX_FRAMES_IN_FLIGHT)
+            {
+                m_evaluateTotalDuration += m_renderer->collectQuery();
+            }
+            
+            m_renderer->startQuery();
+        }
         
         // Render triangular scene into a offscreen framebuffer.
         if (!m_renderNovel)
@@ -281,8 +306,14 @@ void Application::draw()
         m_renderer->quadRenderPass(windowResolution, m_depthOnly);
 
         // Renders ImGui.
-        if (m_args.evalType == Arguments::EvaluationType::_COUNT)
-            renderImgui(lastFps);
+        //if (m_args.evalType == Arguments::EvaluationType::_COUNT)
+        renderImgui(lastFps);
+
+        if (m_evaluate)
+        {
+            m_renderer->endQuery();
+            m_evaluateFrames++;
+        }
         
         m_renderer->endRenderPass();
 
@@ -307,15 +338,15 @@ void Application::draw()
 
         m_renderer->presentFrame(m_window, windowParams);
 
-        if (m_evaluate)
-        {
-            stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<milliseconds>(stop - start);
-
-            m_evaluateTotalDuration += duration.count();
-
-            m_evaluateFrames += 1;
-        }
+        // if (m_evaluate)
+        // {
+        //     stop = std::chrono::high_resolution_clock::now();
+        //     auto duration = std::chrono::duration_cast<milliseconds>(stop - start);
+// 
+        //     m_evaluateTotalDuration += duration.count();
+// 
+        //     m_evaluateFrames += 1;
+        // }
 
         if (!handlePresentResult(windowParams, windowResolution, secondaryWindowResolution))
             continue;
@@ -1114,13 +1145,15 @@ void Application::handleGuiInputChanges()
 
     if (m_evaluate)
     {
-        if (m_evaluateFrames >= MAX_EVAL_FRAMES)
+        if (m_evaluateFrames == m_args.numberOfFrames)
         {
             if (m_args.evalType == Arguments::EvaluationType::SAMPLES)
             {
                 if (m_numberOfRaySamples <= MAX_RAY_SAMPLES)
                 {
                     m_numberOfRaySamples += EVAL_SAMPLES_STEP;
+                    m_evalResults.push_back(((float)m_evaluateTotalDuration / ((float)m_evaluateFrames - 1)));
+
                     m_evaluateFrames = 0;
                     m_evaluateTotalDuration = 0;
                 }
@@ -1129,7 +1162,7 @@ void Application::handleGuiInputChanges()
                     std::cout << "-----EVALUATION RESULTS-----" << std::endl;
                     std::cout << "nr. samples | mean frame render time" << std::endl;
                     for (int i = 0; i < m_evalResults.size(); i++)
-                        std::cout << (i * EVAL_SAMPLES_STEP) << " " << m_evalResults[i] << std::endl;
+                        std::cout << ((i + 1) * EVAL_SAMPLES_STEP) << " " << m_evalResults[i] << std::endl;
 
                     m_terminate = true;
                     m_evaluate = false;
@@ -1139,7 +1172,19 @@ void Application::handleGuiInputChanges()
             {
                 std::cout << "-----EVALUATION RESULTS-----" << std::endl;
                 std::cout << "nr. cameras | mean frame render time" << std::endl;
-                std::cout << (m_viewGrid->getViews().size()) << " " << ((float)m_evaluateTotalDuration / (float)m_evaluateFrames) << std::endl;
+                std::cout << (m_viewGrid->getViews().size()) << " " << ((float)m_evaluateTotalDuration / ((float)m_evaluateFrames - 1)) << std::endl;
+
+                std::cout << m_evaluateTotalDuration << std::endl;
+                std::cout << m_evaluateFrames << std::endl;
+
+                m_terminate = true;
+                m_evaluate = false;
+            }
+            else if (m_args.evalType == Arguments::EvaluationType::GT)
+            {
+                std::cout << "-----EVALUATION RESULTS-----" << std::endl;
+                std::cout << "mean frame render time" << std::endl;
+                std::cout << (m_evaluateTotalDuration / ((float)m_evaluateFrames - 1)) << std::endl;
 
                 m_terminate = true;
                 m_evaluate = false;

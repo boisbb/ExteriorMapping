@@ -46,13 +46,17 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     m_quadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_sceneFramesUpdated(0), m_lightsFramesUpdated(0),
     m_swapChainImageIndices(MAX_FRAMES_IN_FLIGHT), m_secondarySwapchain(nullptr), m_secondaryQuadubo(MAX_FRAMES_IN_FLIGHT),
     m_secondaryQuadDescriptorSets(MAX_FRAMES_IN_FLIGHT), m_pointsDescriptorsets(MAX_FRAMES_IN_FLIGHT),
-    m_pointsUbo(MAX_FRAMES_IN_FLIGHT), m_pointsSsbo(MAX_FRAMES_IN_FLIGHT)
+    m_pointsUbo(MAX_FRAMES_IN_FLIGHT), m_pointsSsbo(MAX_FRAMES_IN_FLIGHT),
+    m_timestampQueryGraphPools(MAX_FRAMES_IN_FLIGHT), m_timestampQueryCompPools(MAX_FRAMES_IN_FLIGHT), 
+    m_startComputeQuery(MAX_FRAMES_IN_FLIGHT), m_startGraphicsQuery(MAX_FRAMES_IN_FLIGHT),
+    m_endComputeQuery(MAX_FRAMES_IN_FLIGHT), m_endGraphicsQuery(MAX_FRAMES_IN_FLIGHT)
 {
     createCommandBuffers();
     createComputeCommandBuffers();
     createDescriptors();
     createRenderResources();
     createPipeline(params);
+    createQueryResources();
 }
 
 Renderer::~Renderer()
@@ -97,6 +101,9 @@ void Renderer::destroyVkResources()
         m_secondaryQuadubo[i]->destroyVkResources();
         m_pointsUbo[i]->destroyVkResources();
         m_pointsSsbo[i]->destroyVkResources();
+
+        vkDestroyQueryPool(m_device->getVkDevice(), m_timestampQueryCompPools[i], nullptr);
+        vkDestroyQueryPool(m_device->getVkDevice(), m_timestampQueryGraphPools[i], nullptr);
     }
 
     for (auto& texture : m_textures)
@@ -966,6 +973,55 @@ void Renderer::endCommandBuffer()
     }
 }
 
+float Renderer::collectQuery(bool compute)
+{
+    int previousFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+    uint64_t* results = (uint64_t*)malloc(sizeof(uint64_t) * (m_timestampCount / 2.f));
+    vkGetQueryPoolResults(m_device->getVkDevice(), (compute) ? m_timestampQueryCompPools[previousFrame] : m_timestampQueryGraphPools[previousFrame],
+        0, m_timestampCount / 2.f, sizeof(uint64_t) * (m_timestampCount / 2.f), results, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+    
+    vkResetQueryPool(m_device->getVkDevice(), (compute) ? m_timestampQueryCompPools[previousFrame] : m_timestampQueryGraphPools[previousFrame],
+        0, m_timestampCount / 2.f);
+
+    uint64_t elapsed = (compute) ? results[m_endComputeQuery[previousFrame]] - results[m_startComputeQuery[previousFrame]] :
+        results[m_endGraphicsQuery[previousFrame]] - results[m_startGraphicsQuery[previousFrame]];
+    uint64_t elapsedNanoseconds = (uint64_t)(elapsed * m_timestampPeriod);
+
+    // std::cout << ((compute) ? "Compute: " : "Graphics: ") << ((float)elapsedNanoseconds / 1000000.f) << std::endl;
+// 
+    // static float highest = 0;
+// 
+    // highest = ((float)elapsedNanoseconds / 1000000.f > highest) ? (float)elapsedNanoseconds / 1000000.f : highest;
+// 
+    // std::cout << highest << std::endl;
+
+    return (float)elapsedNanoseconds / 1000000.f;
+}
+
+void Renderer::startQuery(bool compute)
+{
+    if (compute)
+        vkCmdWriteTimestamp(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_timestampQueryCompPools[m_currentFrame], m_startComputeQuery[m_currentFrame]);
+    else
+        vkCmdWriteTimestamp(m_commandBuffers[m_currentFrame], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_timestampQueryGraphPools[m_currentFrame], m_startGraphicsQuery[m_currentFrame]);
+}
+
+void Renderer::endQuery(bool compute)
+{
+    if (compute)
+    {
+        m_endComputeQuery[m_currentFrame] = 1;
+        vkCmdWriteTimestamp(m_computeCommandBuffers[m_currentFrame], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_timestampQueryCompPools[m_currentFrame], m_endComputeQuery[m_currentFrame]);
+    }
+    else
+    {
+        m_endGraphicsQuery[m_currentFrame] = 1;
+        vkCmdWriteTimestamp(m_commandBuffers[m_currentFrame], VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_timestampQueryGraphPools[m_currentFrame], m_endGraphicsQuery[m_currentFrame]);
+    }
+
+}
+
 void Renderer::createCommandBuffers()
 {
     m_commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1433,6 +1489,27 @@ void Renderer::createPipeline(const RendererInitParams& params)
     m_cullPipeline = std::make_shared<ComputePipeline>(m_device, params.computeShaderFile, computeSetLayouts);
 
     m_raysEvalPipeline = std::make_shared<ComputePipeline>(m_device, params.computeRaysEvalShaderFile, computeRaysEvalSetLayout);
+}
+
+void Renderer::createQueryResources()
+{
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(m_device->getPhysicalDevice(), &properties);
+    m_timestampPeriod = properties.limits.timestampPeriod;
+
+    VkQueryPoolCreateInfo poolCreateInfo{};
+    poolCreateInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    poolCreateInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    poolCreateInfo.queryCount = 2;
+
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        vkCreateQueryPool(m_device->getVkDevice(), &poolCreateInfo, nullptr, &m_timestampQueryGraphPools[i]);
+        vkCreateQueryPool(m_device->getVkDevice(), &poolCreateInfo, nullptr, &m_timestampQueryCompPools[i]);
+
+        vkResetQueryPool(m_device->getVkDevice(), m_timestampQueryCompPools[i], 0, m_timestampCount / 2.f);
+        vkResetQueryPool(m_device->getVkDevice(), m_timestampQueryGraphPools[i], 0, m_timestampCount / 2.f);
+    }
 }
 
 void Renderer::handleResizeWindow(bool main)

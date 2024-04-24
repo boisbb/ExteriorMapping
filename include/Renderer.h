@@ -303,6 +303,12 @@ public:
      * 
      */
     void endCommandBuffer();
+
+    float collectQuery(bool compute = false);
+
+    void startQuery(bool compute = false);
+
+    void endQuery(bool compute = false);
 private:
     // Create methods.
     void createCommandBuffers();
@@ -310,6 +316,7 @@ private:
     void createDescriptors();
     void createRenderResources();
     void createPipeline(const RendererInitParams& params);
+    void createQueryResources();
 
     /**
      * @brief Update the main desriptor data.
@@ -429,6 +436,17 @@ private:
     int m_sceneFramesUpdated;
     int m_lightsFramesUpdated;
     SamplingType m_novelViewSamplingType;
+
+    // vkQuery things
+    std::vector<VkQueryPool> m_timestampQueryGraphPools;
+    std::vector<VkQueryPool> m_timestampQueryCompPools;
+    std::vector<uint32_t> m_startGraphicsQuery;
+    std::vector<uint32_t> m_endGraphicsQuery;
+    std::vector<uint32_t> m_startComputeQuery;
+    std::vector<uint32_t> m_endComputeQuery;
+    float m_timestampPeriod = 1;
+    uint32_t m_lastUsedQuery = 0;
+    uint32_t m_timestampCount = 4;
 };
 
 }

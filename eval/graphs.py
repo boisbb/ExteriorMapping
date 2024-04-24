@@ -13,8 +13,12 @@ ROOT = "../"
 EXECUTABLE = '../build/ExteriorMapping'
 GRAPHS_PATH = 'graphs/'
 
+EVAL_FRAMES = 1
+
+CAMERAS_SAMPLES = 129
+
 MSE_SAMPLES = 179
-MSE_REGENERATE = False
+MSE_REGENERATE = True
 MSE_DELETE = False
 
 def call_command(command):
@@ -28,20 +32,30 @@ def create_samples_array(command):
     lines = output.split(sep='\n')
     lines = lines[lines.index("-----EVALUATION RESULTS-----") + 2:][:-1]
     indices = np.array([pair.split(sep=' ')[0] for pair in lines])
-    colorValues = np.array([pair.split(sep=' ')[1] for pair in lines])
+    values = np.array([pair.split(sep=' ')[1] for pair in lines])
 
-    return indices, colorValues
+    return indices, values
+
+def create_samples_array_gt(command):
+    output = call_command(command)
+    lines = output.split(sep='\n')
+    lines = lines[lines.index("-----EVALUATION RESULTS-----") + 2:][:-1]
+    value = lines[0]
+
+    return float(value)
 
 def evaluate_samples():
-    indices, colorValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples c')
-    indices, depthValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples d')
-    indices, depthAngleValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples da')
+    indices, colorValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples c ' + str(EVAL_FRAMES))
+    indices, depthValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples d ' + str(EVAL_FRAMES))
+    indices, depthAngleValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples da ' + str(EVAL_FRAMES))
+    # gt_value = create_samples_array_gt(EXECUTABLE + ' --config by_step/config.json --eval gt ' + str(RAY_SAMPLES_FRAMES))
+    # gt_values = np.ones(colorValues.shape[0]) * gt_value
 
     df = np.around(np.stack((indices, colorValues, depthValues, depthAngleValues), axis=1).astype(np.float64), 1)
     df = pd.DataFrame(df, columns=['samples', 'color', 'depth distance', 'depth angle'])
 
     fig, ax = plt.subplots()
-    ax.set_xticks(np.arange(min(df['samples'].to_numpy()), max(df['samples'].to_numpy())+1, 32.0))
+    ax.set_xticks(np.arange(0, 256, 32.0))
     ax.set_yticks(np.arange(10, max(df['depth distance'].to_numpy()) + 1, 10.0))
     
     df.set_index("samples", inplace=True)
@@ -53,7 +67,8 @@ def evaluate_samples():
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.ylim(ymin=0)
-    plt.xlim(xmin=0)
+    plt.xlim(xmin=0, xmax=256)
+    # plt.yscale('symlog')
 
     plt.savefig(os.path.join(GRAPHS_PATH, 'samples_plot.pdf'))
     plt.show()
@@ -83,9 +98,9 @@ def acquire_cameras_data(heuristic):
         json.dump(data, f, indent=4)
         f.close()
 
-        print ("Evaluating file:", config_file_name, str(i) + "/13")
+        print ("Evaluating file:", config_file_name, str(i + 1) + "/13")
 
-        output = call_command(EXECUTABLE + ' --config ' + config_file_name + ' --eval one ' + heuristic)
+        output = call_command(EXECUTABLE + ' --config ' + config_file_name + ' --eval one ' + heuristic + ' ' + str(CAMERAS_SAMPLES) + ' ' + str(EVAL_FRAMES))
         lines = output.split(sep='\n')
         line = lines[lines.index("-----EVALUATION RESULTS-----") + 2:][:-1]
         line = line[0].split(sep=' ')

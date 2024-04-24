@@ -72,6 +72,7 @@ public:
             SAMPLES,
             ONE,
             MSE,
+            GT,
             _COUNT
         };
 
@@ -195,7 +196,7 @@ private:
     bool m_terminate = false;
     bool m_evaluate = false;
     int m_evaluateFrames = 0;
-    int64_t m_evaluateTotalDuration = 0;
+    float m_evaluateTotalDuration = 0;
     std::vector<float> m_evalResults;
     int m_evaluateSteps = 0;
     int m_evaluateTotalMseSteps = 0;

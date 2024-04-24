@@ -212,9 +212,10 @@ private:
         "VK_LAYER_KHRONOS_validation" 
     };
 
-    const std::vector<const char*> m_deviceExtensions = {
+    std::vector<const char*> m_deviceExtensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
+        VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+        VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME
         // VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME
     };
 

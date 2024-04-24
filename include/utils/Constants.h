@@ -31,7 +31,7 @@
 #define POINT_CLOUD_HEIGHT (1080.f * 2.f)
 #define POINT_CLOUD_WIDTH  (1920.f / 2.f)
 
-#define MAX_EVAL_FRAMES 2
+#define MAX_EVAL_FRAMES 3
 #define EVAL_SAMPLES_STEP 16
 #define MAX_MSE_STEPS 15
 #define MSE_MOVE_STEP 3

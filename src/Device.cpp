@@ -62,7 +62,6 @@ Device::Device(std::shared_ptr<Window> window)
 
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
-    auto props = properties.limits.maxBoundDescriptorSets;
 
     getQueueFamilies();
 
@@ -157,6 +156,9 @@ void Device::createLogicalDevice()
     // VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{};
     // dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
     // dynamicRendering.dynamicRendering = VK_TRUE;
+    VkPhysicalDeviceHostQueryResetFeatures hostQueryFeatures{};
+    hostQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES;
+    hostQueryFeatures.hostQueryReset = VK_TRUE;
 
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{};
     indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
@@ -164,6 +166,7 @@ void Device::createLogicalDevice()
     indexingFeatures.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     indexingFeatures.descriptorBindingVariableDescriptorCount = VK_TRUE;
     indexingFeatures.runtimeDescriptorArray = VK_TRUE;
+    indexingFeatures.pNext = &hostQueryFeatures;
 
     VkPhysicalDeviceFeatures2 physicalFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
     vkGetPhysicalDeviceFeatures2(m_physicalDevice, &physicalFeatures2);

@@ -63,6 +63,10 @@ void argumentsDebug(const std::vector<std::string>& arguments, vke::Application:
             {
                 appArgs.evalType = vke::Application::Arguments::EvaluationType::MSE;
             }
+            else if (*stringIt == "gt")
+            {
+                appArgs.evalType = vke::Application::Arguments::EvaluationType::GT;
+            }
         }
 
         if (appArgs.evalType == vke::Application::Arguments::EvaluationType::MSE)
@@ -72,6 +76,16 @@ void argumentsDebug(const std::vector<std::string>& arguments, vke::Application:
                 if (*stringIt == "gt")
                 {
                     appArgs.mseGt = true;
+                }
+            }
+        }
+        else if(appArgs.evalType == vke::Application::Arguments::EvaluationType::GT)
+        {
+            if (auto stringIt = std::next(it, 2); stringIt != arguments.end())
+            {
+                if (isStringNumber(*stringIt))
+                {
+                    appArgs.numberOfFrames = std::stoi(*stringIt) + 1;
                 }
             }
         }
@@ -108,7 +122,7 @@ void argumentsDebug(const std::vector<std::string>& arguments, vke::Application:
                 {
                     if (isStringNumber(*stringIt))
                     {
-                        appArgs.numberOfFrames = std::stoi(*stringIt);
+                        appArgs.numberOfFrames = std::stoi(*stringIt) + 1;
                     }
                 }
             }
@@ -119,7 +133,7 @@ void argumentsDebug(const std::vector<std::string>& arguments, vke::Application:
             {
                 if (isStringNumber(*stringIt))
                 {
-                    appArgs.numberOfFrames = std::stoi(*stringIt);
+                    appArgs.numberOfFrames = std::stoi(*stringIt) + 1;
                 }
             }
         }
