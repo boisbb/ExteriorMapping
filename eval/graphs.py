@@ -1,12 +1,25 @@
 import os
+import PIL.Image
 import pandas as pd
 import numpy as np
 import subprocess
 import matplotlib.pyplot as plt
 import json
 import shutil
+import PIL
+import tqdm
+
+ROOT = "../"
+EXECUTABLE = '../build/ExteriorMapping'
+GRAPHS_PATH = 'graphs/'
+
+MSE_SAMPLES = 179
+MSE_REGENERATE = False
+MSE_DELETE = False
 
 def call_command(command):
+    print("Running command:\n", command)
+
     process = subprocess.run(command.split(), capture_output=True)
     return process.stdout.decode("utf-8")
 
@@ -20,9 +33,9 @@ def create_samples_array(command):
     return indices, colorValues
 
 def evaluate_samples():
-    indices, colorValues = create_samples_array('../build/ExteriorMapping --config by_step/config.json --eval samples c')
-    indices, depthValues = create_samples_array('../build/ExteriorMapping --config by_step/config.json --eval samples d')
-    indices, depthAngleValues = create_samples_array('../build/ExteriorMapping --config by_step/config.json --eval samples da')
+    indices, colorValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples c')
+    indices, depthValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples d')
+    indices, depthAngleValues = create_samples_array(EXECUTABLE + ' --config by_step/config.json --eval samples da')
 
     df = np.around(np.stack((indices, colorValues, depthValues, depthAngleValues), axis=1).astype(np.float64), 1)
     df = pd.DataFrame(df, columns=['samples', 'color', 'depth distance', 'depth angle'])
@@ -42,16 +55,16 @@ def evaluate_samples():
     plt.ylim(ymin=0)
     plt.xlim(xmin=0)
 
-    plt.savefig('samples_plot.pdf')
+    plt.savefig(os.path.join(GRAPHS_PATH, 'samples_plot.pdf'))
     plt.show()
 
-def acquire_cameras_data():
-    configs = "../res/configs/"
-    eval_json_dir = configs + 'eval'
+def acquire_cameras_data(heuristic):
+    configs = os.path.join(ROOT, "res/configs/")
+    eval_json_dir = os.path.join(configs, 'eval')
     if not os.path.exists(eval_json_dir):
         os.makedirs(eval_json_dir)
     
-    data = json.load(open("../res/configs/by_step/config.json"))
+    data = json.load(open(os.path.join(ROOT, "res/configs/by_step/config.json")))
 
     df = []
 
@@ -70,7 +83,9 @@ def acquire_cameras_data():
         json.dump(data, f, indent=4)
         f.close()
 
-        output = call_command('../build/ExteriorMapping --config ' + config_file_name + ' --eval one d')
+        print ("Evaluating file:", config_file_name, str(i) + "/13")
+
+        output = call_command(EXECUTABLE + ' --config ' + config_file_name + ' --eval one ' + heuristic)
         lines = output.split(sep='\n')
         line = lines[lines.index("-----EVALUATION RESULTS-----") + 2:][:-1]
         line = line[0].split(sep=' ')
@@ -83,7 +98,7 @@ def acquire_cameras_data():
     return df
 
 def evaluate_cameras():
-    df = acquire_cameras_data()
+    df = acquire_cameras_data('d')
 
     df = np.around(np.array(df).astype(np.float64), 1)
     df = pd.DataFrame(df, columns=['views', 'time'])
@@ -101,16 +116,95 @@ def evaluate_cameras():
     plt.ylim(ymin=0)
     plt.xlim(xmin=0)
 
-    plt.savefig('cameras_plot.pdf')
+    plt.savefig(os.path.join(GRAPHS_PATH, 'cameras_plot.pdf'))
     plt.show()
 
-def evaluate_mse():
+def generate_images():
+    call_command(EXECUTABLE + ' --config by_step/config.json --eval mse c ' + str(MSE_SAMPLES))
+    call_command(EXECUTABLE + ' --config by_step/config.json --eval mse d ' + str(MSE_SAMPLES))
+    call_command(EXECUTABLE + ' --config by_step/config.json --eval mse da ' + str(MSE_SAMPLES))
+    call_command(EXECUTABLE + ' --config by_step/config.json --eval mse gt')
     return
+
+def images_mse(gt_folder, novel_folder):
+    gt_files = [f for f in os.listdir(gt_folder) if os.path.isfile(os.path.join(gt_folder, f))]
+    novel_files = [f for f in os.listdir(novel_folder) if os.path.isfile(os.path.join(novel_folder, f))]
+
+    gt_files.sort()
+    novel_files.sort()
+
+    overall_diff = None
+    overall_mse = 0
+
+    for i in tqdm.tqdm(range(len(gt_files))):
+        gt = gt_files[i]
+        novel = novel_files[i]
+        gt_img = PIL.Image.open(os.path.join(gt_folder, gt))
+        novel_img = PIL.Image.open(os.path.join(novel_folder, novel))
+
+        gt_img = np.asarray(gt_img).astype('float')
+        novel_img = np.asarray(novel_img).astype('float')
+
+        gt_img /= 255
+        novel_img /= 255
+
+        diff = (gt_img - novel_img) ** 2
+
+        if overall_diff is None:
+            overall_diff = diff
+        else:
+            overall_diff += diff
+
+        err = np.sum(diff)
+        mse = err / float(gt_img.shape[0] * gt_img.shape[1])
+
+        overall_mse += mse
+    
+    overall_diff = np.sum(overall_diff, axis=2)
+    overall_mse /= len(gt_files)
+
+    overall_diff /= overall_diff.max()
+
+    return overall_mse, overall_diff
+
+
+def evaluate_mse():
+    print("----MSE Evaluation----")
+
+    if MSE_REGENERATE:
+        generate_images()
+
+    screenshots_eval = os.path.join(ROOT, 'screenshots/eval/')
+    gt_folder = os.path.join(screenshots_eval, 'gt')
+
+    folder_dict = {
+        "color": os.path.join(screenshots_eval, "novel_c"),
+        "dist": os.path.join(screenshots_eval, 'novel_d'),
+        "dist_angle": os.path.join(screenshots_eval, 'novel_da')
+    }
+    
+    for k, folder in folder_dict.items():
+        print("Evaluating for ", k)
+
+        mse, diff = images_mse(gt_folder, folder)
+
+        fig, ax = plt.subplots(1, 1)
+        ax.imshow(diff)
+
+        print("MSE for", k, "heuristic is: ", mse, "\n")
+        plt.savefig(os.path.join(GRAPHS_PATH, 'heatmap_' + k + '.pdf'))
+
+    if MSE_DELETE:
+        shutil.rmtree(screenshots_eval)
     
 
 def main():
+    if not os.path.exists(GRAPHS_PATH):
+        os.makedirs(GRAPHS_PATH)
+
     # evaluate_samples()
-    evaluate_cameras()
+    # evaluate_cameras()
+    evaluate_mse()
 
 if __name__ == "__main__":
     main()

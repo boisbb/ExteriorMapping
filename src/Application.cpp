@@ -281,7 +281,9 @@ void Application::draw()
         m_renderer->quadRenderPass(windowResolution, m_depthOnly);
 
         // Renders ImGui.
-        renderImgui(lastFps);
+        if (m_args.evalType == Arguments::EvaluationType::_COUNT)
+            renderImgui(lastFps);
+        
         m_renderer->endRenderPass();
 
         // Debug for chosen pixel.
@@ -1158,9 +1160,12 @@ void Application::handleGuiInputChanges()
             }
             else
             {
-               folder = std::string(SCREENSHOT_FILES_LOC) + "eval/novel/";
-               srcImg = m_renderer->getNovelViewImage();
-               dstImg = m_novelViewScreenshotImage;
+                std::string heur = (m_args.samplingType == SamplingType::COLOR) ? 
+                    "_c" : (m_args.samplingType == SamplingType::DEPTH_ANGLE ?
+                        "_da" : "_d"); 
+                folder = std::string(SCREENSHOT_FILES_LOC) + "eval/novel" + heur + "/";
+                srcImg = m_renderer->getNovelViewImage();
+                dstImg = m_novelViewScreenshotImage;
             }
 
             std::filesystem::create_directories(folder);

@@ -91,11 +91,36 @@ void argumentsDebug(const std::vector<std::string>& arguments, vke::Application:
             }
         }
 
-        if (auto stringIt = std::next(it, 3); stringIt != arguments.end())
+        if (appArgs.evalType == vke::Application::Arguments::EvaluationType::MSE ||
+            appArgs.evalType == vke::Application::Arguments::EvaluationType::ONE)
         {
-            if (isStringNumber(*stringIt))
+            if (auto stringIt = std::next(it, 3); stringIt != arguments.end())
             {
-                appArgs.numberOfSamples = std::stoi(*stringIt);
+                if (isStringNumber(*stringIt))
+                {
+                    appArgs.numberOfSamples = std::stoi(*stringIt);
+                }
+            }
+
+            if (appArgs.evalType == vke::Application::Arguments::EvaluationType::ONE)
+            {
+                if (auto stringIt = std::next(it, 4); stringIt != arguments.end())
+                {
+                    if (isStringNumber(*stringIt))
+                    {
+                        appArgs.numberOfFrames = std::stoi(*stringIt);
+                    }
+                }
+            }
+        }
+        else
+        {
+            if (auto stringIt = std::next(it, 3); stringIt != arguments.end())
+            {
+                if (isStringNumber(*stringIt))
+                {
+                    appArgs.numberOfFrames = std::stoi(*stringIt);
+                }
             }
         }
     }

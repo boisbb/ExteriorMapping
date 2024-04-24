@@ -17,9 +17,9 @@
         "geometry": "coloredCube/coloredCube.obj",
         "novelView": {
             "cameraPos": {
-                "x": 10.0,
-                "y": 2.0,
-                "z": 0.0
+                "x": 8.499994277954102,
+                "y": 2.066666603088379,
+                "z": 0.06666667014360428
             },
             "fov": 45.0,
             "viewDir": {

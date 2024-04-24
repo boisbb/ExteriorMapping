@@ -82,6 +82,7 @@ public:
         SamplingType samplingType;
         int numberOfSamples = 170;
         bool mseGt = false;
+        int numberOfFrames = 1;
     };
 
     Application(const Arguments& arguments);
