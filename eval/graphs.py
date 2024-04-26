@@ -13,12 +13,12 @@ ROOT = "../"
 EXECUTABLE = '../build/ExteriorMapping'
 GRAPHS_PATH = 'graphs/'
 
-EVAL_FRAMES = 1
+EVAL_FRAMES = 20
 
-CAMERAS_SAMPLES = 129
+CAMERAS_SAMPLES = 32
 
 MSE_SAMPLES = 179
-MSE_REGENERATE = True
+MSE_REGENERATE = False
 MSE_DELETE = False
 
 def call_command(command):
@@ -52,20 +52,20 @@ def evaluate_samples():
     # gt_values = np.ones(colorValues.shape[0]) * gt_value
 
     df = np.around(np.stack((indices, colorValues, depthValues, depthAngleValues), axis=1).astype(np.float64), 1)
-    df = pd.DataFrame(df, columns=['samples', 'color', 'depth distance', 'depth angle'])
+    df = pd.DataFrame(df, columns=['samples', 'color heuristic', 'depth euler heuristic', 'depth angle heuristic'])
 
     fig, ax = plt.subplots()
     ax.set_xticks(np.arange(0, 256, 32.0))
-    ax.set_yticks(np.arange(10, max(df['depth distance'].to_numpy()) + 1, 10.0))
+    ax.set_yticks(np.arange(10, max(df['depth euler heuristic'].to_numpy()) + 1, 10.0))
     
     df.set_index("samples", inplace=True)
     df.plot(ax=ax, grid=True, colormap='copper')
     ax.grid(color='lightgray', linestyle='--')
     ax.set_xlabel("number of samples per ray")
     ax.set_ylabel("mean render time [ms]")
-    box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # box = ax.get_position()
+    # ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    # ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     plt.ylim(ymin=0)
     plt.xlim(xmin=0, xmax=256)
     # plt.yscale('symlog')
@@ -73,17 +73,18 @@ def evaluate_samples():
     plt.savefig(os.path.join(GRAPHS_PATH, 'samples_plot.pdf'))
     plt.show()
 
-def acquire_cameras_data(heuristic):
+def generate_eval_dir():
     configs = os.path.join(ROOT, "res/configs/")
     eval_json_dir = os.path.join(configs, 'eval')
+
     if not os.path.exists(eval_json_dir):
         os.makedirs(eval_json_dir)
-    
+
     data = json.load(open(os.path.join(ROOT, "res/configs/by_step/config.json")))
 
-    df = []
-
     start = [1, 2]
+    eval_files = []
+
     for i in range(13):
         if i % 2 == 0:
             start[0] += 1
@@ -98,36 +99,57 @@ def acquire_cameras_data(heuristic):
         json.dump(data, f, indent=4)
         f.close()
 
-        print ("Evaluating file:", config_file_name, str(i + 1) + "/13")
+        eval_files.append(config_file_name)
 
-        output = call_command(EXECUTABLE + ' --config ' + config_file_name + ' --eval one ' + heuristic + ' ' + str(CAMERAS_SAMPLES) + ' ' + str(EVAL_FRAMES))
+    return eval_files
+
+def acquire_cameras_data(heuristic, eval_files):
+    df = []
+    df_indices = []
+
+    start = [1, 2]
+    for i in range(13):
+        if i % 2 == 0:
+            start[0] += 1
+        else:
+            start[1] += 1
+
+        print ("Evaluating file:", eval_files[i], str(i + 1) + "/13")
+
+        output = call_command(EXECUTABLE + ' --config ' + eval_files[i] + ' --eval one ' + heuristic + ' ' + str(CAMERAS_SAMPLES) + ' ' + str(EVAL_FRAMES))
         lines = output.split(sep='\n')
         line = lines[lines.index("-----EVALUATION RESULTS-----") + 2:][:-1]
         line = line[0].split(sep=' ')
-        line = [float(i) for i in line]
 
-        df.append(line)
+        df_indices.append(line[0])
+        df.append(line[1])
+    return np.array(df_indices), np.array(df)
+
+def evaluate_cameras():
+    configs = os.path.join(ROOT, "res/configs/")
+    eval_json_dir = os.path.join(configs, 'eval')
+
+    eval_files = generate_eval_dir()
+
+    _, df_c = acquire_cameras_data('c', eval_files)
+    indices, df_d = acquire_cameras_data('d', eval_files)
+    _, df_da = acquire_cameras_data('da', eval_files)
 
     shutil.rmtree(eval_json_dir)
 
-    return df
-
-def evaluate_cameras():
-    df = acquire_cameras_data('d')
-
-    df = np.around(np.array(df).astype(np.float64), 1)
-    df = pd.DataFrame(df, columns=['views', 'time'])
+    df = np.around(np.stack((indices, df_c, df_d, df_da), axis=1).astype(np.float64), 1)
+    # df = np.around(np.array(df).astype(np.float64), 1)
+    df = pd.DataFrame(df, columns=['views', 'color heuristic', 'depth euler heuristic', 'depth angle heuristic'])
     df.set_index("views", inplace=True)
     
     fig, ax = plt.subplots()
     ax.set_xticks([4, 6, 9, 12, 16, 20, 25, 30, 36, 42, 49, 56, 64])
-    ax.set_yticks(np.arange(10, max(df['time'].to_numpy()) + 1, 30.0))
+    ax.set_yticks(np.arange(10, max(df['depth euler heuristic'].to_numpy()) + 1, 30.0))
     
     df.plot(ax=ax, grid=True, colormap='copper')
     ax.grid(color='lightgray', linestyle='--')
     ax.set_xlabel("number of views")
     ax.set_ylabel("mean render time [ms]")
-    ax.get_legend().remove()
     plt.ylim(ymin=0)
     plt.xlim(xmin=0)
 
