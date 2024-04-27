@@ -225,6 +225,10 @@ def evaluate_mse():
 
         mse, diff = images_mse(gt_folder, folder)
 
+        diff /= 150
+
+        print(diff)
+
         fig, ax = plt.subplots(1, 1)
         ax.imshow(diff)
 

@@ -306,8 +306,8 @@ void Application::draw()
         m_renderer->quadRenderPass(windowResolution, m_depthOnly);
 
         // Renders ImGui.
-        //if (m_args.evalType == Arguments::EvaluationType::_COUNT)
-        renderImgui(lastFps);
+        if (m_args.evalType == Arguments::EvaluationType::_COUNT)
+            renderImgui(lastFps);
 
         if (m_evaluate)
         {
