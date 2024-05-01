@@ -39,7 +39,7 @@ void ViewGrid::viewCalculateEye(std::shared_ptr<View> view)
 {
     glm::vec3 gridPos = m_viewGridPos[view];
 
-    glm::vec3 worldPos = m_gridMatrix * glm::vec4(gridPos, 1.f);
+    glm::vec3 worldPos = m_gridMatrix * glm::vec4(gridPos.xyz(), 1.f);
 
     view->setCameraEye(worldPos);}
 
@@ -586,15 +586,8 @@ void ViewGrid::resizeViewsHeight(int newViewHeight)
 
 void ViewGrid::calculateGridMatrix()
 {
-    glm::vec3 org = glm::normalize(m_prevViewDir);
-    glm::vec3 target = glm::normalize(m_viewDir);
-
-    float angle = glm::acos(glm::dot(org, target));
-    glm::vec3 axis = glm::normalize(glm::cross(org, target));
-
-    m_gridMatrix = glm::translate(glm::mat4(1.f), m_position);
-    if (m_prevViewDir != m_viewDir)
-        m_gridMatrix = glm::rotate(m_gridMatrix, angle, axis);
+    // https://stackoverflow.com/questions/41104820/how-to-rotate-an-object-using-glmlookat
+    m_gridMatrix = glm::translate(glm::mat4(1.f), m_position) * glm::inverse(glm::lookAt(glm::vec3(0), m_viewDir + glm::vec3(0), glm::vec3(0,1,0)));
 }
 
 }
