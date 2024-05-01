@@ -884,7 +884,7 @@ void Application::renderImgui(int lastFps)
 
         if(ImGui::Checkbox("Render Point Clouds", &m_pointClouds))
         {
-            if (m_pointClouds && (m_renderNovel || m_novelSecondWindow))
+            if (m_pointClouds && (m_renderNovel || m_novelSecondWindow || m_renderFromViews))
             {
                 m_pointClouds = false;
             }
