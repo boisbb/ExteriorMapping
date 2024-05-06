@@ -2,6 +2,7 @@ build/*
 .vscode/*
 notes/*
 external/downloaded/*
+res/models/*
 res/shaders/glslc.exe
 doc/*
 screenshots/*
