@@ -1,7 +1,7 @@
 # Exterior Mapping
 This application provides a implementation to an algorithm proposed in Master's thesis with the name of Exterior Mapping. The Exterior Mapping algorithm aims to render large three-dimensional computer scenes using the Image Based Rendering and theory of light fields. For further information please refer to the thesis as it describes the implementation of the proposed algorithm in depth.
 
-The application provides a renderer written using C++ and Vulkan API and was loosely implemented based on the (Vulkan tutorial)[https://vulkan-tutorial.com/] from Alexander Overvoorde, (simple renderer)[https://github.com/Taardal/vulkan-tutorial] by Torbjørn Årdal and some functionality was implemented with the usage of Sascha Willems' repository of (Vulkan C++ examples and demos)[https://github.com/SaschaWillems/Vulkan].
+The application provides a renderer written using C++ and Vulkan API and was loosely implemented based on the [Vulkan tutorial](https://vulkan-tutorial.com/) from Alexander Overvoorde, [simple renderer](https://github.com/Taardal/vulkan-tutorial) by Torbjørn Årdal and some functionality was implemented with the usage of Sascha Willems' repository of [Vulkan C++ examples and demos](https://github.com/SaschaWillems/Vulkan).
 
 # Contents of this repository
 - `eval/` - contains Python script, that generates data presented in the chapter concerning evaluation
@@ -22,7 +22,7 @@ make
 As the application uses the CMake `ExternalProject` module, all of the libraries needed by the application are downloaded and built into the `build/downloaded/` folder. The shader files are also compiled during the build, these are saved into `build/compiled_shaders/` folder.
 
 ## Running the application
-Before running the application, please make sure that the necessary models are downloaded from (this link)[https://drive.google.com/file/d/1AQd8o1OTtUKqS0fa-NVg6DNq4-RjNuLP/view?usp=drive_link] and placed into the `res/models/` folder. Once that has been done, the application can be run as:
+Before running the application, please make sure that the necessary models are downloaded from [this link](https://drive.google.com/file/d/1AQd8o1OTtUKqS0fa-NVg6DNq4-RjNuLP/view?usp=drive_link) and placed into the `res/models/` folder. Once that has been done, the application can be run as:
 
 ```
 ./ExteriorMapping [ --recover | --config CONFIG_FILE ]
