@@ -7,3 +7,4 @@ res/shaders/glslc.exe
 doc/*
 screenshots/*
 eval/eval/*
+*imgui.ini
