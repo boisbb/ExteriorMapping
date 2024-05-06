@@ -8,7 +8,7 @@ project( ExteriorMapping
 include(FetchContent)
 
 set(FETCHCONTENT_BASE_DIR 
-    ${PROJECT_SOURCE_DIR}/external/downloaded 
+    ${CMAKE_CURRENT_BINARY_DIR}/downloaded 
     CACHE PATH "Missing description." FORCE)
 
 set( CMAKE_CXX_STANDARD 17 )
