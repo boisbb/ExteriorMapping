@@ -30,7 +30,7 @@ Before running the application, please make sure that the necessary models are d
 ```
 where:
 - `--recover` - runs the application with the configuration saved at the end of the last execution of the application
-- `--config CONFIG_FILE` - runs the application using the configuration specified in the `CONFIG_FILE`, where `CONFIG_FILE` is a path to a config file **WITHIN** the `res/configs/` folder
+- `--config CONFIG_FILE` - runs the application using the configuration specified in the `CONFIG_FILE`, where `CONFIG_FILE` is a path to a config file **WITHIN** the `res/configs/` folder (e.g. `./ExteriorMapping --config by_step/config.json`)
 - `-w`, `-n`, `-v` - represent the window, novel view and view grid image resolution, respectively
 - `W`, `H` - represent the width and height in pixels
 
