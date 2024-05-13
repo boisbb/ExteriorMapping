@@ -22,7 +22,7 @@ make
 As the application uses the CMake `ExternalProject` module, all of the libraries needed by the application are downloaded and built into the `build/downloaded/` folder. The shader files are also compiled during the build, these are saved into `build/compiled_shaders/` folder.
 
 ## Running the application
-Before running the application, please make sure that the necessary models are downloaded from [this link](https://drive.google.com/file/d/1AQd8o1OTtUKqS0fa-NVg6DNq4-RjNuLP/view?usp=drive_link) and placed into the `res/models/` folder. Once that has been done, the application can be run as:
+Before running the application, please make sure that the necessary models are downloaded from [this link](https://drive.google.com/file/d/1AQd8o1OTtUKqS0fa-NVg6DNq4-RjNuLP/view?usp=drive_link) and placed into the `res/models/` folder. **Alternatively, for the thesis submission, they are already placed inside the correct folder.**. Once that has been done, the application can be run as:
 
 ```
 ./ExteriorMapping { --recover | --config CONFIG_FILE } [ -w W H ] [ -n W H ] [ -v W H ]
