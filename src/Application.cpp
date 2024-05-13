@@ -607,6 +607,18 @@ void Application::renderImgui(int lastFps)
         m_screenshot = true;
     }
 
+    if (m_screenshotSaved > 0)
+    {
+        ImGui::Text("Screenshot saved.");
+
+        m_screenshotSaved++;
+
+        if (m_screenshotSaved > 100)
+        {
+            m_screenshotSaved = 0;
+        }
+    }
+
     if (ImGui::CollapsingHeader("General"))
     {
         ImGui::Indent();
@@ -1058,6 +1070,7 @@ void Application::handleGuiInputChanges()
         m_viewMatrixScreenshotImage->unmap();
         m_actualViewScreenshotImage->unmap();
         m_novelViewScreenshotImage->unmap();
+        m_screenshotSaved = 1;
     }
 
     if (m_screenshot && !m_threadStarted)

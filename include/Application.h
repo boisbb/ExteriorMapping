@@ -232,6 +232,7 @@ private:
     SamplingType m_samplingType;
     bool m_reRenderViewMatrix = false;
     bool m_screenshot = false;
+    int m_screenshotSaved = 0;
     int m_removeRow = MAX_FRAMES_IN_FLIGHT;
     int m_removeCol = MAX_FRAMES_IN_FLIGHT;
     bool m_pointClouds = false;
