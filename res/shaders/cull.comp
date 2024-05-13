@@ -29,6 +29,7 @@ layout(set=2, binding=1) uniform ViewDataCompute {
 
 layout (local_size_x=256, local_size_y=1, local_size_z=1) in;
 
+// Inspired by: 
 // https://github.com/SaschaWillems/Vulkan/blob/master/shaders/glsl/computecullandlod/cull.comp
 bool isFrustumCulled(vec4 sphere)
 {

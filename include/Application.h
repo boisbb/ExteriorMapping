@@ -4,7 +4,6 @@
  * @brief 
  * @date 2024-03-03
  * 
- * @copyright Copyright (c) 2024
  * 
  */
 
@@ -78,6 +77,8 @@ public:
 
         std::string configFile;
         glm::vec2 windowResolution;
+        glm::vec2 novelResolution;
+        glm::vec2 viewGridResolution;
 
         EvaluationType evalType;
         SamplingType samplingType;

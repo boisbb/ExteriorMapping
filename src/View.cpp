@@ -1,3 +1,12 @@
+/**
+ * @file View.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #include "View.h"
 #include "Buffer.h"
 #include "Scene.h"

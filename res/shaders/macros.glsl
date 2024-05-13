@@ -437,6 +437,7 @@
         } \
     }
 
+// Inspired by:
 // https://stackoverflow.com/questions/4858264/find-the-distance-from-a-3d-point-to-a-line-segment
 #define POINT_TO_LINE_DIST(v, a, b, dist) \
     vec3 ab = b - a; \
@@ -456,6 +457,7 @@
         dist = length(cross(ab, av)) / length(ab); \
     }
 
+// Inspired by:
 // https://stackoverflow.com/questions/43749543/c-calculate-angle-0-to-360-between-two-3d-vectors
 #define LINE_TO_LINE_ANGLE_DIST(c, d, a, b, dist) \
     vec3 ab = b - a; \

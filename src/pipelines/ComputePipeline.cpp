@@ -1,3 +1,12 @@
+/**
+ * @file ComputePipeline.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #include "pipelines/ComputePipeline.h"
 #include "utils/Constants.h"
 #include "utils/FileHandling.h"

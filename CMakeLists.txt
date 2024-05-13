@@ -81,7 +81,8 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/
 )
 
 
-# Compile shaders: https://stackoverflow.com/questions/57478571/why-wont-cmake-build-my-vulkan-spirv-shaders
+# Shader compilation code inspired by:
+# https://stackoverflow.com/questions/57478571/why-wont-cmake-build-my-vulkan-spirv-shaders
 set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/res/shaders)
 set(OUTPUT_SHADER_DIR ${CMAKE_CURRENT_BINARY_DIR}/compiled_shaders)
 

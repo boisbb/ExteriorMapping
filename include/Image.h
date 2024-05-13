@@ -1,10 +1,8 @@
 /**
  * @file Image.h
  * @author Boris Burkalo (xburka00)
- * @brief 
  * @date 2024-03-03
  * 
- * @copyright Copyright (c) 2024
  * 
  */
 

@@ -19,8 +19,8 @@
         "viewGrid": {
             "fov" : 75,
             "gridSize": {  
-                "x": 4,
-                "y": 4
+                "x": 3,
+                "y": 3
             },
             "viewDir": {
                 "x": -1,

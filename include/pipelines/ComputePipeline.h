@@ -1,3 +1,12 @@
+/**
+ * @file ComputePipeline.h
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #pragma once
 
 #include <vulkan/vulkan.h>

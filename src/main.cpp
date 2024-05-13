@@ -1,3 +1,12 @@
+/**
+ * @file main.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #include <iostream>
 
 #include "Application.h"
@@ -9,6 +18,7 @@ void printUsage()
                 "(CONFIG_FILE needs to be placed in the config file folder in /res)" << std::endl;
 }
 
+// Inspired by:
 // https://stackoverflow.com/questions/4654636/how-to-determine-if-a-string-is-a-number-with-c
 bool isStringNumber(std::string number)
 {
@@ -145,24 +155,40 @@ void argumentsWindowSize(const std::vector<std::string>& arguments, vke::Applica
     auto it = arguments.begin();
 
     appArgs.windowResolution = glm::vec2(WINDOW_WIDTH, WINDOW_HEIGHT);
+    appArgs.novelResolution = glm::vec2(NOVEL_VIEW_WIDTH, NOVEL_VIEW_HEIGHT);
+    appArgs.viewGridResolution = glm::vec2(VIEW_MATRIX_WIDTH, VIEW_MATRIX_HEIGHT);
 
-    if (it = std::find(arguments.begin(), arguments.end(), "--window_res"); it != arguments.end())
+    int i = 0;
+    while (i < arguments.size())
     {
-        if (auto stringIt = std::next(it, 1); stringIt != arguments.end())
+        if (arguments[i] == "-w" && (i + 2 + 1 <= arguments.size()))
         {
-            if (isStringNumber(*stringIt))
+            if (isStringNumber(arguments[i + 1]) && isStringNumber(arguments[i + 2]))
             {
-                appArgs.windowResolution.x = std::stoi(*stringIt);
+                appArgs.windowResolution.x = std::stoi(arguments[i + 1]);
+                appArgs.windowResolution.y = std::stoi(arguments[i + 2]);
             }
         }
 
-        if (auto stringIt = std::next(it, 2); stringIt != arguments.end())
+        if (arguments[i] == "-n" && (i + 2 + 1 <= arguments.size()))
         {
-            if (isStringNumber(*stringIt))
+            if (isStringNumber(arguments[i + 1]) && isStringNumber(arguments[i + 2]))
             {
-                appArgs.windowResolution.y = std::stoi(*stringIt);
+                appArgs.novelResolution.x = std::stoi(arguments[i + 1]);
+                appArgs.novelResolution.y = std::stoi(arguments[i + 2]);
             }
         }
+
+        if (arguments[i] == "-v" && (i + 2 + 1 <= arguments.size()))
+        {
+            if (isStringNumber(arguments[i + 1]) && isStringNumber(arguments[i + 2]))
+            {
+                appArgs.viewGridResolution.x = std::stoi(arguments[i + 1]);
+                appArgs.viewGridResolution.y = std::stoi(arguments[i + 2]);
+            }
+        }
+
+        i++;
     }
 }
 
@@ -174,7 +200,11 @@ vke::Application::Arguments parseArguments(const std::vector<std::string>& argum
     
     argumentsDebug(arguments, appArgs);
 
-    argumentsWindowSize(arguments, appArgs);
+
+    if (appArgs.evalType == vke::Application::Arguments::EvaluationType::_COUNT)
+    {
+        argumentsWindowSize(arguments, appArgs);
+    }
 
     return appArgs;
 }

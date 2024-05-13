@@ -3,7 +3,6 @@
  * @author Boris Burkalo (xburka00)
  * @date 2024-03-03
  * 
- * @copyright Copyright (c) 2024
  * 
  */
 
@@ -27,12 +26,8 @@
 #include <limits>
 #include <algorithm>
 #include <unordered_map>
-#include <chrono>
 #include <sstream>
 #include <iostream>
-
-// usings
-using namespace std::chrono;
 
 // Sampling type strings for ImGui.
 std::array<std::string, 3> samplingTypeStrings = {
@@ -100,7 +95,9 @@ void Application::init()
         "cull.comp.spv", 
         "quad.vert.spv", "quad.frag.spv", 
         "novelView.comp.spv",
-        "points.vert.spv", "points.frag.spv"
+        "points.vert.spv", "points.frag.spv",
+        m_args.windowResolution, m_args.novelResolution,
+        m_args.viewGridResolution
     };
 
     m_renderer = std::make_shared<Renderer>(m_device, m_window, params);
@@ -126,15 +123,15 @@ void Application::init()
     initImgui();
     renderViewMatrix(m_viewGrid, m_renderer->getViewMatrixFramebuffer(), false);
 
-    m_viewMatrixScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(VIEW_MATRIX_WIDTH, VIEW_MATRIX_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_viewMatrixScreenshotImage = std::make_shared<Image>(m_device, m_args.viewGridResolution, VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     m_viewMatrixScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    m_novelViewScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(NOVEL_VIEW_WIDTH, NOVEL_VIEW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_novelViewScreenshotImage = std::make_shared<Image>(m_device, m_args.novelResolution, VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     m_novelViewScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    m_actualViewScreenshotImage = std::make_shared<Image>(m_device, glm::vec2(MAIN_VIEW_WIDTH, MAIN_VIEW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_actualViewScreenshotImage = std::make_shared<Image>(m_device, m_args.novelResolution, VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     m_actualViewScreenshotImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -208,9 +205,6 @@ void Application::draw()
         
         // Reconstruct matrices for the main views;
         viewGrid->reconstructMatrices();
-        
-        // if (m_evaluate)
-        //     start = std::chrono::high_resolution_clock::now();
 
         // Begin compute pass.
         if (!m_pointClouds)
@@ -291,7 +285,6 @@ void Application::draw()
         if (m_renderNovel || m_novelSecondWindow)
             m_renderer->setNovelViewBarrier();
         
-        // https://github.com/ARM-software/vulkan_best_practice_for_mobile_developers/blob/master/samples/performance/pipeline_barriers/pipeline_barriers_tutorial.md
         if (!m_renderNovel)
         {
             if (!m_renderFromViews)
@@ -337,23 +330,11 @@ void Application::draw()
 
         m_renderer->presentFrame(m_window, windowParams);
 
-        // if (m_evaluate)
-        // {
-        //     stop = std::chrono::high_resolution_clock::now();
-        //     auto duration = std::chrono::duration_cast<milliseconds>(stop - start);
-// 
-        //     m_evaluateTotalDuration += duration.count();
-// 
-        //     m_evaluateFrames += 1;
-        // }
-
         if (!handlePresentResult(windowParams, windowResolution, secondaryWindowResolution))
             continue;
 
         // Fps counter.
         countFps(frames, lastFps, lastTime);
-
-        // sleep(1);
 
         handleGuiInputChanges();
     }
@@ -535,6 +516,7 @@ bool Application::consumeInput()
         VkExtent2D fbSize = (m_renderFromViews) ? m_renderer->getViewMatrixFramebuffer()->getResolution() : m_renderer->getOffscreenFramebuffer()->getResolution();
         glm::vec2 windowSize = m_window->getResolution();
         glm::vec2 secondaryWindowSize = m_secondaryWindow->getResolution();
+        VkExtent2D secondaryFbSize = m_renderer->getOffscreenFramebuffer()->getResolution();
 
         bool changed = false;
 
@@ -544,7 +526,7 @@ bool Application::consumeInput()
         
         // Consume the input from the secondary window based - either regular input or the pixel id for evaluation.
         if (m_novelSecondWindow && !m_testPixels)
-            changed = changed || vke::utils::consumeDeviceInput(m_secondaryWindow->getWindow(), glm::vec2(secondaryWindowSize.x / fbSize.width, secondaryWindowSize.y / fbSize.height),
+            changed = changed || vke::utils::consumeDeviceInput(m_secondaryWindow->getWindow(), glm::vec2(secondaryWindowSize.x / secondaryFbSize.width, secondaryWindowSize.y / secondaryFbSize.height),
                 m_novelViewGrid, false, true);
         else if (m_novelSecondWindow && m_testPixels)
             changed = changed || vke::utils::consumeDeviceInputTestPixel(m_secondaryWindow->getWindow(), m_testedPixel);
@@ -1131,14 +1113,28 @@ void Application::handleGuiInputChanges()
     if (m_removeRow < MAX_FRAMES_IN_FLIGHT)
     {
         vkDeviceWaitIdle(m_device->getVkDevice());
-        m_viewGrid->removeRow(!m_renderer->getCurrentFrame(), (m_removeRow == 0));
+        if (MAX_FRAMES_IN_FLIGHT == 1)
+        {
+            m_viewGrid->removeRow(m_renderer->getCurrentFrame(), false);
+        }
+        else
+        {
+            m_viewGrid->removeRow(!m_renderer->getCurrentFrame(), m_removeRow == 0);
+        }
         m_removeRow++;
     }
 
     if (m_removeCol < MAX_FRAMES_IN_FLIGHT)
     {
         vkDeviceWaitIdle(m_device->getVkDevice());
-        m_viewGrid->removeColumn(!m_renderer->getCurrentFrame(), (m_removeCol == 0));
+        if (MAX_FRAMES_IN_FLIGHT == 1)
+        {
+            m_viewGrid->removeColumn(m_renderer->getCurrentFrame(), false);
+        }
+        else
+        {
+            m_viewGrid->removeColumn(!m_renderer->getCurrentFrame(), (m_removeCol == 0));
+        }
         m_removeCol++;
     }
 

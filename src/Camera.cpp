@@ -1,3 +1,12 @@
+/**
+ * @file Camera.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #include "Camera.h"
 
 #include <iostream>
@@ -159,6 +168,7 @@ void Camera::reconstructMatrices(glm::mat4 viewDirMatrix)
 
 void Camera::buildFrustum()
 {
+    // Inspired by:
     // https://github.com/SaschaWillems/Vulkan/blob/master/examples/computecullandlod/computecullandlod.cpp
 
     glm::mat4 viewProjTransp = glm::transpose(m_projection * m_view);

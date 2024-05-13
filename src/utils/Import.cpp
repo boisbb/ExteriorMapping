@@ -4,7 +4,6 @@
  * @brief 
  * @date 2024-03-03
  * 
- * @copyright Copyright (c) 2024
  * 
  */
 
@@ -172,7 +171,6 @@ std::shared_ptr<Mesh> processMesh(aiMesh* mesh, const aiScene* scene,
         }
         else if (material->GetTextureCount(aiTextureType_HEIGHT))
         {
-            // https://stackoverflow.com/questions/5281261/generating-a-normal-map-from-a-height-map
             material->GetTexture(aiTextureType_HEIGHT, 0, &textureFile);
             myMaterial->setBumpTextureFile(directory + "/" + textureFile.C_Str());
         }

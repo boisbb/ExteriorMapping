@@ -1,3 +1,12 @@
+/**
+ * @file glm_include_unified.h
+ * @author Boris Burkalo (xburka00)
+ * @brief Contains unified GLM includes.
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

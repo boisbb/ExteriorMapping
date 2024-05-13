@@ -1,3 +1,11 @@
+/**
+ * @file Buffer.h
+ * @author Boris Burkalo (xburka00)
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #pragma once
 
 #include <vulkan/vulkan.h>

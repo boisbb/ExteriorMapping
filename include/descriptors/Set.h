@@ -1,3 +1,12 @@
+/**
+ * @file Set.h
+ * @author Boris Burkalo (xburka00)
+ * @brief Functionality for the descriptor set.
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #pragma once
 
 #include <vulkan/vulkan.h>

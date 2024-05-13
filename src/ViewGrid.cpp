@@ -4,7 +4,6 @@
  * @brief 
  * @date 2024-03-03
  * 
- * @copyright Copyright (c) 2024
  * 
  */
 
@@ -264,7 +263,6 @@ void ViewGrid::removeRow(int currentFrame, bool resourcesOnly)
 
     if (resourcesOnly)
         return;
-
 
     m_views.erase(std::next(m_views.begin(), firstRowViewId), std::next(m_views.begin(), m_views.size()));
     m_viewRowColumns.erase(std::next(m_viewRowColumns.begin(), m_viewRowColumns.size() - 1));
@@ -586,6 +584,7 @@ void ViewGrid::resizeViewsHeight(int newViewHeight)
 
 void ViewGrid::calculateGridMatrix()
 {
+    // Inspired by:
     // https://stackoverflow.com/questions/41104820/how-to-rotate-an-object-using-glmlookat
     m_gridMatrix = glm::translate(glm::mat4(1.f), m_position) * glm::inverse(glm::lookAt(glm::vec3(0), m_viewDir + glm::vec3(0), glm::vec3(0,1,0)));
 }

@@ -4,7 +4,6 @@
  * @brief Contains most of the rendering logic.
  * @date 2024-03-03
  * 
- * @copyright Copyright (c) 2024
  * 
  */
 
@@ -314,7 +313,7 @@ private:
     void createCommandBuffers();
     void createComputeCommandBuffers();
     void createDescriptors();
-    void createRenderResources();
+    void createRenderResources(const RendererInitParams& params);
     void createPipeline(const RendererInitParams& params);
     void createQueryResources();
 

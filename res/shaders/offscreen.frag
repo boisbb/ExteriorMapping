@@ -38,8 +38,8 @@ layout(location=0) out vec4 finalColor;
 
 vec3 bumpToNormal(int bumpId)
 {
-    // src: https://stackoverflow.com/questions/5281261/generating-a-normal-map-from-a-height-map
-    // https://stackoverflow.com/questions/22276206/why-does-assimp-fail-to-generate-tangents
+    // Inspired by: 
+    // https://stackoverflow.com/questions/5281261/generating-a-normal-map-from-a-height-map
     const vec2 size = vec2(2.0, 0.0);
     const ivec3 off = ivec3(-1, 0, 1);
 

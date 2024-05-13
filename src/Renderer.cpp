@@ -4,7 +4,6 @@
  * @brief 
  * @date 2024-03-03
  * 
- * @copyright Copyright (c) 2024
  * 
  */
 
@@ -54,7 +53,7 @@ Renderer::Renderer(std::shared_ptr<Device> device, std::shared_ptr<Window> windo
     createCommandBuffers();
     createComputeCommandBuffers();
     createDescriptors();
-    createRenderResources();
+    createRenderResources(params);
     createPipeline(params);
     createQueryResources();
 }
@@ -1410,7 +1409,7 @@ void Renderer::createDescriptors()
         pointCloudGenSizes);
 }
 
-void Renderer::createRenderResources()
+void Renderer::createRenderResources(const RendererInitParams& params)
 {
     VkFormat depthFormat = m_device->getDepthFormat();
 
@@ -1422,19 +1421,19 @@ void Renderer::createRenderResources()
         depthFormat, true);
 
     m_offscreenFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
-        VkExtent2D{(uint32_t)MAIN_VIEW_WIDTH, (uint32_t)MAIN_VIEW_HEIGHT});
+        VkExtent2D{(uint32_t)params.novelResolution.x, (uint32_t)params.novelResolution.y});
 
     m_viewMatrixFramebuffer = std::make_shared<Framebuffer>(m_device, m_offscreenRenderPass,
-        VkExtent2D{(uint32_t)VIEW_MATRIX_WIDTH, (uint32_t)VIEW_MATRIX_HEIGHT});
+        VkExtent2D{(uint32_t)params.viewGridResolution.x, (uint32_t)params.viewGridResolution.y});
 
-    m_novelImage = std::make_shared<Image>(m_device, glm::vec2(NOVEL_VIEW_WIDTH, NOVEL_VIEW_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_novelImage = std::make_shared<Image>(m_device, params.novelResolution, VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     m_novelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageView = m_novelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);
     m_novelImageSampler = std::make_shared<Sampler>(m_device, VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
         VK_SAMPLER_MIPMAP_MODE_LINEAR);
 
-    m_testPixelImage = std::make_shared<Image>(m_device, glm::vec2(VIEW_MATRIX_WIDTH, VIEW_MATRIX_HEIGHT), VK_FORMAT_R8G8B8A8_UNORM,
+    m_testPixelImage = std::make_shared<Image>(m_device, params.viewGridResolution, VK_FORMAT_R8G8B8A8_UNORM,
         VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     m_testPixelImage->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     m_testPixelImageView = m_testPixelImage->createImageView(VK_IMAGE_ASPECT_COLOR_BIT);

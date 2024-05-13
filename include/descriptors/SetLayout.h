@@ -1,3 +1,12 @@
+/**
+ * @file SetLayout.h
+ * @author Boris Burkalo (xburka00)
+ * @brief Functionality for the descriptor set layout.
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #pragma once
 
 #include <vector>

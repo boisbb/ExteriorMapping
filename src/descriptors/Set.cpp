@@ -1,3 +1,12 @@
+/**
+ * @file Set.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #include "descriptors/Set.h"
 
 namespace vke

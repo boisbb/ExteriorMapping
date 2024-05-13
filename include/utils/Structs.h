@@ -1,3 +1,13 @@
+/**
+ * @file Structs.h
+ * @author Boris Burkalo (xburka00)
+ * @brief Contains structures used throughout the project.
+ * @version 0.1
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #pragma once
 
 #include <iostream>
@@ -45,6 +55,10 @@ struct RendererInitParams
     std::string computeRaysEvalShaderFile;
     std::string vertexPointCloudShaderFile;
     std::string fragmentPointCloudShaderFile;
+
+    glm::vec2 windowResolution;
+    glm::vec2 novelResolution;
+    glm::vec2 viewGridResolution;
 };
 
 // Regular shader data

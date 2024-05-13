@@ -1,3 +1,12 @@
+/**
+ * @file Buffer.cpp
+ * @author Boris Burkalo (xburka00)
+ * @brief 
+ * @date 2024-05-13
+ * 
+ * 
+ */
+
 #include "Buffer.h"
 #include "Device.h"
 
