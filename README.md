@@ -15,9 +15,10 @@ The application uses CMake build system, so please make sure, that CMake is inst
 
 ```
 mkdiir build && cd build
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
+(Build the code in Release, as in Debug, the model parsing done by assimp takes a significant amount of time.)
 
 As the application uses the CMake `ExternalProject` module, all of the libraries needed by the application are downloaded and built into the `build/downloaded/` folder. The shader files are also compiled during the build, these are saved into `build/compiled_shaders/` folder.
 
