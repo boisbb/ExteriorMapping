@@ -243,8 +243,8 @@ def main():
     if not os.path.exists(GRAPHS_PATH):
         os.makedirs(GRAPHS_PATH)
 
-    # evaluate_samples()
-    # evaluate_cameras()
+    evaluate_samples()
+    evaluate_cameras()
     evaluate_mse()
 
 if __name__ == "__main__":
