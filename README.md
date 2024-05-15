@@ -14,7 +14,7 @@ The application provides a renderer written using C++ and Vulkan API and was loo
 The application uses CMake build system, so please make sure, that CMake is installed on the machine. As mentioned previously, the application also uses the Vulkan API, so latest version of Vulkan needs to be available to the application as well. Once both of these have been successfully installed. The following commands can be ran in the root of this project:
 
 ```
-mkdiir build && cd build
+mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
